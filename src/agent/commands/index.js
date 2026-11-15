@@ -229,7 +229,39 @@ export async function executeCommand(agent, message) {
     }
 }
 
-export function getCommandDocs(agent) {
+const compactCommandNames = new Set([
+    '!stop', '!goToPlayer', '!followPlayer', '!goToCoordinates', '!searchForBlock',
+    '!collectBlocks', '!craftRecipe', '!smeltItem', '!givePlayer', '!putInChest',
+    '!takeFromChest', '!attack', '!goToBed', '!useOn', '!placeHere', '!nearbyBlocks',
+    '!inventory', '!stats', '!goal', '!endGoal', '!startConversation', '!endConversation',
+    '!setMode'
+]);
+
+function getCompactCommandDocs(agent) {
+    let docs = '\n*COMPACT COMMAND DOCS\nUse at most one command per response. Use double quotes for text arguments.\n';
+    for (const command of commandList) {
+        if (!compactCommandNames.has(command.name) || agent.blocked_actions.includes(command.name)) {
+            continue;
+        }
+        const params = commandParams(command);
+        const syntax = params.length === 0
+            ? command.name
+            : `${command.name}(${params.map((param, index) => {
+                const paramName = commandParamNames(command)[index];
+                if (['int', 'float'].includes(param.type)) return paramName;
+                if (param.type === 'boolean') return 'true|false';
+                return `"${paramName}"`;
+            }).join(', ')})`;
+        docs += `${syntax} — ${command.description}\n`;
+    }
+    return docs + '*\n';
+}
+
+export function getCommandDocs(agent, mode = 'full') {
+    if (mode === 'compact') {
+        return getCompactCommandDocs(agent);
+    }
+
     const typeTranslations = {
         //This was added to keep the prompt the same as before type checks were implemented.
         //If the language model is giving invalid inputs changing this might help.

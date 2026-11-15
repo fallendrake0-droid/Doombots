@@ -5,7 +5,9 @@ export class Ollama {
     constructor(model_name, url, params) {
         this.model_name = model_name;
         this.params = params;
-        this.url = url || 'http://127.0.0.1:11434';
+        // OLLAMA_URL makes native Linux and Docker deployments configurable without
+        // editing five bot profiles. A profile-specific URL still takes precedence.
+        this.url = url || process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
         this.chat_endpoint = '/api/chat';
         this.embedding_endpoint = '/api/embeddings';
     }

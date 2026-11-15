@@ -214,7 +214,7 @@ export class Agent {
             await this.handleMessage('system', init_message, 2);
         }
         else {
-            this.openChat("Hello world! I am "+this.name);
+            this.openChat(`DoomBot ${this.name} online.`);
         }
     }
 

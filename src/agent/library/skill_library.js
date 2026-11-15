@@ -50,10 +50,12 @@ export class SkillLibrary {
             }));
         }
         else if (!this.embedding_model) {
-            skill_doc_similarities = Object.keys(this.skill_docs_embeddings)
-                .map(doc_key => ({
-                    doc_key,
-                    similarity_score: wordOverlapScore(message, this.skill_docs_embeddings[doc_key])
+            // An embedding-free profile intentionally keeps this map empty. Rank the
+            // actual docs by word overlap instead of returning no relevant skills.
+            skill_doc_similarities = this.skill_docs
+                .map(doc => ({
+                    doc_key: doc,
+                    similarity_score: wordOverlapScore(message, doc)
                 }))
                 .sort((a, b) => b.similarity_score - a.similarity_score);
         }

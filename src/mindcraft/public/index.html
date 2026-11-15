@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Mindcraft</title>
+    <title>DoomBots Control</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body {
@@ -374,8 +374,8 @@
 <body>
     <div class="title-row">
         <div class="title-left">
-            <h1 style="margin: 0;">Mindcraft</h1>
-            <span id="msStatus" class="status-badge offline">mindserver offline</span>
+            <h1 style="margin: 0;">DoomBots</h1>
+            <span id="msStatus" class="status-badge offline">control server offline</span>
         </div>
         <div class="title-spacer"></div>
     </div>
@@ -511,11 +511,11 @@
         function updateStatus(connected) {
             if (!statusEl) return;
             if (connected) {
-                statusEl.textContent = 'MindServer online';
+                statusEl.textContent = 'control server online';
                 statusEl.classList.remove('offline');
                 statusEl.classList.add('online');
             } else {
-                statusEl.textContent = 'MindServer offline';
+                statusEl.textContent = 'control server offline';
                 statusEl.classList.remove('online');
                 statusEl.classList.add('offline');
             }

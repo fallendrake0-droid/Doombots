@@ -1,254 +1,165 @@
-<h1 align="center">🧠mindcraft⛏️</h1>
-<h1 align="center">
-  <a href="https://trendshift.io/repositories/14816" target="_blank"><img src="https://trendshift.io/api/badge/repositories/14816" alt="mindcraft-bots%2Fmindcraft | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-</h1>
+# DoomBots
 
-<p align="center">Crafting minds for Minecraft with LLMs and <a href="https://prismarinejs.github.io/mineflayer/#/">Mineflayer!</a></p>
+**DoomBots** is a five-agent Minecraft crew for Linux. One locally hosted
+[`qwen2.5:0.5b`](https://ollama.com/library/qwen2.5) model controls five focused
+Mineflayer bots through Ollama:
 
-<p align="center">
-  <a href="https://github.com/mindcraft-bots/mindcraft/blob/main/FAQ.md">FAQ</a> | 
-  <a href="https://discord.gg/mp73p35dzC">Discord Support</a> | 
-  <a href="https://www.youtube.com/watch?v=gRotoL8P8D8">Video Tutorial</a> | 
-  <a href="https://kolbynottingham.com/mindcraft/">Blog Post</a> | 
-  <a href="https://mindcraft-minecollab.github.io/index.html">Paper Website</a> | 
-  <a href="https://github.com/mindcraft-bots/mindcraft/blob/main/minecollab.md">MineCollab</a>
-</p>
+| Bot | Job |
+| --- | --- |
+| `DoomScout` | Explore and report resources or danger |
+| `DoomMiner` | Gather stone, ore, and fuel |
+| `DoomBuilder` | Organize materials and build with built-in commands |
+| `DoomFarmer` | Maintain food, wood, and basic supplies |
+| `DoomGuard` | Protect the crew and report threats |
 
-> [!Caution]
-Do not connect this bot to public servers with coding enabled. This project allows an LLM to write/execute code on your computer. The code is sandboxed, but still vulnerable to injection attacks. Code writing is disabled by default, you can enable it by setting `allow_insecure_coding` to `true` in `settings.js`. Ye be warned.
+The default is deliberately conservative: code generation, vision, example
+embeddings, and bot-camera rendering are off. Each bot uses the same Ollama
+model; DoomBots does **not** load five model copies.
 
-# Getting Started
-## Requirements
+> [!IMPORTANT]
+> The 5 GB target is for a **headless Linux server** running a small headless
+> Minecraft server, Ollama, and DoomBots. It is not a promise that a graphical
+> Minecraft client plus other desktop applications will fit in 5 GB.
 
-- [Minecraft Java Edition](https://www.minecraft.net/en-us/store/minecraft-java-bedrock-edition-pc) (up to v1.21.11, recommend v1.21.6)
-- [Node.js Installed](https://nodejs.org/) (Node v18 or v20 LTS recommended. Node v24+ may cause issues with native dependencies)
-- At least one API key from a supported API provider. See [supported APIs](#model-customization). OpenAI is the default.
+## Quick start on Linux (5 GB preset)
 
-> [!Important]
-> If installing node on windows, ensure you check `Automatically install the necessary tools`
->
-> If you encounter `npm install` errors on macOS, see the [FAQ](FAQ.md#common-issues) for troubleshooting native module build issues
+### 1. Install prerequisites
 
-## Install and Run
+- Linux with about **5 GB RAM** and 2+ CPU cores
+- Node.js **18, 20, or 22**
+- [Ollama](https://ollama.com/download/linux)
+- A Java Minecraft server (a current 1.21.x server is recommended)
+- `curl`, which the launcher uses to check Ollama
 
-1. Make sure you have the requirements above.
-
-2. Download the [latest release](https://github.com/mindcraft-bots/mindcraft/releases/latest) and unzip it, or clone the repository.
-
-3. Rename `keys.example.json` to `keys.json` and fill in your API keys (you only need one). The desired model is set in `andy.json` or other profiles. For other models refer to the table below.
-
-4. In terminal/command prompt, run `npm install` from the installed directory
-
-5. Start a minecraft world and open it to LAN on localhost port `55916`
-
-6. Run `node main.js` from the installed directory
-
-If you encounter issues, check the [FAQ](https://github.com/mindcraft-bots/mindcraft/blob/main/FAQ.md) or find support on [discord](https://discord.gg/mp73p35dzC). We are currently not very responsive to github issues. To run tasks please refer to [Minecollab Instructions](minecollab.md#installation)
-
-
-# Configuration
-## Model Customization
-
-You can configure project details in `settings.js`. [See file.](settings.js)
-
-You can configure the agent's name, model, and prompts in their profile like `andy.json`. The model can be specified with the `model` field, with values like `model: "gemini-2.5-pro"`. You will need the correct API key for the API provider you choose. See all supported APIs below.
-
-<details>
-<summary><strong>⭐ VIEW SUPPORTED APIs ⭐</strong></summary>
-
-| API Name | Config Variable| Docs |
-|------|------|------|
-| `openai` | `OPENAI_API_KEY` | [docs](https://platform.openai.com/docs/models) |
-| `google` | `GEMINI_API_KEY` | [docs](https://ai.google.dev/gemini-api/docs/models/gemini) |
-| `anthropic` | `ANTHROPIC_API_KEY` | [docs](https://docs.anthropic.com/claude/docs/models-overview) |
-| `xai` | `XAI_API_KEY` | [docs](https://docs.x.ai/docs) |
-| `deepseek` | `DEEPSEEK_API_KEY` | [docs](https://api-docs.deepseek.com/) |
-| `ollama` (local) | n/a | [docs](https://ollama.com/library) |
-| `qwen` | `QWEN_API_KEY` | [Intl.](https://www.alibabacloud.com/help/en/model-studio/developer-reference/use-qwen-by-calling-api)/[cn](https://help.aliyun.com/zh/model-studio/getting-started/models) |
-| `mistral` | `MISTRAL_API_KEY` | [docs](https://docs.mistral.ai/getting-started/models/models_overview/) |
-| `replicate` | `REPLICATE_API_KEY` | [docs](https://replicate.com/collections/language-models) |
-| `groq` (not grok) | `GROQCLOUD_API_KEY` | [docs](https://console.groq.com/docs/models) |
-| `huggingface` | `HUGGINGFACE_API_KEY` | [docs](https://huggingface.co/models) |
-| `novita` | `NOVITA_API_KEY` | [docs](https://novita.ai/model-api/product/llm-api?utm_source=github_mindcraft&utm_medium=github_readme&utm_campaign=link) |
-| `openrouter` | `OPENROUTER_API_KEY` | [docs](https://openrouter.ai/models) |
-| `hyperbolic` | `HYPERBOLIC_API_KEY` | [docs](https://docs.hyperbolic.xyz/docs/getting-started) |
-| `vllm` | n/a | n/a |
-| `cerebras` | `CEREBRAS_API_KEY` | [docs](https://inference-docs.cerebras.ai/introduction) |
-| `mercury` | `MERCURY_API_KEY` | [docs](https://www.inceptionlabs.ai/) |
-
-</details>
-
-For more comprehensive model configuration and syntax, see [Model Specifications](#model-specifications).
-
-For local models we support [ollama](https://ollama.com/) and we provide our own finetuned models for you to use. 
-To install our models, install ollama and run the following terminal command:
-```bash
-ollama pull sweaterdog/andy-4:micro-q8_0 && ollama pull embeddinggemma
-```
-
-## Online Servers
-To connect to online servers your bot will need an official Microsoft/Minecraft account. You can use your own personal one, but will need another account if you want to connect too and play with it. To connect, change these lines in `settings.js`:
-```javascript
-"host": "111.222.333.444",
-"port": 55920,
-"auth": "microsoft",
-
-// rest is same...
-```
-> [!Important]
-> The bot's name in the profile.json must exactly match the Minecraft profile name! Otherwise the bot will spam talk to itself.
-
-To use different accounts, Mindcraft will connect with the account that the Minecraft launcher is currently using. You can switch accounts in the launcher, then run `node main.js`, then switch to your main account after the bot has connected.
-
-## Tasks
-
-Tasks automatically start the bot with a prompt and a goal item to acquire or blueprint to construct. To run a simple task that involves collecting 4 oak_logs run 
-
-`node main.js --task_path tasks/basic/single_agent.json --task_id gather_oak_logs`
-
-Here is an example task json format: 
-
-```
-{
-    "gather_oak_logs": {
-      "goal": "Collect at least four logs",
-      "initial_inventory": {
-        "0": {
-          "wooden_axe": 1
-        }
-      },
-      "agent_count": 1,
-      "target": "oak_log",
-      "number_of_target": 4,
-      "type": "techtree",
-      "max_depth": 1,
-      "depth": 0,
-      "timeout": 300,
-      "blocked_actions": {
-        "0": [],
-        "1": []
-      },
-      "missing_items": [],
-      "requires_ctable": false
-    }
-}
-```
-
-The `initial_inventory` is what the bot will have at the start of the episode, `target` refers to the target item and `number_of_target` refers to the number of target items the agent needs to collect to successfully complete the task. 
-
-If you want more optimization and automatic launching of the minecraft world, you will need to follow the instructions in [Minecollab Instructions](minecollab.md#installation)
-
-## Docker Container
-
-If you intend to `allow_insecure_coding`, it is a good idea to run the app in a docker container to reduce risks of running unknown code. This is strongly recommended before connecting to remote servers, although still does not guarantee complete safety.
+On Debian/Ubuntu, install the basics with:
 
 ```bash
-docker build -t mindcraft . && docker run --rm --add-host=host.docker.internal:host-gateway -p 8080:8080 -p 3000-3003:3000-3003 -e SETTINGS_JSON='{"auto_open_ui":false,"profiles":["./profiles/gemini.json"],"host":"host.docker.internal"}' --volume ./keys.json:/app/keys.json --name mindcraft mindcraft
+sudo apt update
+sudo apt install -y curl openjdk-21-jre-headless
 ```
-or simply
+
+Install Node.js and Ollama using their official Linux instructions. Confirm
+both are available:
+
 ```bash
-docker-compose up --build
+node --version
+ollama --version
 ```
 
-When running in docker, if you want the bot to join your local minecraft server, you have to use a special host address `host.docker.internal` to call your localhost from inside your docker container. Put this into your [settings.js](settings.js):
+### 2. Start a small local Minecraft server
 
-```javascript
-"host": "host.docker.internal", // instead of "localhost", to join your local minecraft from inside the docker container
+Start the server **headlessly** on `127.0.0.1:25565`, which is the DoomBots
+default in `settings.js`. Give Java a modest heap, for example:
+
+```bash
+java -Xms512M -Xmx1024M -jar server.jar nogui
 ```
 
-To connect to an unsupported minecraft version, you can try to use [viaproxy](services/viaproxy/README.md)
+The supplied profiles use offline authentication for local testing. For an
+offline server, set `online-mode=false` in `server.properties` and keep it on a
+trusted local network. For a normal authenticated or remote server, change
+`host`, `port`, and `auth` in `settings.js`; use five valid Minecraft accounts
+when the server requires Microsoft authentication.
 
-# Bot Profiles
+### 3. Install and launch
 
-Bot profiles are json files (such as `andy.json`) that define:
+```bash
+git clone https://github.com/fallendrake0-droid/Doombots.git
+cd Doombots
+npm install
+npm run start:lowram
+```
 
-1. Bot backend LLMs to use for talking, coding, and embedding.
-2. Prompts used to influence the bot's behavior.
-3. Examples help the bot perform tasks.
+On first start, the launcher starts a local Ollama service if one is not already
+running and pulls `qwen2.5:0.5b`. It runs Ollama with one parallel request and
+one loaded model, then starts all five bots. Open the dashboard at
+[http://localhost:8080](http://localhost:8080).
 
-## Model Specifications
+In Minecraft, send a bot a whisper, for example:
 
-LLM models can be specified simply as `"model": "gpt-5.4"`, or more specifically with `"{api}/{model}"`, like `"openrouter/google/gemini-2.5-pro"`. See all supported APIs [here](#model-customization).
+```text
+/msg DoomMiner collect 16 cobblestone
+/msg DoomScout find oak logs and report back
+/msg DoomGuard follow Steve and keep them safe
+```
 
-The `model` field can be a string or an object. A model object must specify an `api`, and optionally a `model`, `url`, and additional `params`. You can also use different models/providers for chatting, coding, vision, embedding, and voice synthesis. See the example below.
+The bots coordinate through the control server, but it is best to assign a
+clear task to the role that owns it. Use the dashboard to stop or restart an
+individual bot.
+
+## Why this fits the target
+
+The default low-RAM configuration makes these trade-offs:
+
+| Component | Low-memory choice |
+| --- | --- |
+| LLM | One shared `qwen2.5:0.5b` Ollama model, 2,048-token context |
+| Ollama concurrency | `OLLAMA_NUM_PARALLEL=1`; requests queue instead of loading parallel contexts |
+| Extra models | Embeddings are explicitly disabled; no `embeddinggemma` download is needed |
+| Bot workers | Five Node processes inherit a 384 MB V8 heap ceiling |
+| Prompts | Compact command reference, no example retrieval, eight-message history |
+| Minecraft | Headless server with a 1 GB Java heap example |
+| Rendering | Bot camera rendering and vision are disabled |
+
+A practical budget is roughly 0.8–1.3 GB for Ollama and the quantized model,
+1–2 GB for the five bot workers, 0.8–1.2 GB for a small Minecraft server, and
+the rest for Linux and disk cache. Actual use varies by Minecraft version,
+world size, mods, and player count. If the machine swaps or bots are killed by
+the OOM killer, lower the Java heap and stop other services before increasing
+any DoomBots limits.
+
+## Configuration
+
+The five default profiles live in `profiles/doombots/`. They all explicitly use:
 
 ```json
-"model": {
-  "api": "openai",
-  "model": "gpt-5.4",
-  "url": "https://api.openai.com/v1/",
+{
+  "api": "ollama",
+  "model": "qwen2.5:0.5b",
   "params": {
-    "max_tokens": 1000,
-    "temperature": 1
-  }
-},
-"code_model": {
-  "api": "openai",
-  "model": "gpt-5.4-mini",
-  "url": "https://api.openai.com/v1/"
-},
-"vision_model": {
-  "api": "openai",
-  "model": "gpt-5.4",
-  "url": "https://api.openai.com/v1/"
-},
-"embedding": {
-  "api": "openai",
-  "url": "https://api.openai.com/v1/",
-  "model": "text-embedding-3-small"
-},
-"speak_model": "openai/tts-1/echo"
-```
-
-`model` is used for chat, `code_model` is used for newAction coding, `vision_model` is used for image interpretation, `embedding` is used to embed text for example selection, and `speak_model` is used for voice synthesis. `model` will be used by default for all other models if not specified. Not all APIs support embeddings, vision, or voice synthesis.
-
-All apis have default models and urls, so those fields are optional. The `params` field is optional and can be used to specify additional parameters for the model. It accepts any key-value pairs supported by the api. Is not supported for embedding models.
-
-## Embedding Models
-
-Embedding models are used to embed and efficiently select relevant examples for conversation and coding.
-
-Supported Embedding APIs: `openai`, `google`, `replicate`, `huggingface`, `novita`
-
-If you try to use an unsupported model, then it will default to a simple word-overlap method. Expect reduced performance. We recommend using supported embedding APIs.
-
-## Voice Synthesis Models
-
-Voice synthesis models are used to narrate bot responses and specified with `speak_model`. This field is parsed differently than other models and only supports strings formatted as `"{api}/{model}/{voice}"`, like `"openai/tts-1/echo"`. We only support `openai` and `google` for voice synthesis.
-
-## Specifying Profiles via Command Line
-
-By default, the program will use the profiles specified in `settings.js`. You can specify one or more agent profiles using the `--profiles` argument: `node main.js --profiles ./profiles/andy.json ./profiles/jill.json`
-
-
-# Contributing
-
-We welcome contributions to the project! We are generally less responsive to github issues, and more responsive to pull requests. Join the [discord](https://discord.gg/mp73p35dzC) for more active support and direction.
-
-While AI generated code is allowed, please vet it carefully. Submitting tons of sloppy code and documentation actively harms development.
-
-## Patches
-
-Some of the node modules that we depend on have bugs in them. To add a patch, change your local node module file and run `npx patch-package [package-name]`
-
-## Development Team
-Thanks to all who contributed to the project, especially the official development team: [@MaxRobinsonTheGreat](https://github.com/MaxRobinsonTheGreat), [@kolbytn](https://github.com/kolbytn), [@icwhite](https://github.com/icwhite), [@Sweaterdog](https://github.com/Sweaterdog), [@Ninot1Quyi](https://github.com/Ninot1Quyi), [@riqvip](https://github.com/riqvip), [@uukelele](https://github.com/uukelele), [@mrelmida](https://github.com/mrelmida)
-
-
-## Citation:
-This work is published in the paper [Collaborating Action by Action: A Multi-agent LLM Framework for Embodied Reasoning](https://arxiv.org/abs/2504.17950). Please use this citation if you use this project in your research:
-```
-@article{mindcraft2025,
-  title = {Collaborating Action by Action: A Multi-agent LLM Framework for Embodied Reasoning},
-  author = {White*, Isadora and Nottingham*, Kolby and Maniar, Ayush and Robinson, Max and Lillemark, Hansen and Maheshwari, Mehul and Qin, Lianhui and Ammanabrolu, Prithviraj},
-  journal = {arXiv preprint arXiv:2504.17950},
-  year = {2025},
-  url = {https://arxiv.org/abs/2504.17950},
+    "options": { "num_ctx": 2048, "num_predict": 96 }
+  },
+  "embedding": "none"
 }
 ```
 
-## Contributors
+Useful overrides:
 
-Thanks to everyone who has submitted issues on and off Github, made suggestions, and generally helped make this a better project.
+```bash
+# Use an Ollama server on another machine or in Docker.
+OLLAMA_URL=http://192.168.1.20:11434 npm run start:lowram
 
-![Contributors](https://contrib.rocks/image?repo=mindcraft-bots/mindcraft)
+# Give each bot a different V8 heap ceiling, in MB.
+DOOMBOTS_AGENT_HEAP_MB=320 npm run start:lowram
+```
+
+`OLLAMA_URL` is also honored when running `npm start`. The low-RAM script only
+starts and pulls from a local Ollama endpoint (`127.0.0.1` or `localhost`); for
+a remote endpoint, pull the model there first.
+
+Run this after changing the default profiles to verify the five-bot low-RAM
+preset:
+
+```bash
+npm run check:config
+```
+
+### Docker
+
+Docker is optional. Run Ollama and Minecraft on the Linux host, then point the
+container at Ollama using `OLLAMA_URL=http://host.docker.internal:11434`. The
+included Compose file has the `host.docker.internal` gateway mapping needed on
+Linux. Native Linux is the simplest option for a 5 GB machine.
+
+## Safety
+
+DoomBots blocks `!newAction` and keeps insecure code generation off. Do not
+change `allow_insecure_coding` or connect bot accounts to an untrusted public
+server unless you understand the security implications. Treat all in-game chat
+as untrusted input.
+
+## Project lineage
+
+DoomBots is a focused configuration and branding of the Mineflayer multi-agent
+framework originally developed by the Mindcraft contributors. See the
+repository history and [LICENSE](LICENSE) for attribution and licensing.

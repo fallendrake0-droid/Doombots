@@ -39,7 +39,7 @@
     "init_message": {
         "type": "string",
         "description": "The initial message to send to the bot",
-        "default": "Respond with hello world and your name"
+        "default": "Respond with a brief ready status"
     },
     "only_chat_with": {
         "type": "array",
@@ -85,6 +85,12 @@
         "type": "number",
         "description": "Maximum number of commands allowed in consecutive responses. -1 for no limit",
         "default": -1
+    },
+    "command_docs": {
+        "type": "string",
+        "description": "Use compact command docs for small local models, or full docs for larger models.",
+        "default": "full",
+        "options": ["compact", "full"]
     },
     "narrate_behavior": {
         "type": "boolean",

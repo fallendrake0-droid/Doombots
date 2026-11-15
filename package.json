@@ -1,6 +1,12 @@
 {
-    "name": "mindcraft",
+    "name": "doombots",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Five lightweight Minecraft DoomBots powered by one local Ollama model.",
     "type": "module",
+    "engines": {
+        "node": ">=18 <23"
+    },
     "dependencies": {
         "@anthropic-ai/sdk": "^0.17.1",
         "@cerebras/cerebras_cloud_sdk": "^1.46.0",
@@ -38,12 +44,14 @@
         "yargs": "^17.7.2"
     },
     "overrides": {
-      "canvas": "^3.1.0",
-      "gl": "^8.1.6"
+        "canvas": "^3.1.0",
+        "gl": "^8.1.6"
     },
     "scripts": {
         "postinstall": "patch-package",
         "start": "node main.js",
+        "start:lowram": "bash ./scripts/run-doombots-linux.sh",
+        "check:config": "node ./scripts/check-doombots-config.mjs",
         "reinstall": "npm run clean:modules && npm install",
         "clean:modules": "node -e \"const fs=require('fs');const p=require('path');['node_modules','package-lock.json'].forEach(f=>{if(fs.existsSync(f)){if(fs.lstatSync(f).isDirectory()){fs.rmSync(f,{recursive:true,force:true});}else{fs.unlinkSync(f);}}});\""
     },

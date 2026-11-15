@@ -1,21 +1,25 @@
 services:
-  mindcraft:
+  doombots:
     build: .
     environment:
       SETTINGS_JSON: |
-        {"auto_open_ui": false}
+        {"auto_open_ui":false}
+      # Pull qwen2.5:0.5b on the Linux host before starting this container.
+      OLLAMA_URL: http://host.docker.internal:11434
+    # Leaves the rest of a 5 GB host for one Ollama model and a small Minecraft server.
+    mem_limit: 2g
     volumes:
       - ./settings.js:/app/settings.js
       - ./keys.json:/app/keys.json
       - ./profiles:/app/profiles
       - ./bots:/app/bots
     ports:
-      - "3000-3003:3000-3003" # see the view from the camera mounted on your bot head: http://localhost:3000/
-      - 8080 # Mindserver port
+      - "8080:8080" # DoomBots control dashboard
+      - "3000-3004:3000-3004" # optional bot camera views
     extra_hosts:
-    - "host.docker.internal:host-gateway"
+      - "host.docker.internal:host-gateway"
 
-  viaproxy: #use this service to connect to an unsupported minecraft server versions. more info: ./services/viaproxy/README.md
+  viaproxy: # Use this service to connect to unsupported Minecraft server versions.
     image: ghcr.io/viaversion/viaproxy:latest
     volumes:
       - ./services/viaproxy:/app/run

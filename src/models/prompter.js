@@ -76,15 +76,21 @@ export class Prompter {
         }
 
         
+        // Profiles can explicitly opt out of embeddings. This is useful for small local
+        // models: it avoids loading a second Ollama model just to select examples.
+        const embeddingDisabled = this.profile.embedding === null || this.profile.embedding === 'none';
         let embedding_model_profile = null;
-        if (this.profile.embedding) {
+        if (!embeddingDisabled && this.profile.embedding) {
             try {
                 embedding_model_profile = selectAPI(this.profile.embedding);
             } catch (e) {
                 embedding_model_profile = null;
             }
         }
-        if (embedding_model_profile) {
+        if (embeddingDisabled) {
+            this.embedding_model = null;
+        }
+        else if (embedding_model_profile) {
             this.embedding_model = createModel(embedding_model_profile);
         }
         else {
@@ -151,7 +157,7 @@ export class Prompter {
             prompt = prompt.replaceAll('$ACTION', this.agent.actions.currentActionLabel);
         }
         if (prompt.includes('$COMMAND_DOCS'))
-            prompt = prompt.replaceAll('$COMMAND_DOCS', getCommandDocs(this.agent));
+            prompt = prompt.replaceAll('$COMMAND_DOCS', getCommandDocs(this.agent, settings.command_docs));
         if (prompt.includes('$CODE_DOCS')) {
             const code_task_content = messages.slice().reverse().find(msg =>
                 msg.role !== 'system' && msg.content.includes('!newAction(')
