@@ -66,14 +66,24 @@ when the server requires Microsoft authentication.
 ```bash
 git clone https://github.com/fallendrake0-droid/Doombots.git
 cd Doombots
-npm install
+# Headless five-bot baseline: skips optional browser/WebGL rendering packages.
+npm ci --omit=optional
 npm run start:lowram
 ```
 
 On first start, the launcher starts a local Ollama service if one is not already
 running and pulls `qwen2.5:0.5b`. It runs Ollama with one parallel request and
-one loaded model, then starts all five bots. Open the dashboard at
+one loaded model, verifies the required `a8b0c5157701` digest prefix, then
+starts all five bots. A missing/mismatched model aborts startup rather than
+falling back to another tag. Open the dashboard at
 [http://localhost:8080](http://localhost:8080).
+
+The headless install deliberately omits optional browser/WebGL camera packages
+and unused cloud-model/TTS/translation/wiki integrations; `render_bot_view` and
+`allow_vision` are both `false` by default. To experiment with a non-baseline
+feature on a machine with the required native graphics build dependencies,
+run `npm ci --include=optional` and test one bot first. They are not needed
+for normal coordination, survival, combat, or the exact local Ollama path.
 
 In Minecraft, send a bot a whisper, for example:
 
@@ -146,7 +156,16 @@ Use a direct command when you need a specific outcome:
 /msg DoomScout !squadTask("gather", "oak_log", 32)
 /msg DoomMiner !usePotion("fire_resistance")
 /msg DoomBuilder !buildStructure("shelter", "oak_planks", 5)
+/msg DoomScout !prioritySquadTask("defend", "Steve", 1, 95)
+/msg DoomScout !squadObserve("hazard", "lava_ravine", "north of camp")
 ```
+
+`!prioritySquadTask` accepts priority `0`–`100`; higher values are allocated
+first when a compatible worker becomes available. `!squadObserve` shares only
+compact resource, hazard, threat, or location notes with relevant roles. The
+coordinator rejects stale timestamps and duplicate active objectives, recovers
+interrupted/expired work only up to the configured retry limit, and reports
+cancellations back to the owning worker.
 
 The model may optionally return a small JSON action plan, but the plan is
 strictly parsed and converted into the existing command validator. Unknown
@@ -177,7 +196,23 @@ An individual disconnect or protocol/parser error restarts only that bot; it no
 longer exits the five-bot parent. Packet handling normalises the known nested
 velocity shape when present and retains the **latest** throttled movement packet
 rather than a stale one. Packet parser failures are reported and cause a
-controlled per-bot restart instead of being hidden.
+controlled per-bot restart instead of being hidden. Minecraft host, port, and
+auth mode are validated before a worker starts; a transient server ping failure
+falls back to normal Mineflayer negotiation, while an explicit incompatible
+version is rejected early. LAN discovery is bounded-concurrent rather than a
+16,000-port sequential scan.
+
+### Runtime metrics
+
+The local dashboard shows compact parent-process snapshots for RSS/heap/load,
+registered/in-game bots, task states and retries, Ollama queue/run/timeout/
+cancellation peaks, pathfinding snapshots, and reconnect attempts. Settings in
+`settings.metrics` choose categories, sampling interval, and retained samples;
+collection is triggered by normal status/query events, not a separate fast loop.
+`settings.fleet` configures priority, ownership timeout, retry delay/limit,
+status TTL, observation TTL, and record caps. The control server is intentionally
+bound to `localhost`; use an authenticated TLS proxy before exposing it beyond
+the machine.
 
 ## Configuration
 
@@ -212,6 +247,9 @@ DOOMBOTS_OLLAMA_CONCURRENCY=1 DOOMBOTS_OLLAMA_MAX_QUEUE=12 npm run start:lowram
 
 # Change the bounded Ollama request deadline, in milliseconds.
 DOOMBOTS_OLLAMA_TIMEOUT_MS=45000 npm run start:lowram
+
+# Dashboard full-state poll cadence, clamped to 1–10 seconds (2 seconds default).
+DOOMBOTS_STATE_POLL_MS=3000 npm run start:lowram
 ```
 
 `OLLAMA_URL` is also honored when running `npm start`. The low-RAM script only
@@ -236,7 +274,9 @@ separately on the target Linux host with `npm run start:lowram`.
 Docker is optional. Run Ollama and Minecraft on the Linux host, then point the
 container at Ollama using `OLLAMA_URL=http://host.docker.internal:11434`. The
 included Compose file has the `host.docker.internal` gateway mapping needed on
-Linux. Native Linux is the simplest option for a 5 GB machine.
+Linux. The supplied image installs with `--omit=optional`, so it is a headless
+baseline without native camera/WebGL rendering. Native Linux is the simplest
+option for a 5 GB machine.
 
 ## Safety
 

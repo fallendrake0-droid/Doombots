@@ -16,6 +16,21 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
+        #runtimeMetrics {
+            margin: 14px 0;
+            background: #242424;
+            border: 1px solid #424242;
+            border-radius: 8px;
+            padding: 12px 14px;
+        }
+        #runtimeMetrics h2 { margin: 0 0 8px; font-size: 1em; }
+        #runtimeMetricsText {
+            margin: 0;
+            color: #c8c8c8;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.82em;
+            white-space: pre-wrap;
+        }
         h1 {
             color: #ffffff;
         }
@@ -380,6 +395,10 @@
         <div class="title-spacer"></div>
     </div>
     <div id="agents"></div>
+    <section id="runtimeMetrics" aria-live="polite">
+        <h2>Runtime metrics</h2>
+        <pre id="runtimeMetricsText">Awaiting control-server metrics…</pre>
+    </section>
 
     <div class="page-footer">
         <div>
@@ -442,6 +461,7 @@
     <script>
         const socket = io({ path: window.location.pathname + 'socket.io' })
         const agentsDiv = document.getElementById('agents');
+        const runtimeMetricsText = document.getElementById('runtimeMetricsText');
         let settingsSpec = {};
         let profileData = null;
         const agentSettings = {};
@@ -520,8 +540,34 @@
                 statusEl.classList.add('offline');
             }
         }
+        function renderRuntimeMetrics(metrics) {
+            if (!runtimeMetricsText) return;
+            if (!metrics?.enabled) {
+                runtimeMetricsText.textContent = 'Runtime metrics are disabled in settings.metrics.';
+                return;
+            }
+            const latest = metrics.latest || {};
+            const resource = latest.resource || {};
+            const bots = latest.bots || {};
+            const tasks = latest.tasks || {};
+            const ai = latest.aiQueue || {};
+            const reconnecting = latest.reconnection?.reconnecting || [];
+            const taskStates = Object.entries(tasks.states || {})
+                .filter(([, count]) => count)
+                .map(([state, count]) => `${state}:${count}`)
+                .join(', ') || 'none';
+            runtimeMetricsText.textContent = [
+                `sample: ${latest.timestamp ? new Date(latest.timestamp).toLocaleTimeString() : 'pending'}`,
+                `process: rss ${resource.rssMiB ?? '?'} MiB | heap ${resource.heapUsedMiB ?? '?'} MiB | load ${(resource.loadAverage || []).join('/') || '?'}`,
+                `bots: registered ${bots.registered ?? 0} | in-game ${bots.inGame ?? 0} | sockets ${bots.connectedSockets ?? 0}`,
+                `tasks: ${taskStates} | retained ${tasks.retainedTasks ?? 0} | retries ${tasks.retried ?? 0} | failures ${tasks.failed ?? 0}`,
+                `AI: queued ${ai.queued ?? 0} | running ${ai.running ?? 0} | completed ${ai.completed ?? 0} | timed out ${ai.timedOut ?? 0} | cancelled ${ai.cancelled ?? 0}`,
+                `pathfinding snapshots: ${(latest.pathfinding || []).length} | reconnecting: ${reconnecting.length ? reconnecting.map(entry => `${entry.name}#${entry.attempt}`).join(', ') : 'none'}`
+            ].join('\n');
+        }
         function subscribeToState() {
             socket.emit('listen-to-agents');
+            socket.emit('get-runtime-metrics', renderRuntimeMetrics);
         }
         // Initial status
         updateStatus(false);
@@ -659,6 +705,8 @@
                 messageDiv.textContent = message;
             }
         });
+
+        socket.on('runtime-metrics', renderRuntimeMetrics);
 
         // Subscribe to aggregated state updates (re-sent on each connect)
         socket.on('state-update', (states) => {

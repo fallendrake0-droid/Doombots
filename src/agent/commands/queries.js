@@ -3,7 +3,6 @@ import * as mc from '../../utils/mcdata.js';
 import { getCommandDocs } from './index.js';
 import convoManager from '../conversation.js';
 import { checkLevelBlueprint, checkBlueprint } from '../tasks/construction_tasks.js';
-import { load } from 'cheerio';
 
 const pad = (str) => {
     return '\n' + str + '\n';
@@ -322,6 +321,9 @@ export const queryList = [
                   return `${query} was not found on the Minecraft Wiki. Try adjusting your search term.`;
                 }
                 const html = await response.text();
+                // Wiki scraping is an opt-in query command; defer its HTML
+                // parser rather than loading it into every headless worker.
+                const { load } = await import('cheerio');
                 const $ = load(html);
             
                 const parserOutput = $("div.mw-parser-output");

@@ -32,6 +32,10 @@ export class OllamaGateway {
             failed: 0,
             rejected: 0,
             deduplicated: 0,
+            cancelled: 0,
+            timedOut: 0,
+            queuePeak: 0,
+            runningPeak: 0,
             totalWaitMs: 0,
             totalRunMs: 0
         };
@@ -46,6 +50,10 @@ export class OllamaGateway {
             failed: this.metrics.failed,
             rejected: this.metrics.rejected,
             deduplicated: this.metrics.deduplicated,
+            cancelled: this.metrics.cancelled,
+            timedOut: this.metrics.timedOut,
+            queuePeak: this.metrics.queuePeak,
+            runningPeak: this.metrics.runningPeak,
             averageWaitMs: Math.round(this.metrics.totalWaitMs / completed),
             averageRunMs: Math.round(this.metrics.totalRunMs / completed)
         };
@@ -90,7 +98,7 @@ export class OllamaGateway {
             return Promise.reject(errorWithCode('Ollama request queue is full; retry later.', 'OLLAMA_QUEUE_FULL'));
         }
 
-        const priority = Number.isFinite(request.priority) ? request.priority : 0;
+        const priority = Number.isFinite(request.priority) ? Math.max(-100, Math.min(100, request.priority)) : 0;
         let resolveRequest;
         let rejectRequest;
         const promise = new Promise((resolve, reject) => {
@@ -105,6 +113,7 @@ export class OllamaGateway {
             fingerprint,
             queuedAt: Date.now()
         });
+        this.metrics.queuePeak = Math.max(this.metrics.queuePeak, this.queue.length + this.running);
         this.queue.sort((a, b) => b.request.priority - a.request.priority || a.queuedAt - b.queuedAt);
         this.drain();
         return promise;
@@ -115,6 +124,7 @@ export class OllamaGateway {
         for (const item of this.queue) {
             if (item.request.agentName === agentName) {
                 this.metrics.rejected++;
+                this.metrics.cancelled++;
                 this.pendingRequests.delete(item.fingerprint);
                 item.reject(errorWithCode('Ollama request cancelled because the bot disconnected.', 'OLLAMA_CANCELLED'));
             } else {
@@ -134,6 +144,7 @@ export class OllamaGateway {
         while (this.running < this.concurrency && this.queue.length > 0) {
             const item = this.queue.shift();
             this.running++;
+            this.metrics.runningPeak = Math.max(this.metrics.runningPeak, this.running);
             this.run(item)
                 .then(item.resolve, item.reject)
                 .finally(() => {
@@ -173,9 +184,11 @@ export class OllamaGateway {
         } catch (error) {
             this.metrics.failed++;
             if (inFlightItem.cancelled) {
+                this.metrics.cancelled++;
                 throw errorWithCode('Ollama request cancelled because the bot disconnected.', 'OLLAMA_CANCELLED');
             }
             if (error.name === 'AbortError') {
+                this.metrics.timedOut++;
                 throw errorWithCode(`Ollama request timed out after ${timeoutMs}ms.`, 'OLLAMA_TIMEOUT');
             }
             throw error;

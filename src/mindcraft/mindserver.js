@@ -7,6 +7,10 @@ import * as mindcraft from './mindcraft.js';
 import { readFileSync } from 'fs';
 import { FleetCoordinator } from './fleet_coordinator.js';
 import { OllamaGateway } from './ollama_gateway.js';
+import { RuntimeMetrics } from './runtime_metrics.js';
+import { validateDoomBotsSettings } from './model_policy.js';
+import { validateConnectionSettings } from './connection_policy.js';
+import { createControlToken, validControlToken } from './control_auth.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Mindserver is:
@@ -20,12 +24,51 @@ const agent_connections = {};
 const agent_listeners = [];
 const fleetCoordinator = new FleetCoordinator();
 const ollamaGateway = new OllamaGateway();
+const runtimeMetrics = new RuntimeMetrics();
 
 const settings_spec = JSON.parse(readFileSync(path.join(__dirname, 'public/settings_spec.json'), 'utf8'));
+
+function runtimeMetricSources(fleet = fleetCoordinator.snapshot()) {
+    const connections = Object.entries(agent_connections);
+    const lifecycle = {};
+    const reconnecting = [];
+    for (const [name, connection] of connections) {
+        lifecycle[connection.lifecycle] = (lifecycle[connection.lifecycle] || 0) + 1;
+        if (connection.reconnect_attempt > 0) reconnecting.push({ name, attempt: connection.reconnect_attempt, lifecycle: connection.lifecycle });
+    }
+    const pathfinding = fleet.bots.map(bot => ({ name: bot.name, ...(bot.pathfinding || { moving: false, mining: false, building: false }) }));
+    return {
+        bots: {
+            registered: connections.length,
+            inGame: connections.filter(([, connection]) => connection.in_game).length,
+            connectedSockets: connections.filter(([, connection]) => !!connection.socket).length,
+            lifecycle
+        },
+        tasks: fleet.metrics,
+        aiQueue: ollamaGateway.snapshot(),
+        pathfinding,
+        reconnection: { reconnecting }
+    };
+}
+
+function getRuntimeMetrics(force = false) {
+    const fleet = fleetCoordinator.snapshot();
+    return runtimeMetrics.collect(runtimeMetricSources(fleet), force);
+}
+
+function emitFleetState(forceMetrics = false) {
+    if (!io) return;
+    io.emit('fleet-status', fleetCoordinator.snapshot());
+    io.emit('runtime-metrics', getRuntimeMetrics(forceMetrics));
+}
 
 class AgentConnection {
     constructor(settings, viewer_port) {
         this.socket = null;
+        // Per-process credential stays out of dashboard-visible settings and
+        // prevents an arbitrary local Socket.IO client from replacing a bot's
+        // control channel by merely knowing its public Minecraft name.
+        this.controlToken = createControlToken();
         this.settings = settings;
         this.in_game = false;
         this.full_state = null;
@@ -39,16 +82,22 @@ class AgentConnection {
 }
 
 export function registerAgent(settings, viewer_port) {
-    let agentConnection = new AgentConnection(settings, viewer_port);
+    // All five profiles receive the same parent coordinator settings. Applying
+    // them here also covers dashboard-created agents without opening a second
+    // unbounded coordinator or metrics stream.
+    fleetCoordinator.configure(settings.fleet || {});
+    runtimeMetrics.configure(settings.metrics || {});
+    const agentConnection = new AgentConnection(settings, viewer_port);
     agent_connections[settings.profile.name] = agentConnection;
+    return agentConnection;
 }
 
 export function logoutAgent(agentName) {
     if (agent_connections[agentName]) {
         agent_connections[agentName].in_game = false;
-        fleetCoordinator.markAgentUnavailable(agentName);
+        fleetCoordinator.markAgentUnavailable(agentName, 'Agent process exited.', agent_connections);
         agentsStatusUpdate();
-        io?.emit('fleet-status', fleetCoordinator.snapshot());
+        emitFleetState();
     }
 }
 
@@ -58,6 +107,7 @@ export function setAgentLifecycle(agentName, lifecycle, reconnectAttempt = 0) {
     connection.lifecycle = lifecycle;
     connection.reconnect_attempt = reconnectAttempt;
     agentsStatusUpdate();
+    emitFleetState();
 }
 
 // Initialize the server
@@ -182,33 +232,46 @@ export function createMindServer(host_public = false, port = 8080) {
             }
         });
 
-        socket.on('connect-agent-process', (agentName) => {
-            if (agent_connections[agentName]) {
-                agent_connections[agentName].socket = socket;
-                agentsStatusUpdate();
+        socket.on('connect-agent-process', (agentName, token, callback) => {
+            const respond = typeof callback === 'function' ? callback : () => {};
+            const agent = agent_connections[agentName];
+            if (!agent || !validControlToken(agent.controlToken, token)) {
+                console.warn(`[mindserver:agent-auth] rejected process connection for ${String(agentName || 'unknown').slice(0, 64)}.`);
+                respond({ ok: false, error: 'Agent control authentication failed.' });
+                return;
             }
+            agent.socket = socket;
+            curAgentName = agentName;
+            agentsStatusUpdate();
+            respond({ ok: true });
         });
 
         socket.on('login-agent', (agentName) => {
-            if (agent_connections[agentName]) {
-                agent_connections[agentName].socket = socket;
-                agent_connections[agentName].in_game = true;
-                curAgentName = agentName;
+            const agent = agent_connections[agentName];
+            if (agent && curAgentName === agentName && agent.socket === socket) {
+                agent.in_game = true;
                 agentsStatusUpdate();
+                emitFleetState();
             }
             else {
-                console.warn(`Unregistered agent ${agentName} tried to login`);
+                console.warn(`[mindserver:agent-auth] rejected login for ${String(agentName || 'unknown').slice(0, 64)}.`);
             }
         });
 
         socket.on('disconnect', () => {
-            if (agent_connections[curAgentName]) {
+            const agent = agent_connections[curAgentName];
+            // A superseded socket must not clear the channel or availability of
+            // the worker that successfully reconnected after it.
+            if (agent?.socket === socket) {
                 console.log(`Agent ${curAgentName} disconnected`);
                 ollamaGateway.cancelAgent(curAgentName);
-                fleetCoordinator.markAgentUnavailable(curAgentName);
-                agent_connections[curAgentName].in_game = false;
-                agent_connections[curAgentName].socket = null;
+                // Mark unavailable before pumping a retry, otherwise the just
+                // disconnected socket can receive its own recovered task.
+                agent.in_game = false;
+                agent.socket = null;
+                fleetCoordinator.markAgentUnavailable(curAgentName, 'Agent control socket disconnected.', agent_connections);
                 agentsStatusUpdate();
+                emitFleetState();
             }
             if (agent_listeners.includes(socket)) {
                 removeListener(socket);
@@ -216,25 +279,38 @@ export function createMindServer(host_public = false, port = 8080) {
         });
 
         socket.on('chat-message', (agentName, json) => {
-            if (!agent_connections[agentName]) {
-                console.warn(`Agent ${agentName} tried to send a message but is not logged in`);
+            const recipient = agent_connections[agentName];
+            if (!curAgentName || !recipient?.socket) {
+                console.warn(`[mindserver:chat] rejected sender=${curAgentName || 'unknown'} recipient=${agentName}: recipient is unavailable.`);
                 return;
             }
-            console.log(`${curAgentName} sending message to ${agentName}: ${json.message}`);
-            agent_connections[agentName].socket.emit('chat-message', curAgentName, json);
+            const message = typeof json?.message === 'string' ? json.message.slice(0, 2000) : '';
+            if (!message) return;
+            console.log(`${curAgentName} sending message to ${agentName}: ${message}`);
+            recipient.socket.emit('chat-message', curAgentName, { ...json, message });
         });
 
-        socket.on('set-agent-settings', (agentName, settings) => {
+        socket.on('set-agent-settings', (agentName, settings, callback) => {
+            const respond = typeof callback === 'function' ? callback : () => {};
             const agent = agent_connections[agentName];
-            if (agent) {
-                agent.setSettings(settings);
-                agent.socket.emit('restart-agent');
-            }
+            if (!agent) return respond({ ok: false, error: `Unknown agent ${agentName}.` });
+            const policy = validateDoomBotsSettings(settings);
+            if (!policy.ok) return respond({ ok: false, error: policy.error });
+            const connectionPolicy = validateConnectionSettings(settings);
+            if (!connectionPolicy.ok) return respond({ ok: false, error: connectionPolicy.error });
+            agent.setSettings(settings);
+            fleetCoordinator.configure(settings.fleet || {});
+            runtimeMetrics.configure(settings.metrics || {});
+            if (agent.socket) agent.socket.emit('restart-agent');
+            respond({ ok: true });
+            emitFleetState(true);
         });
 
         socket.on('restart-agent', (agentName) => {
+            const agent = agent_connections[agentName];
+            if (!agent?.socket) return console.warn(`Cannot restart ${agentName}: control socket is unavailable.`);
             console.log(`Restarting agent: ${agentName}`);
-            agent_connections[agentName].socket.emit('restart-agent');
+            agent.socket.emit('restart-agent');
         });
 
         socket.on('stop-agent', (agentName) => {
@@ -291,21 +367,60 @@ export function createMindServer(host_public = false, port = 8080) {
 
         socket.on('fleet-status', (status) => {
             if (!curAgentName || !agent_connections[curAgentName]) return;
-            fleetCoordinator.updateStatus(curAgentName, status);
-            io.emit('fleet-status', fleetCoordinator.snapshot());
+            fleetCoordinator.updateStatus(curAgentName, status, agent_connections);
+            emitFleetState();
         });
 
         socket.on('fleet-task-request', (request, callback) => {
-            const response = fleetCoordinator.assign({ ...request, requestedBy: curAgentName || 'unknown' }, agent_connections);
-            callback(response);
-            io.emit('fleet-status', fleetCoordinator.snapshot());
+            const respond = typeof callback === 'function' ? callback : () => {};
+            if (!curAgentName || !agent_connections[curAgentName]) {
+                respond({ ok: false, error: 'Only a registered agent can request a fleet task.' });
+                return;
+            }
+            const response = fleetCoordinator.assign({ ...request, requestedBy: curAgentName }, agent_connections);
+            respond(response);
+            emitFleetState();
         });
 
-        socket.on('fleet-task-complete', ({ taskId, success, detail }) => {
-            if (!curAgentName) return;
-            if (fleetCoordinator.complete(curAgentName, taskId, success === true, detail)) {
-                io.emit('fleet-status', fleetCoordinator.snapshot());
+        socket.on('fleet-task-status', (update = {}, callback) => {
+            const respond = typeof callback === 'function' ? callback : () => {};
+            if (!curAgentName) {
+                respond({ ok: false, error: 'Only a registered agent can update a fleet task.' });
+                return;
             }
+            const response = fleetCoordinator.report(
+                curAgentName,
+                update.taskId,
+                update.state,
+                update.detail,
+                { retryable: update.retryable !== false },
+                agent_connections
+            );
+            respond(response);
+            emitFleetState();
+        });
+
+        // Backward-compatible completion event for older dashboard clients.
+        socket.on('fleet-task-complete', ({ taskId, success, detail } = {}) => {
+            if (!curAgentName) return;
+            fleetCoordinator.complete(curAgentName, taskId, success === true, detail, agent_connections);
+            emitFleetState();
+        });
+
+        socket.on('fleet-observation-publish', (observation, callback) => {
+            const respond = typeof callback === 'function' ? callback : () => {};
+            if (!curAgentName || !agent_connections[curAgentName]) {
+                respond({ ok: false, error: 'Only a registered agent can publish observations.' });
+                return;
+            }
+            const response = fleetCoordinator.publishObservation(curAgentName, observation, agent_connections);
+            if (response.ok) {
+                for (const recipient of fleetCoordinator.observationRecipients(response.observation, agent_connections)) {
+                    agent_connections[recipient].socket.emit('fleet-observation', response.observation);
+                }
+            }
+            respond(response);
+            emitFleetState();
         });
 
         socket.on('get-fleet-state', callback => {
@@ -313,6 +428,9 @@ export function createMindServer(host_public = false, port = 8080) {
         });
         socket.on('get-ollama-metrics', callback => {
             if (typeof callback === 'function') callback(ollamaGateway.snapshot());
+        });
+        socket.on('get-runtime-metrics', callback => {
+            if (typeof callback === 'function') callback(getRuntimeMetrics(true));
         });
 
         socket.on('ollama-request', async (request, callback) => {
@@ -329,6 +447,7 @@ export function createMindServer(host_public = false, port = 8080) {
                 respond({ ok: false, error: error.message, code: error.code || 'OLLAMA_GATEWAY_ERROR' });
             } finally {
                 io.emit('ollama-metrics', ollamaGateway.snapshot());
+                io.emit('runtime-metrics', getRuntimeMetrics());
             }
         });
 
@@ -369,34 +488,56 @@ function agentsStatusUpdate(socket) {
 
 
 let listenerInterval = null;
+let statePollInFlight = false;
+const STATE_REQUEST_TIMEOUT_MS = 3000;
+const STATE_POLL_INTERVAL_MS = Math.max(1000, Math.min(10000, Number(process.env.DOOMBOTS_STATE_POLL_MS || 2000)));
+
+function requestAgentState(agentName, agent) {
+    if (!agent?.socket) return Promise.resolve([agentName, { error: 'Agent socket is unavailable.' }]);
+    return new Promise(resolve => {
+        let settled = false;
+        const finish = state => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeout);
+            resolve([agentName, state]);
+        };
+        const timeout = setTimeout(() => finish({ error: `State request timed out after ${STATE_REQUEST_TIMEOUT_MS}ms.` }), STATE_REQUEST_TIMEOUT_MS);
+        try {
+            agent.socket.emit('get-full-state', state => finish(state || { error: 'Agent returned no state.' }));
+        } catch (error) {
+            finish({ error: `State request failed: ${error.message}` });
+        }
+    });
+}
+
+async function broadcastStates() {
+    if (statePollInFlight) return;
+    statePollInFlight = true;
+    try {
+        const entries = Object.entries(agent_connections).filter(([, agent]) => agent.in_game);
+        const results = await Promise.all(entries.map(([agentName, agent]) => requestAgentState(agentName, agent)));
+        const states = Object.fromEntries(results);
+        for (const listener of [...agent_listeners]) listener.emit('state-update', states);
+    } finally {
+        statePollInFlight = false;
+    }
+}
+
 function addListener(listener_socket) {
-    agent_listeners.push(listener_socket);
+    if (!agent_listeners.includes(listener_socket)) agent_listeners.push(listener_socket);
     if (agent_listeners.length === 1) {
-        listenerInterval = setInterval(async () => {
-            const states = {};
-            for (let agentName in agent_connections) {
-                let agent = agent_connections[agentName];
-                if (agent.in_game) {
-                    try {
-                        const state = await new Promise((resolve) => {
-                            agent.socket.emit('get-full-state', (s) => resolve(s));
-                        });
-                        states[agentName] = state;
-                    } catch (e) {
-                        states[agentName] = { error: String(e) };
-                    }
-                }
-            }
-            for (let listener of agent_listeners) {
-                listener.emit('state-update', states);
-            }
-        }, 1000);
+        listenerInterval = setInterval(() => {
+            void broadcastStates();
+        }, STATE_POLL_INTERVAL_MS);
+        void broadcastStates();
     }
 }
 
 function removeListener(listener_socket) {
-    agent_listeners.splice(agent_listeners.indexOf(listener_socket), 1);
-    if (agent_listeners.length === 0) {
+    const index = agent_listeners.indexOf(listener_socket);
+    if (index !== -1) agent_listeners.splice(index, 1);
+    if (agent_listeners.length === 0 && listenerInterval) {
         clearInterval(listenerInterval);
         listenerInterval = null;
     }
@@ -408,3 +549,4 @@ export const getServer = () => server;
 export const numStateListeners = () => agent_listeners.length;
 export const getFleetSnapshot = () => fleetCoordinator.snapshot();
 export const getOllamaMetrics = () => ollamaGateway.snapshot();
+export const getRuntimeMetricsSnapshot = () => getRuntimeMetrics(true);

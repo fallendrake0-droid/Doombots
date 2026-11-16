@@ -81,10 +81,20 @@
         "description": "Per-bot bounded reconnect policy.",
         "default": {"enabled": true, "max_attempts": 8}
     },
+    "fleet": {
+        "type": "object",
+        "description": "Bounded fleet task ownership, retry, timeout, priority, status, and observation policy.",
+        "default": {"max_retries": 2, "task_timeout_ms": 900000}
+    },
+    "metrics": {
+        "type": "object",
+        "description": "Low-overhead runtime metric sampling and retention policy.",
+        "default": {"enabled": true, "sample_interval_ms": 5000, "max_samples": 120}
+    },
     "blocked_actions": {
         "type": "array",
         "description": "List of actions that are blocked",
-        "default": ["!checkBlueprint", "!checkBlueprintLevel", "!getBlueprint", "!getBlueprintLevel"]
+        "default": ["!newAction", "!checkBlueprint", "!checkBlueprintLevel", "!getBlueprint", "!getBlueprintLevel"]
     },
     "relevant_docs_count": {
         "type": "number",

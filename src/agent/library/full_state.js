@@ -106,6 +106,11 @@ export function getFullState(agent) {
             bodyguard: agent.bodyguard?.getStatus() || null,
             combat: agent.combat?.getStatus() || null,
             survival: agent.survival?.getStatus() || null
+        },
+        coordination: {
+            activeTaskId: agent.fleet?.activeTaskId || null,
+            activeTaskType: agent.fleet?.activeTaskType || null,
+            relevantObservationCount: agent.fleet?.getObservations?.().length || 0
         }
     };
 

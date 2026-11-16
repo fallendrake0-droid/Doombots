@@ -56,6 +56,7 @@ export const actionsList = [
         description: 'Force stop all actions and commands that are currently executing.',
         perform: async function (agent) {
             await agent.actions.stop();
+            agent.fleet?.interruptActiveTask('Stopped by an operator.', true);
             agent.clearBotLogs();
             agent.actions.cancelResume();
             agent.bot.emit('idle');
@@ -546,9 +547,46 @@ export const actionsList = [
         perform: async function (agent, type, target, amount) {
             try {
                 const task = await agent.fleet.requestTask(type, target, amount);
-                return `Assigned ${task.type} task ${task.id} to ${task.assignedTo}.`;
+                const assignment = task.assignedTo ? `assigned to ${task.assignedTo}` : 'queued until a suitable bot is available';
+                return `${task.type} task ${task.id} is ${assignment}.`;
             } catch (error) {
                 return `Could not assign squad task: ${error.message}`;
+            }
+        }
+    },
+    {
+        name: '!prioritySquadTask',
+        description: 'Queue a squad task with explicit priority from 0 to 100; higher priority work is assigned first when bots become available.',
+        params: {
+            'type': { type: 'string', description: 'One of guard, escort, defend, or gather.' },
+            'target': { type: 'string', description: 'Player name or block/item target.' },
+            'amount': { type: 'int', description: 'Amount for gather tasks; use 1 for other task types.', domain: [1, 2305] },
+            'priority': { type: 'int', description: 'Task priority from 0 to 100.', domain: [0, 101] }
+        },
+        perform: async function (agent, type, target, amount, priority) {
+            try {
+                const task = await agent.fleet.requestTask(type, target, amount, priority);
+                const assignment = task.assignedTo ? `assigned to ${task.assignedTo}` : 'queued until a suitable bot is available';
+                return `${task.type} task ${task.id} is ${assignment} at priority ${task.priority}.`;
+            } catch (error) {
+                return `Could not queue priority squad task: ${error.message}`;
+            }
+        }
+    },
+    {
+        name: '!squadObserve',
+        description: 'Share a compact resource, hazard, threat, or location observation with relevant DoomBot roles.',
+        params: {
+            'topic': { type: 'string', description: 'One of resource, hazard, threat, or location.' },
+            'key': { type: 'string', description: 'A short observed subject, such as diamond_ore or lava_ravine.' },
+            'detail': { type: 'string', description: 'Short relevant detail only; the current position is attached automatically.' }
+        },
+        perform: async function (agent, topic, key, detail) {
+            try {
+                const observation = await agent.fleet.publishObservation(topic, key, detail);
+                return `Shared ${observation.topic} observation ${observation.key} with relevant crew roles.`;
+            } catch (error) {
+                return `Could not share observation: ${error.message}`;
             }
         }
     },

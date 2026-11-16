@@ -30,18 +30,23 @@ export async function serverInfo(ip, port, timeout = 1000, verbose = false) {
                 return resolve(null);
             }
 
-            // extract version number from modded servers like "Paper 1.21.4"
+            // Extract a protocol version from modded server labels such as
+            // "Paper 1.21.4". A missing label is kept null for Mineflayer
+            // negotiation instead of logged as a misleading modded server.
             const version = response?.version?.name || '';
             const match = String(version).match(/\d+\.\d+(?:\.\d+)?/);
             const numericVersion = match ? match[0] : null;
-            if (numericVersion !== version) {
+            if (numericVersion && numericVersion !== version) {
                 console.log(`Modded server found (${version}), attempting to use ${numericVersion}...`);
             }
 
+            const description = typeof response?.description === 'string'
+                ? response.description
+                : response?.description?.text || 'No description provided.';
             const serverInfo = {
                 host: ip,
                 port,
-                name: response.description.text || 'No description provided.',
+                name: description,
                 ping: response.latency,
                 version: numericVersion
             };
@@ -58,46 +63,48 @@ export async function serverInfo(ip, port, timeout = 1000, verbose = false) {
  * @param {number} timeout - The connection timeout in ms.
  * @returns {Promise<Array>} - A Promise that resolves to an array of server info objects.
  */
-export async function findServers(ip, earlyExit = false, timeout = 100) {
+export async function findServers(ip, earlyExit = false, timeout = 100, options = {}) {
     const servers = [];
-    const startPort = 49000;
-    const endPort = 65000;
+    const startPort = Number.isInteger(options.startPort) ? options.startPort : 49000;
+    const endPort = Number.isInteger(options.endPort) ? options.endPort : 65000;
+    const concurrency = Math.max(1, Math.min(128, Number(options.concurrency || 64)));
+    let nextPort = Math.max(1, startPort);
+    let stopped = false;
 
-    const checkPort = (port) => {
-        return new Promise((resolve) => {
-            const socket = net.createConnection({ host: ip, port, timeout }, () => {
-                socket.end();
-                resolve(port); // Port is open
-            });
-
-            socket.on('error', () => resolve(null)); // Port is closed
-            socket.on('timeout', () => {
-                socket.destroy();
-                resolve(null);
-            });
+    const checkPort = port => new Promise(resolve => {
+        let settled = false;
+        const finish = value => {
+            if (settled) return;
+            settled = true;
+            resolve(value);
+        };
+        const socket = net.createConnection({ host: ip, port, timeout }, () => {
+            socket.end();
+            finish(port);
         });
+        socket.on('error', () => finish(null));
+        socket.on('timeout', () => {
+            socket.destroy();
+            finish(null);
+        });
+    });
+
+    const worker = async () => {
+        while (!stopped) {
+            const port = nextPort++;
+            if (port > endPort) return;
+            const openPort = await checkPort(port);
+            if (!openPort || stopped) continue;
+            const server = await serverInfo(ip, port, Math.max(200, timeout * 2), false);
+            if (!server || stopped) continue;
+            servers.push(server);
+            if (earlyExit) stopped = true;
+        }
     };
 
-    // This supresses a lot of annoying console output from the mc library
-    // TODO: find a better way to do this, it supresses other useful output
-    const originalConsoleLog = console.log;
-    console.log = () => { };
-    
-    for (let port = startPort; port <= endPort; port++) {
-        const openPort = await checkPort(port);
-        if (openPort) {
-            const server = await serverInfo(ip, port, 200, false);
-            if (server) {
-                servers.push(server);
-
-                if (earlyExit) break;
-            }
-        }
-    }
-
-    // Restore console output
-    console.log = originalConsoleLog;
-
+    // Bounded parallel discovery replaces the previous 16,000-port sequential
+    // loop and does not globally mute console logging from unrelated agents.
+    await Promise.all(Array.from({ length: Math.min(concurrency, Math.max(0, endPort - startPort + 1)) }, worker));
     return servers;
 }
 
@@ -145,7 +152,7 @@ export async function getServer(host, port, version) {
     ); // Checks version or parent version (e.g. if 1.7 is supported then 1.7.2 will be allowed)
      if (!isSupported)
         throw new Error(`MC server was found ${serverString}, but version is unsupported. Supported versions are: ${mc.supportedVersions.join(", ")}.`);
-    else if (version !== "auto" && server.version !== version)
+    else if (version !== "auto" && server.version && server.version !== version)
         throw new Error(`MC server was found ${serverString}, but version is incorrect. Expected ${version}, but found ${server.version}. Check the server version in settings.js.`);
     else
         console.log(`MC server found. ${serverString}`);

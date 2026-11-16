@@ -3,6 +3,7 @@ import { AgentProcess } from '../process/agent_process.js';
 import { getServer } from './mcserver.js';
 import open from 'open';
 import { validateDoomBotsSettings } from './model_policy.js';
+import { validateConnectionSettings } from './connection_policy.js';
 
 let mindserver;
 let connected = false;
@@ -41,11 +42,17 @@ export async function createAgent(settings) {
             error: 'Agent name is required in profile'
         };
     }
+    const connectionPolicy = validateConnectionSettings(settings);
+    if (!connectionPolicy.ok) {
+        console.error(`[createAgent:${settings.profile.name}] ${connectionPolicy.error}`);
+        return { success: false, error: connectionPolicy.error };
+    }
     settings = JSON.parse(JSON.stringify(settings));
+    settings.port = Number(settings.port);
     let agent_name = settings.profile.name;
     const agentIndex = agent_count++;
     const viewer_port = 3000 + agentIndex;
-    registerAgent(settings, viewer_port);
+    const agentConnection = registerAgent(settings, viewer_port);
     let load_memory = settings.load_memory || false;
     let init_message = settings.init_message || null;
 
@@ -56,11 +63,15 @@ export async function createAgent(settings) {
             settings.port = server.port;
             settings.minecraft_version = server.version;
         } catch (error) {
-            console.warn(`Error getting server:`, error);
-            if (settings.minecraft_version === "auto") {
-                settings.minecraft_version = null;
+            const message = error?.message || String(error);
+            // A failed ping can be transient, but an explicit protocol/version
+            // rejection is deterministic and should not launch a child that is
+            // guaranteed to fail again.
+            if (/unsupported|version is incorrect/i.test(message)) {
+                throw new Error(`[createAgent:${agent_name}] Minecraft preflight rejected: ${message}`);
             }
-            console.warn(`Attempting to connect anyway...`);
+            if (settings.minecraft_version === 'auto') settings.minecraft_version = null;
+            console.warn(`[createAgent:${agent_name}] preflight unavailable for ${settings.host}:${settings.port}; connecting with Mineflayer negotiation instead: ${message}`);
         }
 
         const agentProcess = new AgentProcess(
@@ -68,7 +79,7 @@ export async function createAgent(settings) {
             mindserver_port,
             settings.reconnect,
             (lifecycle, attempt) => setAgentLifecycle(agent_name, lifecycle, attempt),
-            { logoutAgent }
+            { logoutAgent, agentToken: agentConnection.controlToken }
         );
         agentProcess.start(load_memory, init_message, agentIndex);
         agent_processes[settings.profile.name] = agentProcess;

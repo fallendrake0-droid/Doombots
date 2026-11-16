@@ -9,8 +9,14 @@ const __dirname = path.dirname(__filename);
 // Each model class must export a static `prefix` string.
 const apiMap = await (async () => {
     const map = {};
+    // DoomBots verifies and permits only the local Ollama profile. Avoid
+    // importing every upstream cloud SDK into each of the five child workers
+    // when that focused policy is active. The original multi-provider path is
+    // retained for callers that do not enable this environment flag.
+    const ollamaOnly = process.env.DOOMBOTS_OLLAMA_ONLY === '1';
     const files = (await fs.readdir(__dirname))
-        .filter(f => f.endsWith('.js') && f !== '_model_map.js' && f !== 'prompter.js');
+        .filter(f => f.endsWith('.js') && f !== '_model_map.js' && f !== 'prompter.js')
+        .filter(f => !ollamaOnly || f === 'ollama.js');
     for (const file of files) {
         try {
             const moduleUrl = pathToFileURL(path.join(__dirname, file)).href;

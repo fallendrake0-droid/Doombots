@@ -40,7 +40,7 @@ const argv = yargs(args)
 (async () => {
     try {
         console.log('Connecting to MindServer');
-        await serverProxy.connect(argv.name, argv.port);
+        await serverProxy.connect(argv.name, argv.port, process.env.DOOMBOTS_AGENT_TOKEN);
         console.log('Starting agent');
         const agent = new Agent();
         serverProxy.setAgent(agent);

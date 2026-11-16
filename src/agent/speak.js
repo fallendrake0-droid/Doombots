@@ -2,8 +2,6 @@ import { exec, spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
-import { TTSConfig as gptTTSConfig } from '../models/gpt.js';
-import { TTSConfig as geminiTTSConfig } from '../models/gemini.js';
 
 let speakingQueue = []; // each item: {text, model, audioData, ready}
 let isSpeaking = false;
@@ -26,32 +24,26 @@ export function speak(text, speak_model) {
     if (!isSpeaking) processQueue();
 }
 
-async function fetchRemoteAudio(txt, model) {
-    function getModelUrl(prov) {
-        if (prov === 'openai') return gptTTSConfig.baseUrl;
-        if (prov === 'google') return geminiTTSConfig.baseUrl;
-        return 'https://api.openai.com/v1';
-    }
+async function getTTSConfig(provider) {
+    // Remote TTS is off in the five-bot profile. Lazy loading keeps its cloud
+    // SDKs out of every worker unless an operator explicitly requests speech.
+    if (provider === 'openai') return (await import('../models/gpt.js')).TTSConfig;
+    if (provider === 'google') return (await import('../models/gemini.js')).TTSConfig;
+    throw new Error(`TTS Provider ${provider} is not supported.`);
+}
 
-    let prov, mdl, voice, url;
+async function fetchRemoteAudio(txt, model) {
+    let prov, mdl, voice, configuredUrl;
     if (typeof model === 'string') {
         [prov, mdl, voice] = model.split('/');
-        url = getModelUrl(prov);
     } else {
         prov = model.api;
         mdl = model.model;
         voice = model.voice;
-        url = model.url || getModelUrl(prov);
+        configuredUrl = model.url;
     }
-
-    if (prov === 'openai') {
-        return gptTTSConfig.sendAudioRequest(txt, mdl, voice, url);
-    } else if (prov === 'google') {
-        return geminiTTSConfig.sendAudioRequest(txt, mdl, voice, url);
-    }
-    else {
-        throw new Error(`TTS Provider ${prov} is not supported.`);
-    }
+    const config = await getTTSConfig(prov);
+    return config.sendAudioRequest(txt, mdl, voice, configuredUrl || config.baseUrl);
 }
 
 async function processQueue() {

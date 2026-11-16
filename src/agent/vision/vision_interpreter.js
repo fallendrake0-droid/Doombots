@@ -1,5 +1,4 @@
 import { Vec3 } from 'vec3';
-import { Camera } from "./camera.js";
 import fs from 'fs';
 
 export class VisionInterpreter {
@@ -7,9 +6,24 @@ export class VisionInterpreter {
         this.agent = agent;
         this.allow_vision = allow_vision;
         this.fp = './bots/'+agent.name+'/screenshots/';
-        if (allow_vision) {
-            this.camera = new Camera(agent.bot, this.fp);
-        }
+        this.camera = null;
+        this.visionError = null;
+        this.cameraPromise = allow_vision
+            ? import('./camera.js')
+                .then(({ Camera }) => {
+                    this.camera = new Camera(agent.bot, this.fp);
+                    return this.camera;
+                })
+                .catch(error => {
+                    this.visionError = error;
+                    console.warn(`[vision] Disabled: optional renderer is unavailable (${error.message}).`);
+                    return null;
+                })
+            : Promise.resolve(null);
+    }
+
+    async getCamera() {
+        return this.camera || this.cameraPromise;
     }
 
     async lookAtPlayer(player_name, direction) {
@@ -23,15 +37,17 @@ export class VisionInterpreter {
             return `Could not find player ${player_name}`;
         }
 
+        const camera = await this.getCamera();
+        if (!camera) return `Vision renderer is unavailable: ${this.visionError?.message || 'optional dependency missing.'}`;
         let filename;
         if (direction === 'with') {
             await bot.look(player.yaw, player.pitch);
             result = `Looking in the same direction as ${player_name}\n`;
-            filename = await this.camera.capture();
+            filename = await camera.capture();
         } else {
             await bot.lookAt(new Vec3(player.position.x, player.position.y + player.height, player.position.z));
             result = `Looking at player ${player_name}\n`;
-            filename = await this.camera.capture();
+            filename = await camera.capture();
 
         }
 
@@ -44,10 +60,12 @@ export class VisionInterpreter {
         }
         let result = "";
         const bot = this.agent.bot;
+        const camera = await this.getCamera();
+        if (!camera) return `Vision renderer is unavailable: ${this.visionError?.message || 'optional dependency missing.'}`;
         await bot.lookAt(new Vec3(x, y + 2, z));
         result = `Looking at coordinate ${x}, ${y}, ${z}\n`;
 
-        let filename = await this.camera.capture();
+        const filename = await camera.capture();
 
         return result + `Image analysis: "${await this.analyzeImage(filename)}"`;
     }

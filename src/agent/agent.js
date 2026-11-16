@@ -131,7 +131,10 @@ export class Agent {
         this.bot.once('spawn', async () => {
             try {
                 clearTimeout(spawnTimeout);
-                addBrowserViewer(this.bot, count_id);
+                // Headless DoomBots do not load graphics dependencies. If an
+                // operator explicitly enables the viewer, load it lazily and
+                // keep a missing optional renderer from breaking this worker.
+                void addBrowserViewer(this.bot, count_id);
                 console.log('Initializing vision intepreter...');
                 this.vision_interpreter = new VisionInterpreter(this, settings.allow_vision);
 
@@ -256,11 +259,20 @@ export class Agent {
     }
 
     requestInterrupt() {
+        if (!this.bot) return;
         this.bot.interrupt_code = true;
-        this.bot.stopDigging();
-        this.bot.collectBlock.cancelTask();
-        this.bot.pathfinder.stop();
-        this.bot.pvp.stop();
+        const attempt = (label, operation) => {
+            try {
+                const result = operation?.();
+                if (result?.catch) result.catch(error => console.warn(`[${this.name}] interrupt ${label} failed:`, error.message));
+            } catch (error) {
+                console.warn(`[${this.name}] interrupt ${label} failed:`, error.message);
+            }
+        };
+        attempt('digging', () => this.bot.stopDigging());
+        attempt('collection', () => this.bot.collectBlock?.cancelTask?.());
+        attempt('pathfinder', () => this.bot.pathfinder?.stop?.());
+        attempt('pvp', () => this.bot.pvp?.stop?.());
     }
 
     clearBotLogs() {

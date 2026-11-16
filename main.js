@@ -72,6 +72,10 @@ if (process.env.SETTINGS_JSON) {
 }
 
 
+// Every supported DoomBots profile is the verified local Ollama profile. This
+// flag keeps optional cloud model SDK modules out of each isolated worker.
+process.env.DOOMBOTS_OLLAMA_ONLY = '1';
+
 const ollamaModel = await verifyRequiredOllamaModel();
 if (!ollamaModel.ok) {
     throw new Error(`DoomBots startup refused: ${ollamaModel.error}`);

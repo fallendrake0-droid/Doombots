@@ -18,23 +18,26 @@ class FakeChild extends EventEmitter {
     }
 }
 
-function lifecycleHarness(reconnect = {}) {
+function lifecycleHarness(reconnect = {}, { agentToken = null } = {}) {
     const children = [];
     const timers = [];
     const states = [];
     const loggedOut = [];
+    const spawnCalls = [];
     const process = new AgentProcess('DoomScout', 8080, {
         base_delay_ms: 1,
         max_delay_ms: 1000,
         stable_reset_ms: 1000,
         ...reconnect
     }, (state, attempt) => states.push({ state, attempt }), {
-        spawnFactory: () => {
+        spawnFactory: (...args) => {
+            spawnCalls.push(args);
             const child = new FakeChild();
             children.push(child);
             return child;
         },
         logoutAgent: name => loggedOut.push(name),
+        agentToken,
         setTimeout: (callback, delay) => {
             const timer = { callback, delay, cancelled: false };
             timers.push(timer);
@@ -48,7 +51,7 @@ function lifecycleHarness(reconnect = {}) {
     const flushTimers = () => {
         for (const timer of timers.splice(0)) if (!timer.cancelled) timer.callback();
     };
-    return { process, children, timers, states, loggedOut, flushTimers };
+    return { process, children, timers, states, loggedOut, spawnCalls, flushTimers };
 }
 
 test('agent lifecycle starts one child and a clean exit remains stopped', () => {
@@ -63,6 +66,14 @@ test('agent lifecycle starts one child and a clean exit remains stopped', () => 
     assert.equal(harness.process.state, AgentProcessState.STOPPED);
     assert.deepEqual(harness.loggedOut, ['DoomScout']);
     assert.equal(harness.timers.length, 0);
+});
+
+test('agent lifecycle passes its private control token through child environment only', () => {
+    const harness = lifecycleHarness({}, { agentToken: 'private-control-token' });
+    harness.process.start();
+    const [, args, options] = harness.spawnCalls[0];
+    assert.equal(options.env.DOOMBOTS_AGENT_TOKEN, 'private-control-token');
+    assert.equal(args.includes('private-control-token'), false);
 });
 
 test('agent lifecycle reconnects only the failed bot and caps short-lived retries', () => {

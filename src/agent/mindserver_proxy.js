@@ -16,13 +16,16 @@ class MindServerProxy {
         this.connected = false;
         this.agents = [];
         this.fleetTaskHandlers = [];
+        this.fleetTaskCancelHandlers = [];
+        this.fleetObservationHandlers = [];
         MindServerProxy.instance = this;
     }
 
-    async connect(name, port) {
+    async connect(name, port, agentToken = null) {
         if (this.connected) return;
         
         this.name = name;
+        this.agentToken = agentToken;
         this.socket = io(`http://localhost:${port}`);
 
         await new Promise((resolve, reject) => {
@@ -65,6 +68,22 @@ class MindServerProxy {
             }
         });
 
+        this.socket.on('fleet-task-cancel', (cancel) => {
+            for (const handler of this.fleetTaskCancelHandlers) {
+                Promise.resolve(handler(cancel)).catch(error => {
+                    console.error('Fleet task cancellation handler failed:', error.message);
+                });
+            }
+        });
+
+        this.socket.on('fleet-observation', (observation) => {
+            for (const handler of this.fleetObservationHandlers) {
+                Promise.resolve(handler(observation)).catch(error => {
+                    console.error('Fleet observation handler failed:', error.message);
+                });
+            }
+        });
+
         this.socket.on('restart-agent', (agentName) => {
             console.log(`Restarting agent: ${agentName}`);
             this.agent.cleanKill();
@@ -100,8 +119,11 @@ class MindServerProxy {
                     return reject(new Error(response.error));
                 }
                 setSettings(response.settings);
-                this.socket.emit('connect-agent-process', name);
-                resolve();
+                this.socket.timeout(5000).emit('connect-agent-process', name, this.agentToken, (authError, authResponse) => {
+                    if (authError) return reject(new Error('Agent control authentication timed out.'));
+                    if (!authResponse?.ok) return reject(new Error(authResponse?.error || 'Agent control authentication failed.'));
+                    resolve();
+                });
             });
         });
     }
@@ -132,6 +154,26 @@ class MindServerProxy {
 
     onFleetTask(handler) {
         this.fleetTaskHandlers.push(handler);
+        return () => {
+            const index = this.fleetTaskHandlers.indexOf(handler);
+            if (index !== -1) this.fleetTaskHandlers.splice(index, 1);
+        };
+    }
+
+    onFleetTaskCancel(handler) {
+        this.fleetTaskCancelHandlers.push(handler);
+        return () => {
+            const index = this.fleetTaskCancelHandlers.indexOf(handler);
+            if (index !== -1) this.fleetTaskCancelHandlers.splice(index, 1);
+        };
+    }
+
+    onFleetObservation(handler) {
+        this.fleetObservationHandlers.push(handler);
+        return () => {
+            const index = this.fleetObservationHandlers.indexOf(handler);
+            if (index !== -1) this.fleetObservationHandlers.splice(index, 1);
+        };
     }
 
     reportFleetStatus(status) {
@@ -149,8 +191,23 @@ class MindServerProxy {
         });
     }
 
+    reportFleetTask(update) {
+        if (this.connected && this.socket) this.socket.emit('fleet-task-status', update);
+    }
+
     completeFleetTask(taskId, success, detail = '') {
-        if (this.connected && this.socket) this.socket.emit('fleet-task-complete', { taskId, success, detail });
+        this.reportFleetTask({ taskId, state: success ? 'completed' : 'failed', detail, retryable: !success });
+    }
+
+    publishFleetObservation(observation) {
+        if (!this.connected || !this.socket) return Promise.reject(new Error('MindServer is unavailable.'));
+        return new Promise((resolve, reject) => {
+            this.socket.timeout(5000).emit('fleet-observation-publish', observation, (error, response) => {
+                if (error) return reject(new Error('Fleet observation request timed out.'));
+                if (!response?.ok) return reject(new Error(response?.error || 'Fleet observation was rejected.'));
+                resolve(response.observation);
+            });
+        });
     }
 
     requestOllama(request) {

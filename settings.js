@@ -67,6 +67,30 @@ const settings = {
         "max_delay_ms": 30000,
         "stable_reset_ms": 30000
     },
+    "fleet": {
+        "status_interval_ms": 2000,
+        "status_heartbeat_ms": 10000,
+        "status_ttl_ms": 15000,
+        "task_timeout_ms": 900000,
+        "task_retention_ms": 900000,
+        "max_retries": 2,
+        "retry_delay_ms": 2000,
+        "max_tasks": 64,
+        "max_observations": 96,
+        "observation_ttl_ms": 300000,
+        "task_priorities": { "defend": 90, "guard": 80, "escort": 70, "gather": 40 }
+    },
+    "metrics": {
+        "enabled": true,
+        "sample_interval_ms": 5000,
+        "max_samples": 120,
+        "resource": true,
+        "bot": true,
+        "task": true,
+        "ai_queue": true,
+        "pathfinding": true,
+        "reconnection": true
+    },
     "blocked_actions": [
         "!newAction",
         "!checkBlueprint",

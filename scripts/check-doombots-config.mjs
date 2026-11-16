@@ -29,6 +29,10 @@ check(settings.blocked_actions.includes('!newAction'), 'Low-RAM mode must block 
 check(settings.survival?.clutch?.enabled === true, 'Safety clutching must be enabled.');
 check(settings.bodyguard?.enabled === true, 'Bodyguard mode must be enabled.');
 check(settings.reconnect?.enabled === true, 'Bounded per-bot reconnect must be enabled.');
+check(Number.isInteger(settings.fleet?.max_retries) && settings.fleet.max_retries >= 0 && settings.fleet.max_retries <= 8, 'Fleet max_retries must be bounded from 0 to 8.');
+check(Number.isInteger(settings.fleet?.max_tasks) && settings.fleet.max_tasks >= 1 && settings.fleet.max_tasks <= 512, 'Fleet task retention must be bounded.');
+check(settings.fleet?.task_priorities?.defend > settings.fleet?.task_priorities?.gather, 'Urgent defend tasks must outrank gather tasks.');
+check(settings.metrics?.enabled === true && Number.isInteger(settings.metrics?.max_samples) && settings.metrics.max_samples >= 1 && settings.metrics.max_samples <= 1000, 'Runtime metrics must be enabled with bounded retention.');
 
 const names = new Set();
 for (const [profileIndex, profilePath] of (settings.profiles || []).entries()) {

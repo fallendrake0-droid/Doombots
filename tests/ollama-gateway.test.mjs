@@ -25,6 +25,8 @@ test('Ollama gateway serialises queued requests and records metrics', async () =
     assert.equal(replies.length, 2);
     assert.equal(peak, 1);
     assert.equal(gateway.snapshot().completed, 2);
+    assert.equal(gateway.snapshot().queuePeak, 2);
+    assert.equal(gateway.snapshot().runningPeak, 1);
 });
 
 test('Ollama gateway runs queued high-priority work before lower-priority work', async () => {
@@ -110,6 +112,7 @@ test('Ollama gateway turns slow and failed responses into bounded failures', asy
     assert.equal(timers[0].delay, 1000);
     timers[0].callback();
     await assert.rejects(slowRequest, { code: 'OLLAMA_TIMEOUT' });
+    assert.equal(slowGateway.snapshot().timedOut, 1);
 
     const failedGateway = new OllamaGateway({ fetchImpl: async () => ({ ok: false, status: 503 }) });
     await assert.rejects(
@@ -133,4 +136,5 @@ test('Ollama gateway reports a cancelled in-flight request distinctly', async ()
     });
     gateway.cancelAgent('DoomScout');
     await assert.rejects(request, { code: 'OLLAMA_CANCELLED' });
+    assert.equal(gateway.snapshot().cancelled, 1);
 });

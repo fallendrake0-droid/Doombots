@@ -23,6 +23,7 @@ export class AgentProcess {
         // Mineflayer, Socket.IO, or a real child process.
         this.spawnFactory = dependencies.spawnFactory || spawn;
         this.logoutAgent = dependencies.logoutAgent || (() => {});
+        this.agentToken = dependencies.agentToken || null;
         this.schedule = dependencies.setTimeout || setTimeout;
         this.cancelSchedule = dependencies.clearTimeout || clearTimeout;
         this.logger = dependencies.logger || console;
@@ -67,7 +68,10 @@ export class AgentProcess {
 
         const agentProcess = this.spawnFactory(process.execPath, args, {
             stdio: 'inherit',
-            stderr: 'inherit'
+            stderr: 'inherit',
+            // Keep this ephemeral local credential out of process arguments
+            // and dashboard settings; each worker authenticates its own socket.
+            env: this.agentToken ? { ...process.env, DOOMBOTS_AGENT_TOKEN: this.agentToken } : process.env
         });
         this.process = agentProcess;
         const startedAt = Date.now();
