@@ -61,6 +61,26 @@
         "description": "Whether to allow vision capabilities",
         "default": false
     },
+    "combat": {
+        "type": "object",
+        "description": "Deterministic, server-compatible combat configuration.",
+        "default": {"enabled": true}
+    },
+    "survival": {
+        "type": "object",
+        "description": "Deterministic potion, lava, and fall-clutch safety configuration.",
+        "default": {"enabled": true}
+    },
+    "bodyguard": {
+        "type": "object",
+        "description": "Bodyguard behavior configuration.",
+        "default": {"enabled": true}
+    },
+    "reconnect": {
+        "type": "object",
+        "description": "Per-bot bounded reconnect policy.",
+        "default": {"enabled": true, "max_attempts": 8}
+    },
     "blocked_actions": {
         "type": "array",
         "description": "List of actions that are blocked",

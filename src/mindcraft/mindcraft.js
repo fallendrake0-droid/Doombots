@@ -1,7 +1,8 @@
-import { createMindServer, registerAgent, numStateListeners } from './mindserver.js';
+import { createMindServer, registerAgent, numStateListeners, setAgentLifecycle, logoutAgent } from './mindserver.js';
 import { AgentProcess } from '../process/agent_process.js';
 import { getServer } from './mcserver.js';
 import open from 'open';
+import { validateDoomBotsSettings } from './model_policy.js';
 
 let mindserver;
 let connected = false;
@@ -28,6 +29,11 @@ export async function init(host_public=false, port=8080, auto_open_ui=true) {
 }
 
 export async function createAgent(settings) {
+    const modelPolicy = validateDoomBotsSettings(settings);
+    if (!modelPolicy.ok) {
+        console.error(modelPolicy.error);
+        return { success: false, error: modelPolicy.error };
+    }
     if (!settings.profile.name) {
         console.error('Agent name is required in profile');
         return {
@@ -57,7 +63,13 @@ export async function createAgent(settings) {
             console.warn(`Attempting to connect anyway...`);
         }
 
-        const agentProcess = new AgentProcess(agent_name, mindserver_port);
+        const agentProcess = new AgentProcess(
+            agent_name,
+            mindserver_port,
+            settings.reconnect,
+            (lifecycle, attempt) => setAgentLifecycle(agent_name, lifecycle, attempt),
+            { logoutAgent }
+        );
         agentProcess.start(load_memory, init_message, agentIndex);
         agent_processes[settings.profile.name] = agentProcess;
     } catch (error) {

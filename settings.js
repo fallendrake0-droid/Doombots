@@ -31,6 +31,42 @@ const settings = {
     // Keep the local 0.5B model on safe, built-in Mineflayer commands only.
     "allow_insecure_coding": false,
     "allow_vision": false,
+    "combat": {
+        "enabled": true,
+        "autonomous_defense": false,
+        "allow_player_targets": false,
+        "team_players": [],
+        "legacy_self_defense": false,
+        "attack_range": 3.05,
+        "track_range": 18,
+        "retreat_health": 6,
+        "defensive_equipment": { "enabled": true, "shield_min_range": 3.5, "shield_max_range": 8 },
+        "ranged": { "enabled": true, "min_range": 7, "max_range": 22 }
+    },
+    "survival": {
+        "enabled": true,
+        "health_potion_threshold": 9,
+        "emergency_health_threshold": 5,
+        "drowning_air_threshold": 4,
+        "clutch": {
+            "enabled": true,
+            "strategies": ["water_bucket", "cobweb", "slime_block", "hay_bale"]
+        }
+    },
+    "bodyguard": {
+        "enabled": true,
+        "guard_distance": 3,
+        "threat_radius": 12,
+        "protect_from_players": false,
+        "protect_from_mobs": true
+    },
+    "reconnect": {
+        "enabled": true,
+        "max_attempts": 8,
+        "base_delay_ms": 1000,
+        "max_delay_ms": 30000,
+        "stable_reset_ms": 30000
+    },
     "blocked_actions": [
         "!newAction",
         "!checkBlueprint",

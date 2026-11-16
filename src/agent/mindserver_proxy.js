@@ -15,6 +15,7 @@ class MindServerProxy {
         this.socket = null;
         this.connected = false;
         this.agents = [];
+        this.fleetTaskHandlers = [];
         MindServerProxy.instance = this;
     }
 
@@ -53,6 +54,14 @@ class MindServerProxy {
             if (this.agent?.task) {
                 console.log(this.agent.name, 'updating available agents');
                 this.agent.task.updateAvailableAgents(agents);
+            }
+        });
+
+        this.socket.on('fleet-task', (task) => {
+            for (const handler of this.fleetTaskHandlers) {
+                Promise.resolve(handler(task)).catch(error => {
+                    console.error('Fleet task handler failed:', error.message);
+                });
             }
         });
 
@@ -119,6 +128,45 @@ class MindServerProxy {
 
     getSocket() {
         return this.socket;
+    }
+
+    onFleetTask(handler) {
+        this.fleetTaskHandlers.push(handler);
+    }
+
+    reportFleetStatus(status) {
+        if (this.connected && this.socket) this.socket.emit('fleet-status', status);
+    }
+
+    requestFleetTask(task) {
+        if (!this.connected || !this.socket) return Promise.reject(new Error('MindServer is unavailable.'));
+        return new Promise((resolve, reject) => {
+            this.socket.timeout(5000).emit('fleet-task-request', task, (error, response) => {
+                if (error) return reject(new Error('Fleet coordinator timed out.'));
+                if (!response?.ok) return reject(new Error(response?.error || 'Fleet task was rejected.'));
+                resolve(response.task);
+            });
+        });
+    }
+
+    completeFleetTask(taskId, success, detail = '') {
+        if (this.connected && this.socket) this.socket.emit('fleet-task-complete', { taskId, success, detail });
+    }
+
+    requestOllama(request) {
+        if (!this.connected || !this.socket) return Promise.reject(new Error('MindServer is unavailable for Ollama.'));
+        const timeout = Math.min(125000, Math.max(1000, Number(request.timeoutMs || 45000) + 5000));
+        return new Promise((resolve, reject) => {
+            this.socket.timeout(timeout).emit('ollama-request', request, (error, response) => {
+                if (error) return reject(new Error('Ollama gateway timed out.'));
+                if (!response?.ok) {
+                    const err = new Error(response?.error || 'Ollama gateway request failed.');
+                    err.code = response?.code;
+                    return reject(err);
+                }
+                resolve(response.data);
+            });
+        });
     }
 }
 

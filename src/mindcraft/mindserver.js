@@ -5,6 +5,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import * as mindcraft from './mindcraft.js';
 import { readFileSync } from 'fs';
+import { FleetCoordinator } from './fleet_coordinator.js';
+import { OllamaGateway } from './ollama_gateway.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Mindserver is:
@@ -16,6 +18,8 @@ let io;
 let server;
 const agent_connections = {};
 const agent_listeners = [];
+const fleetCoordinator = new FleetCoordinator();
+const ollamaGateway = new OllamaGateway();
 
 const settings_spec = JSON.parse(readFileSync(path.join(__dirname, 'public/settings_spec.json'), 'utf8'));
 
@@ -26,6 +30,8 @@ class AgentConnection {
         this.in_game = false;
         this.full_state = null;
         this.viewer_port = viewer_port;
+        this.lifecycle = 'connecting';
+        this.reconnect_attempt = 0;
     }
     setSettings(settings) {
         this.settings = settings;
@@ -40,8 +46,18 @@ export function registerAgent(settings, viewer_port) {
 export function logoutAgent(agentName) {
     if (agent_connections[agentName]) {
         agent_connections[agentName].in_game = false;
+        fleetCoordinator.markAgentUnavailable(agentName);
         agentsStatusUpdate();
+        io?.emit('fleet-status', fleetCoordinator.snapshot());
     }
+}
+
+export function setAgentLifecycle(agentName, lifecycle, reconnectAttempt = 0) {
+    const connection = agent_connections[agentName];
+    if (!connection) return;
+    connection.lifecycle = lifecycle;
+    connection.reconnect_attempt = reconnectAttempt;
+    agentsStatusUpdate();
 }
 
 // Initialize the server
@@ -188,6 +204,8 @@ export function createMindServer(host_public = false, port = 8080) {
         socket.on('disconnect', () => {
             if (agent_connections[curAgentName]) {
                 console.log(`Agent ${curAgentName} disconnected`);
+                ollamaGateway.cancelAgent(curAgentName);
+                fleetCoordinator.markAgentUnavailable(curAgentName);
                 agent_connections[curAgentName].in_game = false;
                 agent_connections[curAgentName].socket = null;
                 agentsStatusUpdate();
@@ -271,6 +289,49 @@ export function createMindServer(host_public = false, port = 8080) {
             io.emit('bot-output', agentName, message);
         });
 
+        socket.on('fleet-status', (status) => {
+            if (!curAgentName || !agent_connections[curAgentName]) return;
+            fleetCoordinator.updateStatus(curAgentName, status);
+            io.emit('fleet-status', fleetCoordinator.snapshot());
+        });
+
+        socket.on('fleet-task-request', (request, callback) => {
+            const response = fleetCoordinator.assign({ ...request, requestedBy: curAgentName || 'unknown' }, agent_connections);
+            callback(response);
+            io.emit('fleet-status', fleetCoordinator.snapshot());
+        });
+
+        socket.on('fleet-task-complete', ({ taskId, success, detail }) => {
+            if (!curAgentName) return;
+            if (fleetCoordinator.complete(curAgentName, taskId, success === true, detail)) {
+                io.emit('fleet-status', fleetCoordinator.snapshot());
+            }
+        });
+
+        socket.on('get-fleet-state', callback => {
+            if (typeof callback === 'function') callback(fleetCoordinator.snapshot());
+        });
+        socket.on('get-ollama-metrics', callback => {
+            if (typeof callback === 'function') callback(ollamaGateway.snapshot());
+        });
+
+        socket.on('ollama-request', async (request, callback) => {
+            const respond = typeof callback === 'function' ? callback : () => {};
+            if (!curAgentName || request?.agentName !== curAgentName) {
+                respond({ ok: false, error: 'Unregistered Ollama request.', code: 'OLLAMA_UNREGISTERED' });
+                return;
+            }
+            try {
+                const data = await ollamaGateway.enqueue(request);
+                respond({ ok: true, data });
+            } catch (error) {
+                console.warn(`[ollama-gateway:${curAgentName}] ${error.message}`);
+                respond({ ok: false, error: error.message, code: error.code || 'OLLAMA_GATEWAY_ERROR' });
+            } finally {
+                io.emit('ollama-metrics', ollamaGateway.snapshot());
+            }
+        });
+
         socket.on('listen-to-agents', () => {
             addListener(socket);
         });
@@ -298,7 +359,9 @@ function agentsStatusUpdate(socket) {
             name: agentName, 
             in_game: conn.in_game,
             viewerPort: conn.viewer_port,
-            socket_connected: !!conn.socket
+            socket_connected: !!conn.socket,
+            lifecycle: conn.lifecycle,
+            reconnect_attempt: conn.reconnect_attempt
         });
     };
     socket.emit('agents-status', agents);
@@ -343,3 +406,5 @@ function removeListener(listener_socket) {
 export const getIO = () => io;
 export const getServer = () => server;
 export const numStateListeners = () => agent_listeners.length;
+export const getFleetSnapshot = () => fleetCoordinator.snapshot();
+export const getOllamaMetrics = () => ollamaGateway.snapshot();

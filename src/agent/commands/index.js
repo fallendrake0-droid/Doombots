@@ -234,7 +234,7 @@ const compactCommandNames = new Set([
     '!collectBlocks', '!craftRecipe', '!smeltItem', '!givePlayer', '!putInChest',
     '!takeFromChest', '!attack', '!goToBed', '!useOn', '!placeHere', '!nearbyBlocks',
     '!inventory', '!stats', '!goal', '!endGoal', '!startConversation', '!endConversation',
-    '!setMode'
+    '!setMode', '!bodyguard', '!stopBodyguard', '!usePotion', '!buildStructure', '!squadTask'
 ]);
 
 function getCompactCommandDocs(agent) {

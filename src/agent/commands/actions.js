@@ -1,6 +1,7 @@
 import * as skills from '../library/skills.js';
 import settings from '../settings.js';
 import convoManager from '../conversation.js';
+import { buildStructure } from '../build/build_controller.js';
 
 
 function runAsAction (actionFn, resume = false, timeout = -1) {
@@ -487,6 +488,69 @@ export const actionsList = [
         perform: runAsAction(async (agent) => {
             await skills.goToSurface(agent.bot);
         })
+    },
+    {
+        name: '!bodyguard',
+        description: 'Enter deterministic bodyguard mode for a player. Defends nearby hostile mobs; player defence requires the authorised bodyguard setting.',
+        params: {
+            'player_name': { type: 'string', description: 'The player to protect.' }
+        },
+        perform: async function (agent, player_name) {
+            const result = agent.bodyguard.start(player_name);
+            agent.fleet?.reportStatus();
+            return result.message || result.error;
+        }
+    },
+    {
+        name: '!stopBodyguard',
+        description: 'Stop deterministic bodyguard mode.',
+        perform: async function (agent) {
+            const wasActive = agent.bodyguard.isActive();
+            const message = agent.bodyguard.stop();
+            if (wasActive) agent.fleet?.completeActiveTask(true, message, ['guard', 'escort', 'defend']);
+            return message;
+        }
+    },
+    {
+        name: '!usePotion',
+        description: 'Use an inventory potion by effect name, for example fire_resistance, healing, regeneration, water_breathing, slow_falling, strength, or swiftness.',
+        params: {
+            'effect': { type: 'string', description: 'The desired potion effect name.' }
+        },
+        perform: async function (agent, effect) {
+            const used = await agent.survival.usePotion(effect, 'command');
+            return used ? `Used a ${effect} potion.` : `No usable ${effect} potion was found.`;
+        }
+    },
+    {
+        name: '!buildStructure',
+        description: 'Build a bounded inventory-backed shelter, platform, or tower near the bot using normal block placement.',
+        params: {
+            'structure': { type: 'string', description: 'One of shelter, platform, or tower.' },
+            'material': { type: 'BlockName', description: 'The block material to use.' },
+            'size': { type: 'int', description: 'Structure size from 3 to 9.', domain: [3, 10] }
+        },
+        perform: runAsAction(async (agent, structure, material, size) => {
+            const result = await buildStructure(agent.bot, structure, material, size);
+            skills.log(agent.bot, `Built ${result.placed}/${result.planned} ${material} blocks for ${structure}; ${result.failed} failed.`);
+        }, false, 10)
+    },
+    {
+        name: '!squadTask',
+        description: 'Ask the DoomBots coordinator to assign guard, escort, defend, or gather work to a suitable available bot.',
+        params: {
+            'type': { type: 'string', description: 'One of guard, escort, defend, or gather.' },
+            'target': { type: 'string', description: 'Player name or block/item target.' },
+            'amount': { type: 'int', description: 'Amount for gather tasks; use 1 for other task types.', domain: [1, 2305] }
+        },
+        perform: async function (agent, type, target, amount) {
+            try {
+                const task = await agent.fleet.requestTask(type, target, amount);
+                return `Assigned ${task.type} task ${task.id} to ${task.assignedTo}.`;
+            } catch (error) {
+                return `Could not assign squad task: ${error.message}`;
+            }
+        }
     },
     {
         name: '!useOn',

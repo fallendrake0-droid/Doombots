@@ -10,7 +10,8 @@
                 "num_predict": 96,
                 "temperature": 0.2
             },
-            "keep_alive": "15m"
+            "keep_alive": "15m",
+            "priority": 3
         }
     },
     "embedding": "none",
@@ -19,5 +20,7 @@
     "saving_memory": "Summarize only farms, food stores, useful resources, and assignments in 240 characters. Reply with only the summary. Old memory: $MEMORY Recent: $TO_SUMMARIZE",
     "bot_responder": "Reply only ignore unless the other DoomBot gives a new urgent assignment or asks you to stop.",
     "conversation_examples": [],
-    "coding_examples": []
+    "coding_examples": [],
+    "role": "farmer",
+    "model_digest": "a8b0c5157701"
 }

@@ -101,6 +101,11 @@ export function getFullState(agent) {
         },
         modes: {
             summary: bot.modes.getMiniDocs()
+        },
+        protection: {
+            bodyguard: agent.bodyguard?.getStatus() || null,
+            combat: agent.combat?.getStatus() || null,
+            survival: agent.survival?.getStatus() || null
         }
     };
 

@@ -17,6 +17,11 @@ import settings from './settings.js';
 import { Task } from './tasks/tasks.js';
 import { speak } from './speak.js';
 import { log, validateNameFormat, handleDisconnection } from './connection_handler.js';
+import { CombatController } from './combat/combat_controller.js';
+import { SurvivalController } from './safety/survival_controller.js';
+import { BodyguardController } from './guard/bodyguard_controller.js';
+import { FleetClient } from './fleet/fleet_client.js';
+import { parseActionPlan } from './action_plan.js';
 
 export class Agent {
     async start(load_mem=false, init_message=null, count_id=0) {
@@ -81,14 +86,31 @@ export class Agent {
         this.bot.once('kicked', (reason) => onDisconnect('Kicked', reason));
         this.bot.once('end', (reason) => onDisconnect('Disconnected', reason));
         this.bot.on('error', (err) => {
-            if (String(err).includes('Duplicate') || String(err).includes('ECONNREFUSED')) {
-                 onDisconnect('Error', err);
+            const message = String(err?.message || err);
+            if (/Duplicate|ECONNREFUSED|PartialReadError|packet|protocol|malformed/i.test(message)) {
+                onDisconnect('Error', err);
             } else {
-                 log(this.name, `[LoginGuard] Connection Error: ${String(err)}`);
+                log(this.name, `[LoginGuard] Connection Error: ${message}`);
             }
         });
 
         initModes(this);
+        const combatConfig = {
+            ...(settings.combat || {}),
+            ...(this.prompter.profile.combat || {}),
+            defensive_equipment: {
+                ...(settings.combat?.defensive_equipment || {}),
+                ...(this.prompter.profile.combat?.defensive_equipment || {})
+            },
+            ranged: {
+                ...(settings.combat?.ranged || {}),
+                ...(this.prompter.profile.combat?.ranged || {})
+            }
+        };
+        this.combat = new CombatController(this, combatConfig);
+        this.survival = new SurvivalController(this, settings.survival || {});
+        this.bodyguard = new BodyguardController(this, settings.bodyguard || {});
+        this.fleet = new FleetClient(this);
 
         this.bot.on('login', () => {
             console.log(this.name, 'logged in!');
@@ -139,7 +161,10 @@ export class Agent {
 
             } catch (error) {
                 console.error('Error in spawn event:', error);
-                process.exit(0);
+                // A failed spawn setup is not a clean shutdown. Exit this child
+                // with a retryable code so its bounded lifecycle can recover
+                // without affecting the other four bots.
+                this.cleanKill(`[LoginGuard] Spawn setup failed: ${error.message}`, 1);
             }
         });
     }
@@ -318,6 +343,14 @@ export class Agent {
             if (checkInterrupt()) break;
             let history = this.history.getHistory();
             let res = await this.prompter.promptConvo(history);
+            const actionPlan = parseActionPlan(res, commandExists);
+            if (actionPlan.recognized) {
+                if (!actionPlan.valid) {
+                    this.history.add('system', `Rejected invalid structured action plan: ${actionPlan.error}`);
+                    continue;
+                }
+                res = actionPlan.message ? `${actionPlan.message} ${actionPlan.command}` : actionPlan.command;
+            }
 
             console.log(`${this.name} full response to ${source}: ""${res}""`);
 
@@ -429,6 +462,7 @@ export class Agent {
     }
 
     startEvents() {
+        this.fleet.start();
         // Custom events
         this.bot.on('time', () => {
             if (this.bot.time.timeOfDay == 0)
@@ -453,7 +487,15 @@ export class Agent {
         });
         // Logging callbacks
         this.bot.on('error' , (err) => {
-            console.error('Error event!', err);
+            console.error(`[${this.name}] Mineflayer error:`, err);
+            const message = String(err?.message || err);
+            // Parser/packet failures leave world state unreliable. Restart only
+            // this child process through its bounded lifecycle manager instead
+            // of swallowing the error or terminating the five-bot parent.
+            if (/PartialReadError|packet|protocol|malformed/i.test(message) && !this._disconnectHandled) {
+                this._disconnectHandled = true;
+                this.cleanKill(`[LoginGuard] Protocol error: ${message}`);
+            }
         });
         // Use connection handler for runtime disconnects
         this.bot.on('end', (reason) => {
@@ -518,7 +560,14 @@ export class Agent {
     }
 
     async update(delta) {
-        await this.bot.modes.update();
+        // Deterministic safety and protection run before optional modes and LLM
+        // prompting, so urgent game-state reactions never wait for Ollama.
+        await this.survival?.update();
+        await this.bodyguard?.update();
+        await this.combat?.update();
+        // Do not let look/pathfinding-oriented legacy modes change a bow draw's
+        // aim. Safety has already run above and the draw is short-lived.
+        if (!this.combat?.rangedInFlight) await this.bot.modes.update(this);
         this.self_prompter.update(delta);
         await this.checkTaskDone();
     }
@@ -529,9 +578,21 @@ export class Agent {
     
 
     cleanKill(msg='Killing agent process...', code=1) {
-        this.history.add('system', msg);
-        this.bot.chat(code > 1 ? 'Restarting.': 'Exiting.');
-        this.history.save();
+        this._disconnectHandled = true;
+        this.fleet?.stop();
+        this.bodyguard?.dispose();
+        this.combat?.stop();
+        try {
+            this.history?.add('system', msg);
+            this.history?.save();
+        } catch (error) {
+            console.error(`[${this.name}] failed to save shutdown history:`, error);
+        }
+        try {
+            this.bot?.chat(code === 1 ? 'Restarting.' : 'Exiting.');
+        } catch (error) {
+            console.error(`[${this.name}] failed to send shutdown chat:`, error);
+        }
         process.exit(code);
     }
     async checkTaskDone() {

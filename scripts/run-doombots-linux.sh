@@ -73,6 +73,7 @@ if ! curl --fail --silent --show-error \
 fi
 
 node ./scripts/check-doombots-config.mjs
+node ./scripts/check-ollama-model.mjs
 
 # Each bot inherits this cap. It protects the host while leaving room for one 0.5B
 # model and a small headless Minecraft server inside a 5 GB machine.
@@ -82,6 +83,7 @@ if [[ " ${NODE_OPTIONS:-} " != *" --max-old-space-size="* ]]; then
 fi
 
 export OLLAMA_NUM_PARALLEL="${OLLAMA_NUM_PARALLEL:-1}"
+export DOOMBOTS_OLLAMA_CONCURRENCY="${DOOMBOTS_OLLAMA_CONCURRENCY:-1}"
 export OLLAMA_MAX_LOADED_MODELS="${OLLAMA_MAX_LOADED_MODELS:-1}"
 export OLLAMA_KEEP_ALIVE="${OLLAMA_KEEP_ALIVE:-15m}"
 

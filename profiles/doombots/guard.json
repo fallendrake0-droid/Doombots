@@ -10,7 +10,8 @@
                 "num_predict": 96,
                 "temperature": 0.2
             },
-            "keep_alive": "15m"
+            "keep_alive": "15m",
+            "priority": 10
         }
     },
     "embedding": "none",
@@ -19,5 +20,19 @@
     "saving_memory": "Summarize only threats, defended locations, equipment, and assignments in 240 characters. Reply with only the summary. Old memory: $MEMORY Recent: $TO_SUMMARIZE",
     "bot_responder": "Reply only ignore unless the other DoomBot gives a new urgent assignment or asks you to stop.",
     "conversation_examples": [],
-    "coding_examples": []
+    "coding_examples": [],
+    "role": "guard",
+    "combat": {
+        "autonomous_defense": true,
+        "allow_player_targets": false,
+        "track_range": 20,
+        "attack_range": 3.05,
+        "retreat_health": 7,
+        "ranged": {
+            "enabled": true,
+            "min_range": 7,
+            "max_range": 24
+        }
+    },
+    "model_digest": "a8b0c5157701"
 }

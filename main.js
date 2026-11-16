@@ -3,6 +3,7 @@ import settings from './settings.js';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { readFileSync } from 'fs';
+import { verifyRequiredOllamaModel } from './src/mindcraft/model_policy.js';
 
 function parseArguments() {
     return yargs(hideBin(process.argv))
@@ -70,6 +71,12 @@ if (process.env.SETTINGS_JSON) {
     }
 }
 
+
+const ollamaModel = await verifyRequiredOllamaModel();
+if (!ollamaModel.ok) {
+    throw new Error(`DoomBots startup refused: ${ollamaModel.error}`);
+}
+console.log(`Verified ${ollamaModel.model.name || ollamaModel.model.model} digest ${ollamaModel.model.digest}.`);
 
 Mindcraft.init(false, settings.mindserver_port, settings.auto_open_ui);
 

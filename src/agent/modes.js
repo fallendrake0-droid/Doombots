@@ -329,81 +329,82 @@ async function execute(mode, agent, func, timeout=-1) {
     }
 }
 
-let _agent = null;
-const modes_map = {};
-for (let mode of modes_list) {
-    modes_map[mode.name] = mode;
+function createModeInstances() {
+    // Mode definitions include mutable counters (stuck timers, last entities,
+    // cooldowns). Clone them for every Agent so no bot can inherit another
+    // session's state if execution later moves into a shared process.
+    return modes_list.map(mode => ({
+        ...mode,
+        interrupts: [...mode.interrupts],
+        active: false,
+        paused: false,
+        prev_location: null,
+        prev_dig_block: null,
+        prev_item: null,
+        noticed_at: -1,
+        last_entity: null
+    }));
 }
 
 class ModeController {
-    /*
-    SECURITY WARNING:
-    ModesController must be reference isolated. Do not store references to external objects like `agent`.
-    This object is accessible by LLM generated code, so any stored references are also accessible.
-    This can be used to expose sensitive information by malicious prompters.
-    */
     constructor() {
+        // Keep this object reference-isolated: it is exposed on bot.modes and
+        // may be reachable from optional code-generation environments.
         this.behavior_log = '';
+        this.modes = createModeInstances();
+        this.modeMap = Object.fromEntries(this.modes.map(mode => [mode.name, mode]));
     }
 
     exists(mode_name) {
-        return modes_map[mode_name] != null;
+        return this.modeMap[mode_name] != null;
     }
 
     setOn(mode_name, on) {
-        modes_map[mode_name].on = on;
+        const mode = this.modeMap[mode_name];
+        if (mode) mode.on = on;
     }
 
     isOn(mode_name) {
-        return modes_map[mode_name].on;
+        return this.modeMap[mode_name]?.on === true;
     }
 
     pause(mode_name) {
-        modes_map[mode_name].paused = true;
+        const mode = this.modeMap[mode_name];
+        if (mode) mode.paused = true;
     }
 
     unpause(mode_name) {
-        const mode = modes_map[mode_name];
-        //if  unpause func is defined and mode is currently paused
-        if (mode.unpause && mode.paused) {
-            mode.unpause();
-        }
+        const mode = this.modeMap[mode_name];
+        if (!mode) return;
+        if (mode.unpause && mode.paused) mode.unpause.call(mode);
         mode.paused = false;
     }
 
     unPauseAll() {
-        for (let mode of modes_list) {
+        for (const mode of this.modes) {
             if (mode.paused) console.log(`Unpausing mode ${mode.name}`);
             this.unpause(mode.name);
         }
     }
 
-    getMiniDocs() { // no descriptions
+    getMiniDocs() {
         let res = 'Agent Modes:';
-        for (let mode of modes_list) {
-            let on = mode.on ? 'ON' : 'OFF';
-            res += `\n- ${mode.name}(${on})`;
-        }
+        for (const mode of this.modes) res += `\n- ${mode.name}(${mode.on ? 'ON' : 'OFF'})`;
         return res;
     }
 
     getDocs() {
         let res = 'Agent Modes:';
-        for (let mode of modes_list) {
-            let on = mode.on ? 'ON' : 'OFF';
-            res += `\n- ${mode.name}(${on}): ${mode.description}`;
-        }
+        for (const mode of this.modes) res += `\n- ${mode.name}(${mode.on ? 'ON' : 'OFF'}): ${mode.description}`;
         return res;
     }
 
-    async update() {
-        if (_agent.isIdle()) {
-            this.unPauseAll();
-        }
-        for (let mode of modes_list) {
-            let interruptible = mode.interrupts.some(i => i === 'all') || mode.interrupts.some(i => i === _agent.actions.currentActionLabel);
-            if (mode.on && !mode.paused && !mode.active && (_agent.isIdle() || interruptible)) {
-                await mode.update(_agent);
+    async update(agent) {
+        if (agent.isIdle()) this.unPauseAll();
+        for (const mode of this.modes) {
+            const interruptible = mode.interrupts.includes('all') || mode.interrupts.includes(agent.actions.currentActionLabel);
+            if (mode.on && !mode.paused && !mode.active && (agent.isIdle() || interruptible)) {
+                await mode.update.call(mode, agent);
             }
             if (mode.active) break;
         }
@@ -416,31 +417,25 @@ class ModeController {
     }
 
     getJson() {
-        let res = {};
-        for (let mode of modes_list) {
-            res[mode.name] = mode.on;
-        }
-        return res;
+        return Object.fromEntries(this.modes.map(mode => [mode.name, mode.on]));
     }
 
     loadJson(json) {
-        for (let mode of modes_list) {
-            if (json[mode.name] != undefined) {
-                mode.on = json[mode.name];
-            }
+        for (const mode of this.modes) {
+            if (json[mode.name] !== undefined) mode.on = json[mode.name];
         }
     }
 }
 
 export function initModes(agent) {
-    _agent = agent;
-    // the mode controller is added to the bot object so it is accessible from anywhere the bot is used
     agent.bot.modes = new ModeController();
-    if (agent.task) {
-        agent.bot.restrict_to_inventory = agent.task.restrict_to_inventory;
-    }
-    let modes_json = agent.prompter.getInitModes();
-    if (modes_json) {
-        agent.bot.modes.loadJson(modes_json);
+    if (agent.task) agent.bot.restrict_to_inventory = agent.task.restrict_to_inventory;
+    const modes_json = agent.prompter.getInitModes();
+    if (modes_json) agent.bot.modes.loadJson(modes_json);
+    // The legacy self-defense mode delegates to mineflayer-pvp and competes
+    // with the deterministic controller's target/team/cooldown policy. Keep it
+    // off for DoomBots unless an operator explicitly opts back in.
+    if (settings.combat?.enabled && settings.combat?.legacy_self_defense !== true) {
+        agent.bot.modes.setOn('self_defense', false);
     }
 }
