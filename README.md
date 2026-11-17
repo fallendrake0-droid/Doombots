@@ -153,6 +153,7 @@ Use a direct command when you need a specific outcome:
 
 ```text
 /msg DoomGuard !bodyguard("Steve")
+/msg DoomScout !tpa("Steve")
 /msg DoomScout !squadTask("gather", "oak_log", 32)
 /msg DoomMiner !usePotion("fire_resistance")
 /msg DoomBuilder !buildStructure("shelter", "oak_planks", 5)
@@ -160,8 +161,10 @@ Use a direct command when you need a specific outcome:
 /msg DoomScout !squadObserve("hazard", "lava_ravine", "north of camp")
 ```
 
-`!prioritySquadTask` accepts priority `0`–`100`; higher values are allocated
-first when a compatible worker becomes available. `!squadObserve` shares only
+`!tpa("PlayerName")` sends only a normal `/tpa PlayerName` chat command and
+requires the target/server to accept it; it does not use operator teleport
+commands or force movement. `!prioritySquadTask` accepts priority 0–100; higher
+values are allocated first when a compatible worker becomes available. `!squadObserve` shares only
 compact resource, hazard, threat, or location notes with relevant roles. The
 coordinator rejects stale timestamps and duplicate active objectives, recovers
 interrupted/expired work only up to the configured retry limit, and reports

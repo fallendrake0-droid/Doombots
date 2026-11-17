@@ -94,6 +94,9 @@ and state-flow details.
   reach, line-of-sight, cooldown-aware attacks, pathfinding, shield/equipment,
   retreat, and lightweight projectile lead. It excludes packet exploits,
   critical-hit spoofing, deceptive rotations, and anti-cheat bypasses.
+- `!tpa("PlayerName")` validates a Minecraft username and emits only the
+  ordinary server-plugin `/tpa PlayerName` chat request. It does not send an
+  operator `/tp`, force movement, or accept a request on anyone's behalf.
 - Bodyguard defense is named-player based. Player-versus-player defence remains
   conservative and requires explicit configuration/observed aggression.
 - Survival uses normal inventory and placement operations for food, shield,
@@ -190,7 +193,7 @@ DOOMBOTS_OLLAMA_TIMEOUT_MS=45000 DOOMBOTS_STATE_POLL_MS=3000 npm run start:lowra
 
 ### Tested in this checkout
 
-- `npm run test:unit`: **45 passing** dependency-free Node tests with mocks for task
+- `npm run test:unit`: **46 passing** dependency-free Node tests with mocks for task
   ownership/priority/retry/timeout/observation freshness, retry timer cleanup,
   lifecycle failure/reconnect/cancellation, Ollama queue priority/single-flight/
   timeout/cancellation, runtime metric capping, connection policy, packet guard,

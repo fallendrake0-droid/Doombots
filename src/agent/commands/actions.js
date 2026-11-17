@@ -2,6 +2,7 @@ import * as skills from '../library/skills.js';
 import settings from '../settings.js';
 import convoManager from '../conversation.js';
 import { buildStructure } from '../build/build_controller.js';
+import { buildTpaRequest } from './player_command_policy.js';
 
 
 function runAsAction (actionFn, resume = false, timeout = -1) {
@@ -489,6 +490,23 @@ export const actionsList = [
         perform: runAsAction(async (agent) => {
             await skills.goToSurface(agent.bot);
         })
+    },
+    {
+        name: '!tpa',
+        description: 'Send a normal server-plugin teleport request to a named player. The player/server must accept it; this never forces teleportation.',
+        params: {
+            'player_name': { type: 'string', description: 'Minecraft player name (3–16 letters, numbers, or underscores).' }
+        },
+        perform: async function (agent, player_name) {
+            const request = buildTpaRequest(player_name);
+            if (!request.ok) return `Could not send teleport request: ${request.error}`;
+            if (request.target.toLowerCase() === String(agent.name || agent.bot?.username || '').toLowerCase()) {
+                return 'Could not send teleport request: the target must be another player.';
+            }
+            if (!agent.bot?.chat) return 'Could not send teleport request: the Minecraft chat connection is unavailable.';
+            agent.bot.chat(request.command);
+            return `Sent a teleport request to ${request.target}; it must be accepted by that player or the server.`;
+        }
     },
     {
         name: '!bodyguard',
