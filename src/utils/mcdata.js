@@ -86,7 +86,7 @@ export function initBot(username) {
         auth: settings.auth || 'offline',
         version: targetVersion,
         fakeHost: host,
-        checkTimeoutInterval: 60000,  // 60s keep-alive check (default 30s) — reduces disconnects on slow servers
+        checkTimeoutInterval: 90000,  // 90s keep-alive check (default 30s) — reduces false timeout kicks on slow servers
     };
 
     console.log(`[mcdata] Connecting bot '${username}' to ${options.host}:${options.port} (protocol: ${options.version}, auth: ${options.auth})...`);
@@ -220,13 +220,6 @@ export function initBot(username) {
             bot.collectBlock.setMaxListeners(100);
         }
     } catch {}
-
-    // Ensure keep_alive is answered immediately to prevent 60-second timeouts
-    bot._client.on('keep_alive', (packet) => {
-        try {
-            bot._client.write('keep_alive', { keepAliveId: packet.keepAliveId });
-        } catch {}
-    });
 
     // Handle resource packs immediately so servers do not hang in configuration/joining state
     const handleResourcePack = (data) => {

@@ -18,6 +18,9 @@ import settings from './settings.js';
 import { Task } from './tasks/tasks.js';
 import { speak } from './speak.js';
 import { log, validateNameFormat, handleDisconnection } from './connection_handler.js';
+import * as world from './library/world.js';
+import * as mc from '../utils/mcdata.js';
+import * as skills from './library/skills.js';
 
 export class Agent {
     async start(load_mem=false, init_message=null, count_id=0) {
@@ -518,6 +521,16 @@ export class Agent {
         message = (await handleTranslation(to_translate)).trim() + " " + remaining;
         // newlines are interpreted as separate chats, which triggers spam filters. replace them with spaces
         message = message.replaceAll('\n', ' ');
+        if (message.length > 240) {
+            message = message.substring(0, 240);
+        }
+
+        // Debounce in-game chat to prevent "Kicked for spamming" on strict servers
+        const now = Date.now();
+        if (this._lastChatTime && now - this._lastChatTime < 600) {
+            await new Promise(r => setTimeout(r, 600 - (now - this._lastChatTime)));
+        }
+        this._lastChatTime = Date.now();
 
         if (settings.only_chat_with.length > 0) {
             for (let username of settings.only_chat_with) {
@@ -545,6 +558,21 @@ export class Agent {
             else if (this.bot.time.timeOfDay == 18000)
             this.bot.emit('midnight');
         });
+
+        // Anti-AFK keepalive: subtle micro-rotation every 45s when idle so server does not kick for inactivity
+        const afkInterval = setInterval(() => {
+            if (this._disconnectHandled || !this.bot || !this.bot.entity) {
+                clearInterval(afkInterval);
+                return;
+            }
+            if (this.isIdle()) {
+                try {
+                    const yaw = this.bot.entity.yaw + (Math.random() * 0.2 - 0.1);
+                    const pitch = Math.max(-0.5, Math.min(0.5, this.bot.entity.pitch + (Math.random() * 0.1 - 0.05)));
+                    this.bot.look(yaw, pitch, true).catch(() => {});
+                } catch {}
+            }
+        }, 45000);
 
         let prev_health = this.bot.health;
         this.bot.lastDamageTime = 0;
