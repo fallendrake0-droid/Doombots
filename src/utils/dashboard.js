@@ -59,12 +59,18 @@ export function printDashboard(settings, profileData = {}) {
     }
     const serverTarget = `${host}:${port}`;
     const agentName = profileData.name || settings.profile?.name || 'Doombot';
+    const botCount = Math.max(1, parseInt(settings.bot_count || 5, 10));
+    const squadTitle = botCount > 1 ? `${agentName} (${botCount} Bots Squad)` : agentName;
+
     let modelTarget = profileData.model || settings.profile?.model || 'ollama/qwen2.5:0.5b';
     if (modelTarget.includes('llama-3.3-70b-versatile') && modelTarget.includes('groq')) {
         modelTarget = 'groq/openai/gpt-oss-120b';
     }
     const mindPort = settings.mindserver_port || 8080;
     const protocolVersion = '1.21.4';
+    const viewerActive = settings.render_bot_view !== false;
+    const viewerPortDisplay = botCount > 1 ? `3000-${3000 + botCount - 1}` : '3000';
+    const viewerDisplay = viewerActive ? `http://localhost:3000 (Ports ${viewerPortDisplay})` : 'Disabled';
 
     const BOX_WIDTH = 70;
     const padRow = (content) => {
@@ -85,13 +91,15 @@ ${cyan}${bold}  ██████╗   ██████╗   █████�
   ${cyan}┌${'─'.repeat(BOX_WIDTH + 4)}┐${reset}
 ${padRow(`${bold}${green}🎮 CONTROL CENTER :${reset} ${bold}${cyan}controlcenter:localhost${reset} ${dim}(http://localhost:${mindPort})${reset}`)}
 ${padRow(`${bold}${yellow}🌍 TARGET SERVER  :${reset} ${yellow}${serverTarget}${reset} ${dim}(Protocol: Java ${protocolVersion} • ViaVersion Ready)${reset}`)}
-${padRow(`${bold}${green}🤖 ACTIVE AGENT   :${reset} ${bold}${green}${agentName}${reset}`)}
+${padRow(`${bold}${green}🤖 ACTIVE SQUAD   :${reset} ${bold}${green}${squadTitle}${reset}`)}
 ${padRow(`${bold}${magenta}🧠 AI MODEL       :${reset} ${magenta}${modelTarget}${reset}`)}
 ${padRow(`${bold}${blue}🛡️ LOGIN GUARD    :${reset} ${green}Active${reset} ${dim}(Minecraft 1.21.11 & Geyser / Aternos Bridged)${reset}`)}
-${padRow(`${bold}${cyan}⚡ ENGINE MODE    :${reset} ${green}Fast Response (0ms delay)${reset} ${dim}| Low-Memory (4GB RAM)${reset}`)}
+${padRow(`${bold}${cyan}🌐 3D WORLD VIEW  :${reset} ${cyan}${viewerDisplay}${reset}`)}
+${padRow(`${bold}${yellow}⚡ ENGINE MODE    :${reset} ${green}Fast Response (0ms delay)${reset} ${dim}| Low-Memory (4GB RAM)${reset}`)}
   ${cyan}└${'─'.repeat(BOX_WIDTH + 4)}┘${reset}
   ${bold}${green}✔ Control Center:${reset} ${bold}${cyan}http://localhost:${mindPort}${reset} ${dim}(controlcenter:localhost)${reset}
-  ${dim}💡 Type commands directly in Minecraft chat or control the agent from the web dashboard.${reset}
+  ${bold}${cyan}✔ 3D World View:${reset}  ${bold}${cyan}http://localhost:3000${reset} ${dim}(Interactive 3D Camera & Bot View)${reset}
+  ${dim}💡 Type commands directly in Minecraft chat or control the agents from the web dashboard.${reset}
 `);
 }
 

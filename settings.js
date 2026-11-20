@@ -60,7 +60,10 @@ const settings = {
 
     "chat_ingame": true, // bot responses are shown in minecraft chat
     "language": "en", // translate to/from this language. Supports these language names: https://cloud.google.com/translate/docs/languages
-    "render_bot_view": false, // Keep false on Termux & 4GB Linux to save RAM (show bot's view in browser at localhost:3000, 3001...)
+    "bot_count": 5, // Number of bots to spawn into Minecraft (default: 5)
+    "render_bot_view": true, // Enable 3D World View in browser (http://localhost:3000, 3001...)
+    "viewer_first_person": false, // false for full 3D world orbit view, true for first-person camera
+    "view_distance": 6, // 3D world view render distance in chunks
 
     "allow_insecure_coding": false, // allows newAction command and model can write/run code on your computer. enable at own risk
     "allow_vision": false, // allows vision model to interpret screenshots as inputs (keep false on Termux)

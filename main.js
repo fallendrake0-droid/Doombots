@@ -38,6 +38,16 @@ function parseArguments() {
             type: 'boolean',
             describe: 'Enable fast response mode (minimizes cooldown & latency)'
         })
+        .option('bots', {
+            alias: ['b', 'count'],
+            type: 'number',
+            describe: 'Number of bots to spawn (default: 5)'
+        })
+        .option('viewer', {
+            alias: ['v', 'view'],
+            type: 'boolean',
+            describe: 'Enable 3D world view in browser (default: true)'
+        })
         .option('configure', {
             type: 'boolean',
             describe: 'Run interactive terminal setup to configure API keys and settings'
@@ -72,6 +82,12 @@ if (args['low-memory'] !== undefined) {
 }
 if (args.fast !== undefined) {
     settings.fast_mode = args.fast;
+}
+if (args.bots !== undefined) {
+    settings.bot_count = args.bots;
+}
+if (args.viewer !== undefined) {
+    settings.render_bot_view = args.viewer;
 }
 if (args.host) {
     let rawHost = String(args.host).trim();
@@ -140,6 +156,12 @@ if (process.env.NUM_EXAMPLES) {
 }
 if (process.env.LOG_ALL) {
     settings.log_all_prompts = process.env.LOG_ALL;
+}
+if (process.env.BOT_COUNT) {
+    settings.bot_count = parseInt(process.env.BOT_COUNT, 10);
+}
+if (process.env.RENDER_BOT_VIEW !== undefined) {
+    settings.render_bot_view = process.env.RENDER_BOT_VIEW === 'true';
 }
 if (process.env.SETTINGS_JSON) {
     try {
@@ -213,8 +235,33 @@ if (shouldRunSetup) {
 
 Mindcraft.init(false, settings.mindserver_port, settings.auto_open_ui);
 
-for (let profile of settings.profiles) {
-    const profile_json = JSON.parse(readFileSync(profile, 'utf8'));
-    settings.profile = profile_json;
-    Mindcraft.createAgent(settings);
+const botCount = Math.max(1, parseInt(settings.bot_count || 5, 10));
+const profileList = (settings.profiles && settings.profiles.length > 0) ? settings.profiles : ['./andy.json'];
+
+console.log(`\n\x1b[36m[Doombots]\x1b[0m Spawning ${botCount} autonomous bot(s) into Minecraft...`);
+
+for (let i = 0; i < botCount; i++) {
+    const profilePath = profileList[i % profileList.length];
+    let profileData = {};
+    try {
+        profileData = JSON.parse(readFileSync(profilePath, 'utf8'));
+    } catch {
+        profileData = { name: 'Doombot', model: 'ollama/qwen2.5:0.5b' };
+    }
+
+    const baseName = profileData.name || 'Doombot';
+    const agentName = i === 0 ? baseName : `${baseName}${i + 1}`;
+
+    const agentSettings = JSON.parse(JSON.stringify(settings));
+    agentSettings.profile = {
+        ...profileData,
+        name: agentName
+    };
+
+    await Mindcraft.createAgent(agentSettings);
+
+    if (i < botCount - 1) {
+        // Stagger connections by 2.5 seconds to prevent server connection throttle
+        await new Promise(resolve => setTimeout(resolve, 2500));
+    }
 }

@@ -28,6 +28,7 @@
         "open": "^10.2.0",
         "openai": "^4.4.0",
         "prismarine-item": "^1.15.0",
+        "prismarine-viewer": "^1.32.0",
         "replicate": "^0.29.4",
         "ses": "^1.9.1",
         "socket.io": "^4.7.2",
@@ -38,8 +39,7 @@
     },
     "optionalDependencies": {
         "canvas": "^3.1.0",
-        "node-canvas-webgl": "^0.3.0",
-        "prismarine-viewer": "^1.32.0"
+        "node-canvas-webgl": "^0.3.0"
     },
     "overrides": {
         "canvas": "^3.1.0",

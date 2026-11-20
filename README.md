@@ -178,6 +178,8 @@ npm run start:fast
 
 | Flag | Alias | Description | Example |
 | :--- | :--- | :--- | :--- |
+| `--bots <count>` | `-b`, `--count` | Number of autonomous bots to spawn (default: 5) | `node main.js --bots 5` |
+| `--viewer` | `-v`, `--view` | Enable 3D world view browser stream (default: true) | `node main.js --viewer` |
 | `--host <address>` | | Target Minecraft server hostname/IP and optional port | `--host ZCClanOnTOP.aternos.me:38410` |
 | `--port <port>` | | Target Minecraft server port | `--port 25565` |
 | `--now` | `-y`, `--yes` | Skip startup prompt and connect immediately | `npm start -- --now` |
@@ -186,6 +188,20 @@ npm run start:fast
 | `--low-memory` | | Optimize memory for 4GB RAM, Chromebooks, and Termux | `node main.js --low-memory` |
 | `--profiles <paths...>`| | Specify one or more custom bot profiles | `--profiles ./andy.json` |
 | `--help` | `-h` | Display command-line help | `node main.js --help` |
+
+---
+
+## 🌐 3D Interactive World View
+
+Doombots features an interactive **Three.js 3D World View** powered by Prismarine Viewer:
+- **Direct Web Access**:
+  - Bot 1 (`Doombot`): `http://localhost:3000`
+  - Bot 2 (`Doombot2`): `http://localhost:3001`
+  - Bot 3 (`Doombot3`): `http://localhost:3002`
+  - Bot 4 (`Doombot4`): `http://localhost:3003`
+  - Bot 5 (`Doombot5`): `http://localhost:3004`
+- **Embedded in Dashboard**: View the 3D camera feeds live in the Control Center at `http://localhost:8080`, or click `🌐 3D View` on any bot card to open full-screen in a browser tab.
+- **Controls**: Drag mouse to orbit camera, scroll to zoom, and toggle between third-person world view and first-person perspective.
 
 ---
 

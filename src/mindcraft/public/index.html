@@ -897,9 +897,18 @@
 
         function renderAgentCard(agent) {
             const cfg = agentSettings[agent.name] || {};
-            const showViewer = agent.in_game && cfg.render_bot_view === true;
+            const showViewer = agent.in_game && (cfg.render_bot_view !== false);
+            const viewerHost = window.location.hostname || 'localhost';
             const viewerPort = agent.viewerPort;
-            const viewerHTML = showViewer ? `<div class="agent-view-container"><iframe class="agent-viewer" id="viewer-${agent.name}" src="http://localhost:${viewerPort}"></iframe></div>` : '';
+            const viewerUrl = viewerPort ? `http://${viewerHost}:${viewerPort}` : '';
+            const viewerHTML = (showViewer && viewerUrl) ? `
+                <div class="agent-view-container" style="flex-direction:column;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:#1b2838; padding:3px 6px; font-size:11px; border-radius:4px 4px 0 0;">
+                        <span style="color:#64b5f6; font-weight:bold;">🌐 3D World View</span>
+                        <a href="${viewerUrl}" target="_blank" style="color:#90caf9; text-decoration:none;" title="Open in new full tab">Open Full ↗</a>
+                    </div>
+                    <iframe class="agent-viewer" id="viewer-${agent.name}" src="${viewerUrl}"></iframe>
+                </div>` : '';
             const lastMessage = agentLastMessage[agent.name] || '';
             const invOpen = inventoryOpen[agent.name] === true;
             const invStyle = invOpen ? '' : 'display:none;';
@@ -910,6 +919,7 @@
                                 <span><span class="status-icon ${agent.in_game ? 'online' : 'offline'}">●</span>${agent.name}${agent.socket_connected && !agent.in_game ? '<span style="margin-left:6px;color:#f0ad4e;">joining...</span>' : ''}
                                     <button class="gear-btn" title="Settings" onclick="openAgentSettings('${agent.name}')">⚙</button>
                                     <button class="gear-btn" title="Inventory" onclick="toggleDetails('${agent.name}')">Inventory</button>
+                                    ${viewerUrl ? `<a class="gear-btn" href="${viewerUrl}" target="_blank" title="Open 3D World View in full tab" style="text-decoration:none;">🌐 3D View</a>` : ''}
                                 </span>
                             </div>
                             ${showViewer ? `<div class="cell" style="grid-row: span 3; padding:0;">${viewerHTML}</div>` : ''}
