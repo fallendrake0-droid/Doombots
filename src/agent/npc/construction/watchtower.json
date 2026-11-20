@@ -1,0 +1,55 @@
+{
+    "name": "watchtower",
+    "offset": -1,
+    "blocks": [
+        [
+            ["cobblestone", "cobblestone", "cobblestone", "cobblestone", "cobblestone"],
+            ["cobblestone", "cobblestone", "cobblestone", "cobblestone", "cobblestone"],
+            ["cobblestone", "cobblestone", "cobblestone", "cobblestone", "cobblestone"],
+            ["cobblestone", "cobblestone", "cobblestone", "cobblestone", "cobblestone"],
+            ["cobblestone", "cobblestone", "cobblestone", "cobblestone", "cobblestone"]
+        ],
+        [
+            ["log", "planks", "planks", "planks", "log"],
+            ["planks", "air", "air", "ladder", "planks"],
+            ["planks", "air", "air", "air", "planks"],
+            ["planks", "air", "air", "air", "planks"],
+            ["log", "planks", "door", "planks", "log"]
+        ],
+        [
+            ["log", "planks", "planks", "planks", "log"],
+            ["planks", "air", "air", "ladder", "planks"],
+            ["planks", "air", "air", "air", "planks"],
+            ["planks", "air", "air", "air", "planks"],
+            ["log", "planks", "door", "planks", "log"]
+        ],
+        [
+            ["log", "planks", "planks", "planks", "log"],
+            ["planks", "air", "air", "ladder", "planks"],
+            ["planks", "torch", "air", "torch", "planks"],
+            ["planks", "air", "air", "air", "planks"],
+            ["log", "planks", "planks", "planks", "log"]
+        ],
+        [
+            ["log", "planks", "planks", "planks", "log"],
+            ["planks", "air", "air", "ladder", "planks"],
+            ["planks", "air", "air", "air", "planks"],
+            ["planks", "air", "air", "air", "planks"],
+            ["log", "planks", "planks", "planks", "log"]
+        ],
+        [
+            ["planks", "planks", "planks", "planks", "planks"],
+            ["planks", "planks", "planks", "trapdoor", "planks"],
+            ["planks", "planks", "planks", "planks", "planks"],
+            ["planks", "planks", "planks", "planks", "planks"],
+            ["planks", "planks", "planks", "planks", "planks"]
+        ],
+        [
+            ["cobblestone", "torch", "cobblestone", "torch", "cobblestone"],
+            ["air", "air", "air", "air", "air"],
+            ["cobblestone", "air", "chest", "air", "cobblestone"],
+            ["air", "air", "air", "air", "air"],
+            ["cobblestone", "torch", "cobblestone", "torch", "cobblestone"]
+        ]
+    ]
+}

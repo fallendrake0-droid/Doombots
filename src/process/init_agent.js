@@ -38,6 +38,26 @@ const argv = yargs(args)
     })
     .argv;
 
+// Guard against unhandled socket write EPIPE or ECONNRESET when Minecraft server closes connection
+process.on('uncaughtException', (err) => {
+    const code = err?.code || '';
+    const msg = String(err?.message || err);
+    if (code === 'EPIPE' || code === 'ECONNRESET' || msg.includes('write EPIPE') || msg.includes('ECONNRESET')) {
+        // Socket closed by remote Minecraft server; exit cleanly so supervisor can restart on backoff
+        process.exit(1);
+    }
+    console.error('Unhandled agent exception:', err);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+    const msg = String(reason?.message || reason);
+    if (msg.includes('EPIPE') || msg.includes('ECONNRESET')) {
+        process.exit(1);
+    }
+    console.error('Unhandled rejection:', reason);
+});
+
 (async () => {
     try {
         console.log('Connecting to MindServer');

@@ -35,6 +35,7 @@
             color: var(--text-main);
             padding: 16px 20px 80px 20px;
             min-height: 100vh;
+            transition: background 0.25s ease, color 0.25s ease;
         }
 
         /* Header Navbar */
@@ -57,7 +58,7 @@
             font-size: 1.3rem;
             font-weight: 700;
             letter-spacing: -0.5px;
-            background: linear-gradient(90deg, #58a6ff, #bc8cff);
+            background: linear-gradient(90deg, var(--cyan), var(--purple));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -115,8 +116,8 @@
 
         /* Unified Squad Command Bar */
         .squad-bar {
-            background: linear-gradient(180deg, #161b22 0%, #1a222d 100%);
-            border: 1px solid rgba(88, 166, 255, 0.3);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
             border-radius: 10px;
             padding: 14px 18px;
             margin-bottom: 20px;
@@ -144,7 +145,7 @@
         }
         .squad-input {
             flex: 1;
-            background: #0d1117;
+            background: var(--bg-dark);
             border: 1px solid var(--border);
             color: var(--text-main);
             padding: 9px 12px;
@@ -164,9 +165,9 @@
             flex-wrap: wrap;
         }
         .chip-btn {
-            background: #21262d;
+            background: var(--bg-card-hover);
             border: 1px solid var(--border);
-            color: #c9d1d9;
+            color: var(--text-main);
             padding: 4px 10px;
             border-radius: 15px;
             font-size: 0.78rem;
@@ -174,7 +175,6 @@
             transition: all 0.15s;
         }
         .chip-btn:hover {
-            background: #30363d;
             border-color: var(--cyan);
             color: #fff;
         }
@@ -195,13 +195,13 @@
             text-decoration: none;
         }
         .btn-primary { background: var(--cyan); color: #0d1117; }
-        .btn-primary:hover { background: #79b8ff; }
+        .btn-primary:hover { filter: brightness(1.15); }
         .btn-green { background: var(--green); color: #fff; }
         .btn-green:hover { background: var(--green-hover); }
         .btn-red { background: var(--red); color: #fff; }
         .btn-red:hover { background: var(--red-hover); }
-        .btn-neutral { background: #21262d; border: 1px solid var(--border); color: #c9d1d9; }
-        .btn-neutral:hover { background: #30363d; color: #fff; }
+        .btn-neutral { background: var(--bg-card-hover); border: 1px solid var(--border); color: var(--text-main); }
+        .btn-neutral:hover { border-color: var(--border-hover); color: #fff; }
         .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -241,7 +241,7 @@
             width: 32px;
             height: 32px;
             border-radius: 6px;
-            background: #21262d;
+            background: var(--bg-card-hover);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -255,8 +255,8 @@
             font-size: 0.75rem;
             padding: 2px 8px;
             border-radius: 12px;
-            background: #21262d;
-            color: #8b949e;
+            background: var(--bg-card-hover);
+            color: var(--text-muted);
             font-weight: 600;
             max-width: 150px;
             overflow: hidden;
@@ -271,7 +271,7 @@
         }
         .vital-bar-box {
             flex: 1;
-            background: #21262d;
+            background: var(--bg-card-hover);
             border-radius: 6px;
             padding: 6px 10px;
             border: 1px solid rgba(255,255,255,0.04);
@@ -286,7 +286,7 @@
         }
         .bar-outer {
             height: 6px;
-            background: #0d1117;
+            background: var(--bg-dark);
             border-radius: 3px;
             overflow: hidden;
         }
@@ -306,11 +306,11 @@
             font-size: 0.78rem;
         }
         .stat-badge {
-            background: #0d1117;
+            background: var(--bg-dark);
             border: 1px solid rgba(255,255,255,0.06);
             border-radius: 6px;
             padding: 6px 8px;
-            color: #c9d1d9;
+            color: var(--text-main);
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -319,37 +319,6 @@
             color: var(--text-muted);
             font-weight: 600;
             margin-right: 4px;
-        }
-
-        /* Equipment & Armor Row */
-        .equip-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: #0d1117;
-            border: 1px solid rgba(255,255,255,0.04);
-            border-radius: 6px;
-            padding: 6px 10px;
-        }
-        .armor-grid {
-            display: flex;
-            gap: 4px;
-        }
-        .armor-slot {
-            width: 26px;
-            height: 26px;
-            border-radius: 4px;
-            background: #21262d;
-            border: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.7rem;
-        }
-        .armor-slot img {
-            width: 20px;
-            height: 20px;
-            image-rendering: pixelated;
         }
 
         /* 3D World View Container */
@@ -373,7 +342,7 @@
             top: 0;
             left: 0;
             right: 0;
-            background: rgba(13, 17, 23, 0.8);
+            background: rgba(13, 17, 23, 0.85);
             backdrop-filter: blur(4px);
             padding: 4px 8px;
             display: flex;
@@ -385,12 +354,12 @@
 
         /* Message Balloon */
         .message-balloon {
-            background: #21262d;
+            background: var(--bg-card-hover);
             border-left: 3px solid var(--cyan);
             border-radius: 0 6px 6px 0;
             padding: 6px 10px;
             font-size: 0.8rem;
-            color: #c9d1d9;
+            color: var(--text-main);
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -404,7 +373,7 @@
         }
         .bot-cmd-input {
             flex: 1;
-            background: #0d1117;
+            background: var(--bg-dark);
             border: 1px solid var(--border);
             color: var(--text-main);
             padding: 6px 8px;
@@ -414,7 +383,7 @@
 
         /* Inventory Drawer */
         .inventory-drawer {
-            background: #0d1117;
+            background: var(--bg-dark);
             border: 1px solid var(--border);
             border-radius: 6px;
             padding: 8px;
@@ -427,35 +396,9 @@
             max-height: 150px;
             overflow-y: auto;
         }
-        .inv-slot {
-            width: 42px;
-            height: 42px;
-            background: #21262d;
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
-        .inv-slot img {
-            width: 24px;
-            height: 24px;
-            image-rendering: pixelated;
-        }
-        .inv-count {
-            position: absolute;
-            bottom: 1px;
-            right: 2px;
-            font-size: 0.65rem;
-            font-weight: 700;
-            color: #fff;
-            text-shadow: 1px 1px 1px #000;
-        }
 
-        /* Players & Mobs Section */
-        .players-panel, .server-panel {
+        /* Panels & Cards */
+        .players-panel, .server-panel, .settings-panel, .schematics-panel {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
             gap: 16px;
@@ -480,7 +423,7 @@
             align-items: center;
             justify-content: space-between;
             padding: 8px 12px;
-            background: #0d1117;
+            background: var(--bg-dark);
             border: 1px solid var(--border);
             border-radius: 6px;
             margin-bottom: 8px;
@@ -491,7 +434,7 @@
             gap: 6px;
         }
         .mob-tag {
-            background: #0d1117;
+            background: var(--bg-dark);
             border: 1px solid var(--border);
             padding: 4px 10px;
             border-radius: 15px;
@@ -521,7 +464,7 @@
             width: 40%;
         }
 
-        /* Full 3D View Tab */
+        /* 3D Viewer Full */
         .full-viewer-container {
             width: 100%;
             height: calc(100vh - 240px);
@@ -533,13 +476,129 @@
             position: relative;
         }
 
+        /* Schematics Grid */
+        .schematic-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 14px;
+        }
+        .schematic-card {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: all 0.2s ease;
+        }
+        .schematic-card:hover {
+            border-color: var(--cyan);
+            transform: translateY(-2px);
+        }
+        .schematic-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .schematic-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .schematic-size {
+            font-size: 0.72rem;
+            padding: 2px 6px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-muted);
+        }
+        .schematic-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.35;
+        }
+        .material-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .mat-chip {
+            font-size: 0.7rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--text-main);
+        }
+
+        /* Theme Color Customizer */
+        .theme-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+        }
+        .theme-card {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            position: relative;
+        }
+        .theme-card:hover {
+            border-color: var(--cyan);
+            transform: translateY(-2px);
+        }
+        .theme-card.active {
+            border-color: var(--cyan);
+            box-shadow: 0 0 10px rgba(88, 166, 255, 0.3);
+        }
+        .theme-card.active::after {
+            content: '✓ Active';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--cyan);
+            background: rgba(88, 166, 255, 0.15);
+            padding: 2px 6px;
+            border-radius: 10px;
+        }
+        .theme-name {
+            font-size: 0.85rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .palette-preview {
+            display: flex;
+            gap: 6px;
+        }
+        .palette-dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
         /* Fixed Bottom Action Bar */
         .bottom-bar {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            background: #161b22;
+            background: var(--bg-card);
             border-top: 1px solid var(--border);
             padding: 10px 20px;
             display: flex;
@@ -553,7 +612,7 @@
         .modal-backdrop {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.75);
             backdrop-filter: blur(4px);
             display: none;
             align-items: center;
@@ -561,7 +620,7 @@
             z-index: 1000;
         }
         .modal-box {
-            background: #161b22;
+            background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 10px;
             width: 90%;
@@ -606,7 +665,7 @@
             font-weight: 600;
         }
         .form-group input, .form-group select {
-            background: #0d1117;
+            background: var(--bg-dark);
             border: 1px solid var(--border);
             color: var(--text-main);
             padding: 6px 10px;
@@ -636,12 +695,14 @@
     <nav class="nav-tabs">
         <button class="nav-tab active" onclick="switchTab('squad')">🤖 Squad Overview</button>
         <button class="nav-tab" onclick="switchTab('players')">👤 Players & Mobs</button>
+        <button class="nav-tab" onclick="switchTab('schematics')">📐 Schematics</button>
         <button class="nav-tab" onclick="switchTab('server')">🌍 Server & World</button>
         <button class="nav-tab" onclick="switchTab('viewer3d')">🌐 3D World View</button>
-        <button class="nav-tab" onclick="switchTab('chat')">💬 Live Chat & Cheatsheet</button>
+        <button class="nav-tab" onclick="switchTab('chat')">💬 Live Chat</button>
+        <button class="nav-tab" onclick="switchTab('settings')">⚙️ Settings & Themes</button>
     </nav>
 
-    <!-- ⚡ Unified Squad Command Bar (Always Available on Squad & Chat tabs) -->
+    <!-- ⚡ Unified Squad Command Bar -->
     <section class="squad-bar" id="squadBar">
         <div class="squad-header">
             <span>⚡ Unified Squad Command (One Chat Controls ALL Bots)</span>
@@ -696,7 +757,124 @@
         </div>
     </main>
 
-    <!-- TAB 3: SERVER & WORLD -->
+    <!-- TAB 3: SCHEMATICS & BLUEPRINTS -->
+    <main id="tab-schematics" class="tab-content" style="display:none;">
+        <div class="info-card" style="margin-bottom:16px;">
+            <h3><span>📐</span> Construction Schematics & Autonomous Blueprints</h3>
+            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
+                Choose any pre-built schematic or order the squad to gather materials and construct it autonomously.
+            </p>
+            <div class="schematic-grid">
+                <!-- Dirt Shelter -->
+                <div class="schematic-card">
+                    <div class="schematic-header">
+                        <span class="schematic-title">🏕️ Dirt Shelter</span>
+                        <span class="schematic-size">5 × 6 × 4</span>
+                    </div>
+                    <p class="schematic-desc">Quick emergency bunker with bed, chest, torch, and door. Protects against night mobs.</p>
+                    <div class="material-chips">
+                        <span class="mat-chip">🟫 64 Dirt</span>
+                        <span class="mat-chip">🛏️ 1 Bed</span>
+                        <span class="mat-chip">📦 1 Chest</span>
+                        <span class="mat-chip">🚪 1 Door</span>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('build a dirt shelter')">⚡ Build with Squad</button>
+                </div>
+
+                <!-- Small Wood House -->
+                <div class="schematic-card">
+                    <div class="schematic-header">
+                        <span class="schematic-title">🪵 Small Wood House</span>
+                        <span class="schematic-size">7 × 7 × 5</span>
+                    </div>
+                    <p class="schematic-desc">Cozy starter wooden cabin with oak log corner pillars, plank walls, and pitched roof.</p>
+                    <div class="material-chips">
+                        <span class="mat-chip">🪵 12 Logs</span>
+                        <span class="mat-chip">🪵 52 Planks</span>
+                        <span class="mat-chip">🚪 1 Door</span>
+                        <span class="mat-chip">🕯️ 2 Torches</span>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('build a small wood house')">⚡ Build with Squad</button>
+                </div>
+
+                <!-- Stone Outpost -->
+                <div class="schematic-card">
+                    <div class="schematic-header">
+                        <span class="schematic-title">🏰 Stone Outpost</span>
+                        <span class="schematic-size">7 × 7 × 6</span>
+                    </div>
+                    <p class="schematic-desc">Fortified cobblestone garrison with blast-resistant walls, battlements, and perimeter torches.</p>
+                    <div class="material-chips">
+                        <span class="mat-chip">🪨 68 Cobblestone</span>
+                        <span class="mat-chip">🚪 1 Door</span>
+                        <span class="mat-chip">🕯️ 4 Torches</span>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('build a small stone house')">⚡ Build with Squad</button>
+                </div>
+
+                <!-- Watchtower -->
+                <div class="schematic-card">
+                    <div class="schematic-header">
+                        <span class="schematic-title">🗼 Watchtower</span>
+                        <span class="schematic-size">5 × 5 × 8</span>
+                    </div>
+                    <p class="schematic-desc">Elevated lookout tower with internal ladder climb, top observation platform, and parapet.</p>
+                    <div class="material-chips">
+                        <span class="mat-chip">🪨 48 Cobble</span>
+                        <span class="mat-chip">🪵 32 Planks</span>
+                        <span class="mat-chip">🪜 6 Ladders</span>
+                        <span class="mat-chip">🕯️ 4 Torches</span>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('build a watchtower')">⚡ Build with Squad</button>
+                </div>
+
+                <!-- Crop Farm Plot -->
+                <div class="schematic-card">
+                    <div class="schematic-header">
+                        <span class="schematic-title">🌾 Crop Farm Plot</span>
+                        <span class="schematic-size">5 × 5 × 3</span>
+                    </div>
+                    <p class="schematic-desc">Fenced agricultural grid with central water source and perimeter gate for food production.</p>
+                    <div class="material-chips">
+                        <span class="mat-chip">🟫 24 Dirt</span>
+                        <span class="mat-chip">💧 1 Water</span>
+                        <span class="mat-chip">🪵 16 Fences</span>
+                        <span class="mat-chip">🌾 8 Wheat</span>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('build a farm plot')">⚡ Build with Squad</button>
+                </div>
+
+                <!-- Large Manor -->
+                <div class="schematic-card">
+                    <div class="schematic-header">
+                        <span class="schematic-title">🏛️ Large Manor</span>
+                        <span class="schematic-size">15 × 15 × 10</span>
+                    </div>
+                    <p class="schematic-desc">Grand multi-room stone & timber estate. Bots collaborate to mine resources and construct.</p>
+                    <div class="material-chips">
+                        <span class="mat-chip">🪨 128 Stone</span>
+                        <span class="mat-chip">🪵 96 Planks</span>
+                        <span class="mat-chip">🪟 Glass</span>
+                        <span class="mat-chip">🕯️ Torches</span>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('build a large house')">⚡ Build with Squad</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-card">
+            <h3><span>✨</span> Custom Schematic Builder & Order Generator</h3>
+            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:10px;">
+                Enter any natural language building instruction for the squad:
+            </p>
+            <div style="display:flex; gap:8px;">
+                <input id="customSchematicInput" type="text" class="squad-input" placeholder="e.g. 'Build a 7x7 glass dome with a glowstone center' or 'build a cobblestone bridge'...">
+                <button class="btn btn-primary" onclick="orderCustomBuild()">⚡ Generate & Build</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- TAB 4: SERVER & WORLD -->
     <main id="tab-server" class="tab-content" style="display:none;">
         <div class="server-panel">
             <div class="info-card">
@@ -723,7 +901,7 @@
         </div>
     </main>
 
-    <!-- TAB 4: 3D WORLD VIEW -->
+    <!-- TAB 5: 3D WORLD VIEW -->
     <main id="tab-viewer3d" class="tab-content" style="display:none;">
         <div class="info-card" style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
             <div>
@@ -740,34 +918,34 @@
         </div>
     </main>
 
-    <!-- TAB 5: LIVE CHAT & COMMANDS -->
+    <!-- TAB 6: LIVE CHAT & CHEATSHEET -->
     <main id="tab-chat" class="tab-content" style="display:none;">
         <div class="players-panel">
             <div class="info-card" style="grid-column: 1 / -1;">
                 <h3><span>💬</span> In-Game Command Cheatsheet</h3>
-                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:10px; font-size:0.85rem; color:#c9d1d9;">
-                    <div style="background:#0d1117; padding:10px; border-radius:6px; border:1px solid var(--border);">
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:10px; font-size:0.85rem; color:var(--text-main);">
+                    <div style="background:var(--bg-dark); padding:10px; border-radius:6px; border:1px solid var(--border);">
                         <strong style="color:var(--cyan);">Teleport & Navigation:</strong><br>
                         <code>do /tpa orbryx</code> - Sends /tpa to player<br>
                         <code>follow me</code> - Follows you continuously<br>
                         <code>!goToPlayer orbryx</code> - Navigates to player<br>
                         <code>!stay(-1)</code> - Keeps bot in place
                     </div>
-                    <div style="background:#0d1117; padding:10px; border-radius:6px; border:1px solid var(--border);">
+                    <div style="background:var(--bg-dark); padding:10px; border-radius:6px; border:1px solid var(--border);">
                         <strong style="color:var(--green);">Mining & Gathering:</strong><br>
                         <code>mine logs 10</code> - Gathers nearby logs<br>
                         <code>collect cobblestone 20</code> - Collects stone<br>
                         <code>!pickupNearbyItems</code> - Collects dropped items<br>
                         <code>!clearFurnace</code> - Empties nearest furnace
                     </div>
-                    <div style="background:#0d1117; padding:10px; border-radius:6px; border:1px solid var(--border);">
+                    <div style="background:var(--bg-dark); padding:10px; border-radius:6px; border:1px solid var(--border);">
                         <strong style="color:var(--yellow);">Crafting & Building:</strong><br>
                         <code>craft wooden_pickaxe</code> - Crafts tool<br>
                         <code>craft crafting_table</code> - Makes table<br>
                         <code>build a dirt shelter</code> - Builds structure<br>
                         <code>!placeHere torch</code> - Places torch
                     </div>
-                    <div style="background:#0d1117; padding:10px; border-radius:6px; border:1px solid var(--border);">
+                    <div style="background:var(--bg-dark); padding:10px; border-radius:6px; border:1px solid var(--border);">
                         <strong style="color:var(--red);">Combat & Control:</strong><br>
                         <code>!stop</code> - Forcibly stops current action<br>
                         <code>defend the area</code> - Fights hostile mobs<br>
@@ -775,6 +953,63 @@
                         <code>!givePlayer orbryx wood 5</code> - Drops items
                     </div>
                 </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- TAB 7: SETTINGS & THEMES -->
+    <main id="tab-settings" class="tab-content" style="display:none;">
+        <div class="settings-panel">
+            <div class="info-card" style="grid-column: 1 / -1;">
+                <h3><span>🎨</span> Dashboard Theme & Color Palette</h3>
+                <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:14px;">
+                    Select your preferred visual style. Settings are saved instantly to your browser.
+                </p>
+                <div class="theme-grid" id="themeGridContainer"></div>
+            </div>
+
+            <div class="info-card">
+                <h3><span>⚡</span> Bot Action & Code Generation</h3>
+                <table class="spec-table">
+                    <tr>
+                        <td>Dynamic Code Writing</td>
+                        <td><span class="status-badge online">Enabled (Full Capabilities)</span></td>
+                    </tr>
+                    <tr>
+                        <td>Direct Slash Commands</td>
+                        <td><span class="status-badge online">Active (/tpa, /tp, /spawn)</span></td>
+                    </tr>
+                    <tr>
+                        <td>Auto-Teleport Fallback</td>
+                        <td><span class="status-badge online">Enabled (/tpa &gt; 32 blocks)</span></td>
+                    </tr>
+                    <tr>
+                        <td>Insecure Coding Mode</td>
+                        <td><code>allow_insecure_coding: true</code></td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="info-card">
+                <h3><span>🛡️</span> Connection & Throttle Protection</h3>
+                <table class="spec-table">
+                    <tr>
+                        <td>Aternos Throttle Guard</td>
+                        <td><span class="status-badge online">Active (Staggered 8s)</span></td>
+                    </tr>
+                    <tr>
+                        <td>EPIPE Socket Catch</td>
+                        <td><span class="status-badge online">Active (Zero-Crash)</span></td>
+                    </tr>
+                    <tr>
+                        <td>3D World View Port</td>
+                        <td><code>http://localhost:3000</code></td>
+                    </tr>
+                    <tr>
+                        <td>MindServer Control Port</td>
+                        <td><code>http://localhost:8080</code></td>
+                    </tr>
+                </table>
             </div>
         </div>
     </main>
@@ -840,6 +1075,291 @@
         let currentAgentName = null;
         let settingsSpec = {};
 
+        // 🎨 12 Theme Color Schemes
+        const THEMES = {
+            midnight: {
+                name: 'Midnight Cyber',
+                icon: '🌌',
+                vars: {
+                    '--bg-dark': '#0d1117',
+                    '--bg-card': '#161b22',
+                    '--bg-card-hover': '#1c2128',
+                    '--border': '#30363d',
+                    '--border-hover': '#484f58',
+                    '--text-main': '#f0f6fc',
+                    '--text-muted': '#8b949e',
+                    '--cyan': '#58a6ff',
+                    '--green': '#238636',
+                    '--green-hover': '#2ea043',
+                    '--red': '#da3633',
+                    '--red-hover': '#f85149',
+                    '--yellow': '#d29922',
+                    '--purple': '#bc8cff'
+                },
+                preview: ['#0d1117', '#161b22', '#58a6ff', '#bc8cff']
+            },
+            matrix: {
+                name: 'Matrix Neon',
+                icon: '🟢',
+                vars: {
+                    '--bg-dark': '#040a06',
+                    '--bg-card': '#0a1c10',
+                    '--bg-card-hover': '#0f2918',
+                    '--border': '#154224',
+                    '--border-hover': '#1f6336',
+                    '--text-main': '#e6ffed',
+                    '--text-muted': '#7ee787',
+                    '--cyan': '#00ff66',
+                    '--green': '#2ea043',
+                    '--green-hover': '#3fb950',
+                    '--red': '#f85149',
+                    '--red-hover': '#ff7b72',
+                    '--yellow': '#e3b341',
+                    '--purple': '#39ff14'
+                },
+                preview: ['#040a06', '#0a1c10', '#00ff66', '#39ff14']
+            },
+            dracula: {
+                name: 'Royal Dracula',
+                icon: '🟣',
+                vars: {
+                    '--bg-dark': '#191622',
+                    '--bg-card': '#211d33',
+                    '--bg-card-hover': '#2a2442',
+                    '--border': '#3b325c',
+                    '--border-hover': '#524580',
+                    '--text-main': '#f8f8f2',
+                    '--text-muted': '#a599c2',
+                    '--cyan': '#8be9fd',
+                    '--green': '#50fa7b',
+                    '--green-hover': '#69ff94',
+                    '--red': '#ff5555',
+                    '--red-hover': '#ff6e6e',
+                    '--yellow': '#f1fa8c',
+                    '--purple': '#bd93f9'
+                },
+                preview: ['#191622', '#211d33', '#bd93f9', '#ff79c6']
+            },
+            ocean: {
+                name: 'Ocean Abyss',
+                icon: '🌊',
+                vars: {
+                    '--bg-dark': '#07111e',
+                    '--bg-card': '#0c2138',
+                    '--bg-card-hover': '#112f4f',
+                    '--border': '#1a4066',
+                    '--border-hover': '#245a8f',
+                    '--text-main': '#e0f2fe',
+                    '--text-muted': '#7dd3fc',
+                    '--cyan': '#38bdf8',
+                    '--green': '#2dd4bf',
+                    '--green-hover': '#14b8a6',
+                    '--red': '#f43f5e',
+                    '--red-hover': '#fb7185',
+                    '--yellow': '#facc15',
+                    '--purple': '#818cf8'
+                },
+                preview: ['#07111e', '#0c2138', '#38bdf8', '#2dd4bf']
+            },
+            sunset: {
+                name: 'Sunset Ember',
+                icon: '🌅',
+                vars: {
+                    '--bg-dark': '#161111',
+                    '--bg-card': '#251818',
+                    '--bg-card-hover': '#332020',
+                    '--border': '#482929',
+                    '--border-hover': '#663939',
+                    '--text-main': '#ffedd5',
+                    '--text-muted': '#fdba74',
+                    '--cyan': '#fb923c',
+                    '--green': '#84cc16',
+                    '--green-hover': '#a3e635',
+                    '--red': '#ef4444',
+                    '--red-hover': '#f87171',
+                    '--yellow': '#f59e0b',
+                    '--purple': '#f43f5e'
+                },
+                preview: ['#161111', '#251818', '#fb923c', '#f59e0b']
+            },
+            emerald: {
+                name: 'Emerald Forest',
+                icon: '🌲',
+                vars: {
+                    '--bg-dark': '#08140e',
+                    '--bg-card': '#0f261c',
+                    '--bg-card-hover': '#143627',
+                    '--border': '#1a4a35',
+                    '--border-hover': '#236649',
+                    '--text-main': '#ecfdf5',
+                    '--text-muted': '#6ee7b7',
+                    '--cyan': '#34d399',
+                    '--green': '#10b981',
+                    '--green-hover': '#059669',
+                    '--red': '#f43f5e',
+                    '--red-hover': '#fb7185',
+                    '--yellow': '#fbbf24',
+                    '--purple': '#a7f3d0'
+                },
+                preview: ['#08140e', '#0f261c', '#34d399', '#10b981']
+            },
+            crimson: {
+                name: 'Doom Crimson',
+                icon: '🔴',
+                vars: {
+                    '--bg-dark': '#180b0e',
+                    '--bg-card': '#281116',
+                    '--bg-card-hover': '#38161e',
+                    '--border': '#541e2a',
+                    '--border-hover': '#75283a',
+                    '--text-main': '#ffe4e6',
+                    '--text-muted': '#fda4af',
+                    '--cyan': '#fb7185',
+                    '--green': '#22c55e',
+                    '--green-hover': '#16a34a',
+                    '--red': '#f43f5e',
+                    '--red-hover': '#e11d48',
+                    '--yellow': '#f59e0b',
+                    '--purple': '#e11d48'
+                },
+                preview: ['#180b0e', '#281116', '#fb7185', '#f43f5e']
+            },
+            solarized: {
+                name: 'Solarized Dark',
+                icon: '☀️',
+                vars: {
+                    '--bg-dark': '#00222a',
+                    '--bg-card': '#002b36',
+                    '--bg-card-hover': '#073642',
+                    '--border': '#0e4a59',
+                    '--border-hover': '#155e71',
+                    '--text-main': '#fdf6e3',
+                    '--text-muted': '#93a1a1',
+                    '--cyan': '#2aa198',
+                    '--green': '#859900',
+                    '--green-hover': '#98ad07',
+                    '--red': '#dc322f',
+                    '--red-hover': '#cb4b16',
+                    '--yellow': '#b58900',
+                    '--purple': '#6c71c4'
+                },
+                preview: ['#00222a', '#002b36', '#2aa198', '#b58900']
+            },
+            nordic: {
+                name: 'Nordic Frost',
+                icon: '🪨',
+                vars: {
+                    '--bg-dark': '#14181f',
+                    '--bg-card': '#1e2430',
+                    '--bg-card-hover': '#273040',
+                    '--border': '#333e52',
+                    '--border-hover': '#45536e',
+                    '--text-main': '#eceff4',
+                    '--text-muted': '#d8dee9',
+                    '--cyan': '#88c0d0',
+                    '--green': '#a3be8c',
+                    '--green-hover': '#b8d4a0',
+                    '--red': '#bf616a',
+                    '--red-hover': '#d0747d',
+                    '--yellow': '#ebcb8b',
+                    '--purple': '#b48ead'
+                },
+                preview: ['#14181f', '#1e2430', '#88c0d0', '#81a1c1']
+            },
+            stealth: {
+                name: 'Monochrome Stealth',
+                icon: '🖤',
+                vars: {
+                    '--bg-dark': '#0a0a0a',
+                    '--bg-card': '#141414',
+                    '--bg-card-hover': '#1e1e1e',
+                    '--border': '#2a2a2a',
+                    '--border-hover': '#3d3d3d',
+                    '--text-main': '#f5f5f5',
+                    '--text-muted': '#a3a3a3',
+                    '--cyan': '#ffffff',
+                    '--green': '#22c55e',
+                    '--green-hover': '#16a34a',
+                    '--red': '#ef4444',
+                    '--red-hover': '#dc2626',
+                    '--yellow': '#eab308',
+                    '--purple': '#d4d4d4'
+                },
+                preview: ['#0a0a0a', '#141414', '#ffffff', '#a3a3a3']
+            },
+            aternos: {
+                name: 'Aternos Craft',
+                icon: '🟤',
+                vars: {
+                    '--bg-dark': '#141210',
+                    '--bg-card': '#211c18',
+                    '--bg-card-hover': '#2d2621',
+                    '--border': '#3b322a',
+                    '--border-hover': '#52453a',
+                    '--text-main': '#fef3c7',
+                    '--text-muted': '#d97706',
+                    '--cyan': '#38bdf8',
+                    '--green': '#22c55e',
+                    '--green-hover': '#16a34a',
+                    '--red': '#ef4444',
+                    '--red-hover': '#dc2626',
+                    '--yellow': '#facc15',
+                    '--purple': '#c084fc'
+                },
+                preview: ['#141210', '#211c18', '#facc15', '#38bdf8']
+            },
+            sakura: {
+                name: 'Sakura Blossom',
+                icon: '🌸',
+                vars: {
+                    '--bg-dark': '#181116',
+                    '--bg-card': '#281b25',
+                    '--bg-card-hover': '#362432',
+                    '--border': '#4d3247',
+                    '--border-hover': '#6b4562',
+                    '--text-main': '#fdf2f8',
+                    '--text-muted': '#f472b6',
+                    '--cyan': '#f472b6',
+                    '--green': '#4ade80',
+                    '--green-hover': '#22c55e',
+                    '--red': '#fb7185',
+                    '--red-hover': '#f43f5e',
+                    '--yellow': '#fde047',
+                    '--purple': '#c084fc'
+                },
+                preview: ['#181116', '#281b25', '#f472b6', '#c084fc']
+            }
+        };
+
+        function applyTheme(key) {
+            const theme = THEMES[key];
+            if (!theme) return;
+            const root = document.documentElement;
+            Object.entries(theme.vars).forEach(([prop, val]) => {
+                root.style.setProperty(prop, val);
+            });
+            localStorage.setItem('doombots_theme', key);
+            document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active'));
+            const activeCard = document.getElementById(`themeCard-${key}`);
+            if (activeCard) activeCard.classList.add('active');
+        }
+        window.applyTheme = applyTheme;
+
+        function initThemeGrid() {
+            const container = document.getElementById('themeGridContainer');
+            if (!container) return;
+            const savedKey = localStorage.getItem('doombots_theme') || 'midnight';
+            container.innerHTML = Object.entries(THEMES).map(([key, t]) => `
+                <div class="theme-card ${key === savedKey ? 'active' : ''}" id="themeCard-${key}" onclick="applyTheme('${key}')">
+                    <span class="theme-name">${t.icon} ${t.name}</span>
+                    <div class="palette-preview">
+                        ${t.preview.map(c => `<div class="palette-dot" style="background:${c}"></div>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+            applyTheme(savedKey);
+        }
+
         // Tab Navigation
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
@@ -851,10 +1371,9 @@
             const activeBtn = Array.from(document.querySelectorAll('.nav-tab')).find(b => b.getAttribute('onclick')?.includes(tabId));
             if (activeBtn) activeBtn.classList.add('active');
 
-            // Hide squad command on server/3D tabs to maximize viewing space
             const squadBar = document.getElementById('squadBar');
             if (squadBar) {
-                squadBar.style.display = (tabId === 'viewer3d') ? 'none' : 'block';
+                squadBar.style.display = (tabId === 'viewer3d' || tabId === 'settings') ? 'none' : 'block';
             }
         }
         window.switchTab = switchTab;
@@ -877,6 +1396,15 @@
             socket.emit('send-message-all', { from: 'ADMIN', message: msg });
         }
         window.sendSquadCommand = sendSquadCommand;
+
+        function orderCustomBuild() {
+            const input = document.getElementById('customSchematicInput');
+            const val = input ? input.value.trim() : '';
+            if (!val) return;
+            input.value = '';
+            sendSquadCommand(val);
+        }
+        window.orderCustomBuild = orderCustomBuild;
 
         function sendMessage(n, m) {
             if (!m || !m.trim()) return;
@@ -975,7 +1503,7 @@
                     });
                 }
 
-                // World stats for Tab 3
+                // World stats for Tab 4
                 if (gp.dimension) document.getElementById('worldDimension').textContent = gp.dimension;
                 if (gp.biome) document.getElementById('worldBiome').textContent = gp.biome;
                 if (gp.timeOfDay) document.getElementById('worldTime').textContent = gp.timeOfDay;
@@ -1042,7 +1570,7 @@
                 const viewerHost = window.location.hostname || 'localhost';
                 const viewerPort = agent.viewerPort || (3000 + idx);
                 const viewerUrl = `http://${viewerHost}:${viewerPort}`;
-                const showViewer = agent.in_game && idx === 0; // Primary bot provides 3D stream
+                const showViewer = agent.in_game && idx === 0;
 
                 card.innerHTML = `
                     <div class="card-header">
@@ -1119,7 +1647,6 @@
                 `;
             });
 
-            // Remove disconnected agents
             Array.from(container.children).forEach(el => {
                 const name = el.id.replace('agent-', '');
                 if (!agents.find(a => a.name === name)) el.remove();
@@ -1191,6 +1718,12 @@
             const srvHost = document.getElementById('srvHost');
             if (srvHost) srvHost.textContent = host;
         });
+
+        // Initialize themes on DOM ready
+        window.addEventListener('DOMContentLoaded', () => {
+            initThemeGrid();
+        });
+        initThemeGrid();
     </script>
 </body>
 </html>

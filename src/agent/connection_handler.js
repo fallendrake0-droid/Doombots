@@ -32,6 +32,11 @@ const ERROR_DEFINITIONS = {
         msg: 'Connection Failed: Server is under maintenance or restarting.',
         isFatal: false
     },
+    'throttled': {
+        keywords: ['throttled', 'connection throttled', 'please wait before reconnecting', 'too fast', 'slow down'],
+        msg: 'Connection Throttled: Server connection rate limit reached. LoginGuard will back off and retry automatically.',
+        isFatal: false
+    },
     'network_error': {
         keywords: ['timeout', 'timed out', 'connection lost', 'reset', 'refused', 'keepalive', 'epipe', 'socketclosed', 'econnreset', 'closed', 'enotfound', 'etimedout', 'econnrefused', 'ehostunreach'],
         msg: 'Network Error: Connection timed out, refused, or closed by server.',

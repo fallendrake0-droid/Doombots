@@ -55,20 +55,23 @@ export class AgentProcess {
             this.running = false;
             logoutAgent(this.name);
             
-            if (code > 1) {
+            if (code > 1 && code !== 4) {
                 console.log(`Ending task`);
                 process.exit(code);
             }
 
             if (code !== 0 && signal !== 'SIGINT') {
-                if (Date.now() - last_restart >= 15000) {
+                if (Date.now() - last_restart >= 20000) {
                     this.retryCount = 0;
                 }
 
                 if (this.retryCount < MAX_RETRIES) {
                     this.retryCount++;
-                    const delayMs = Math.min(6000 + (count_id * 3000), 30000);
-                    console.log(`[AgentProcess] Reconnecting in ${delayMs / 1000}s (attempt ${this.retryCount}/${MAX_RETRIES})...`);
+                    // Back off further if throttled by Spigot/Aternos connection rate limiter
+                    const isThrottled = code === 4;
+                    const baseDelay = isThrottled ? 20000 : 10000;
+                    const delayMs = Math.min(baseDelay + (count_id * 4000), 45000);
+                    console.log(`[AgentProcess] Reconnecting in ${delayMs / 1000}s (attempt ${this.retryCount}/${MAX_RETRIES}${isThrottled ? ' - throttle backoff' : ''})...`);
                     setTimeout(() => {
                         this.start(true, 'Agent process restarted.', count_id, this.port);
                     }, delayMs);

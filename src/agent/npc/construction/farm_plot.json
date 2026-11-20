@@ -1,0 +1,27 @@
+{
+    "name": "farm_plot",
+    "offset": -1,
+    "blocks": [
+        [
+            ["dirt", "dirt", "dirt", "dirt", "dirt"],
+            ["dirt", "dirt", "dirt", "dirt", "dirt"],
+            ["dirt", "dirt", "water", "dirt", "dirt"],
+            ["dirt", "dirt", "dirt", "dirt", "dirt"],
+            ["dirt", "dirt", "dirt", "dirt", "dirt"]
+        ],
+        [
+            ["fence", "fence", "fence", "fence", "fence"],
+            ["fence", "wheat", "wheat", "wheat", "fence"],
+            ["fence", "wheat", "air", "wheat", "fence"],
+            ["fence", "wheat", "wheat", "wheat", "fence"],
+            ["fence", "fence", "gate", "fence", "fence"]
+        ],
+        [
+            ["torch", "air", "air", "air", "torch"],
+            ["air", "air", "air", "air", "air"],
+            ["air", "air", "air", "air", "air"],
+            ["air", "air", "air", "air", "air"],
+            ["torch", "air", "air", "air", "torch"]
+        ]
+    ]
+}

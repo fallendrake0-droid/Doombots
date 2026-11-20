@@ -86,7 +86,8 @@ export class Agent {
             // handleDisconnection handles logging to console and server
             const { type, msg } = handleDisconnection(this.name, reason);
             try { this.history.save(); } catch {}
-            setTimeout(() => process.exit(1), 500);
+            const exitCode = (type === 'throttled' || String(reason).toLowerCase().includes('throttled')) ? 4 : 1;
+            setTimeout(() => process.exit(exitCode), 500);
         };
         
         // Bind events
@@ -94,6 +95,10 @@ export class Agent {
         this.bot.once('end', (reason) => onDisconnect('Disconnected', reason));
         this.bot.on('error', (err) => {
             const errStr = String(err?.message || err);
+            if (errStr.includes('EPIPE') || errStr.includes('ECONNRESET')) {
+                // Remote socket was closed; handled gracefully without crash
+                return;
+            }
             if (errStr.includes('Do not have data') || errStr.includes('1.21.11') || errStr.includes('missing-data')) {
                 log(this.name, `[LoginGuard] Handled Minecraft 1.21.11 version mismatch without missing-data error. Reconnecting with compatible Java protocol 1.21.4 for ViaVersion/ViaBackwards/Geyser...`);
                 settings.minecraft_version = '1.21.4';

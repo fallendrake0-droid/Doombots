@@ -123,37 +123,48 @@ export function initBot(username) {
 
     const originalWrite = bot._client.write.bind(bot._client);
     bot._client.write = function(name, data) {
-        if (supportsTickEnd()) {
-            if (name === 'position' || name === 'position_look' || name === 'look' || name === 'flying') {
-                // Validate coordinates and pitch to prevent server invalid movement kicks
-                if (data) {
-                    if (data.x !== undefined && (!Number.isFinite(data.x) || Number.isNaN(data.x))) return;
-                    if (data.y !== undefined && (!Number.isFinite(data.y) || Number.isNaN(data.y))) return;
-                    if (data.z !== undefined && (!Number.isFinite(data.z) || Number.isNaN(data.z))) return;
-                    if (data.pitch !== undefined) {
-                        if (!Number.isFinite(data.pitch) || Number.isNaN(data.pitch)) data.pitch = 0;
-                        else if (data.pitch > 90) data.pitch = 90;
-                        else if (data.pitch < -90) data.pitch = -90;
+        if (!bot._client || bot._client.ended || (bot._client.socket && !bot._client.socket.writable)) {
+            return;
+        }
+        try {
+            if (supportsTickEnd()) {
+                if (name === 'position' || name === 'position_look' || name === 'look' || name === 'flying') {
+                    // Validate coordinates and pitch to prevent server invalid movement kicks
+                    if (data) {
+                        if (data.x !== undefined && (!Number.isFinite(data.x) || Number.isNaN(data.x))) return;
+                        if (data.y !== undefined && (!Number.isFinite(data.y) || Number.isNaN(data.y))) return;
+                        if (data.z !== undefined && (!Number.isFinite(data.z) || Number.isNaN(data.z))) return;
+                        if (data.pitch !== undefined) {
+                            if (!Number.isFinite(data.pitch) || Number.isNaN(data.pitch)) data.pitch = 0;
+                            else if (data.pitch > 90) data.pitch = 90;
+                            else if (data.pitch < -90) data.pitch = -90;
+                        }
+                        if (data.yaw !== undefined && (!Number.isFinite(data.yaw) || Number.isNaN(data.yaw))) {
+                            data.yaw = 0;
+                        }
                     }
-                    if (data.yaw !== undefined && (!Number.isFinite(data.yaw) || Number.isNaN(data.yaw))) {
-                        data.yaw = 0;
-                    }
-                }
 
-                // If a position-bearing packet was already sent during this tick without a tick_end,
-                // close the previous tick first so the server clears its receivedPositionThisTick flag
-                if (sentPositionThisTick) {
-                    try {
-                        originalWrite('tick_end', {});
-                    } catch {}
+                    // If a position-bearing packet was already sent during this tick without a tick_end,
+                    // close the previous tick first so the server clears its receivedPositionThisTick flag
+                    if (sentPositionThisTick) {
+                        try {
+                            originalWrite('tick_end', {});
+                        } catch {}
+                        sentPositionThisTick = false;
+                    }
+                    sentPositionThisTick = true;
+                } else if (name === 'tick_end') {
                     sentPositionThisTick = false;
                 }
-                sentPositionThisTick = true;
-            } else if (name === 'tick_end') {
-                sentPositionThisTick = false;
             }
+            return originalWrite(name, data);
+        } catch (err) {
+            const errStr = String(err?.message || err);
+            if (errStr.includes('EPIPE') || errStr.includes('ECONNRESET') || errStr.includes('ERR_STREAM')) {
+                return;
+            }
+            throw err;
         }
-        return originalWrite(name, data);
     };
 
     const sendTickEnd = () => {
@@ -181,6 +192,8 @@ export function initBot(username) {
             const err = args[0];
             const errStr = err instanceof Error ? err.message : String(err);
             if (
+                errStr.includes('EPIPE') ||
+                errStr.includes('ECONNRESET') ||
                 errStr.includes('PartialReadError') || 
                 errStr.includes('SizeError') || 
                 errStr.includes('deserialization error') ||
@@ -188,8 +201,7 @@ export function initBot(username) {
                 errStr.includes('Failed to decode') ||
                 (errStr.includes('buffer') && errStr.includes('out of range'))
             ) {
-                console.warn('[mcdata] Suppressed non-critical packet error:', errStr.substring(0, 120));
-                return true; // Swallow the error
+                return true; // Swallow non-critical socket disconnect/packet errors
             }
         }
         return originalEmit(event, ...args);
