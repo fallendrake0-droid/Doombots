@@ -110,8 +110,12 @@ export class Ollama {
         let candidateUrls = [this.url];
         if (this.url.includes('127.0.0.1')) {
             candidateUrls.push(this.url.replace('127.0.0.1', 'localhost'));
+            candidateUrls.push('http://100.115.92.26:11434');
+            candidateUrls.push('http://0.0.0.0:11434');
         } else if (this.url.includes('localhost')) {
             candidateUrls.push(this.url.replace('localhost', '127.0.0.1'));
+            candidateUrls.push('http://100.115.92.26:11434');
+            candidateUrls.push('http://0.0.0.0:11434');
         }
 
         let data = null;
