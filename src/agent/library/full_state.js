@@ -86,6 +86,12 @@ export function getFullState(agent) {
             counts: getInventoryCounts(bot),
             stacksUsed: bot.inventory.items().length,
             totalSlots: bot.inventory.slots.length,
+            items: bot.inventory.items().map(it => ({
+                name: it.name,
+                count: it.count,
+                slot: it.slot,
+                displayName: it.displayName || it.name.replace(/_/g, ' ')
+            })),
             equipment: {
                 helmet: helmet ? helmet.name : null,
                 chestplate: chestplate ? chestplate.name : null,

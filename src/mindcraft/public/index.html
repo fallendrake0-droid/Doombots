@@ -33,8 +33,11 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background: var(--bg-dark);
             color: var(--text-main);
-            padding: 16px 20px 80px 20px;
+            padding: 24px 32px 100px 32px;
+            max-width: 1560px;
+            margin: 0 auto;
             min-height: 100vh;
+            line-height: 1.6;
             transition: background 0.25s ease, color 0.25s ease;
         }
 
@@ -45,31 +48,32 @@
             justify-content: space-between;
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 12px 20px;
-            margin-bottom: 16px;
+            border-radius: 14px;
+            padding: 16px 26px;
+            margin-bottom: 22px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
         }
         .header-title {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
         }
         .header-title h1 {
-            font-size: 1.3rem;
-            font-weight: 700;
+            font-size: 1.45rem;
+            font-weight: 800;
             letter-spacing: -0.5px;
             background: linear-gradient(90deg, var(--cyan), var(--purple));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
         .status-badge {
-            font-size: 0.75rem;
-            padding: 3px 8px;
+            font-size: 0.8rem;
+            padding: 4px 10px;
             border-radius: 20px;
             font-weight: 600;
             display: inline-flex;
             align-items: center;
-            gap: 5px;
+            gap: 6px;
         }
         .status-badge.online {
             background: rgba(35, 134, 54, 0.2);
@@ -85,19 +89,19 @@
         /* Navigation Tabs */
         .nav-tabs {
             display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
+            gap: 10px;
+            margin-bottom: 24px;
             border-bottom: 1px solid var(--border);
-            padding-bottom: 8px;
+            padding-bottom: 10px;
             overflow-x: auto;
         }
         .nav-tab {
             background: transparent;
             color: var(--text-muted);
             border: 1px solid transparent;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 0.9rem;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 0.95rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.15s ease;
@@ -118,40 +122,42 @@
         .squad-bar {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 14px 18px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            border-radius: 14px;
+            padding: 20px 26px;
+            margin-bottom: 26px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
         }
         .squad-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }
         .squad-header span {
-            font-size: 0.95rem;
-            font-weight: 700;
+            font-size: 1.1rem;
+            font-weight: 800;
             color: var(--cyan);
         }
         .squad-header small {
             color: var(--text-muted);
-            font-size: 0.8rem;
+            font-size: 0.85rem;
         }
         .squad-input-row {
             display: flex;
-            gap: 8px;
+            gap: 10px;
             align-items: center;
+            flex-wrap: wrap;
         }
         .squad-input {
             flex: 1;
+            min-width: 280px;
             background: var(--bg-dark);
             border: 1px solid var(--border);
             color: var(--text-main);
-            padding: 9px 12px;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            transition: border-color 0.2s;
+            padding: 11px 16px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
         .squad-input:focus {
             outline: none;
@@ -160,105 +166,117 @@
         }
         .quick-chips {
             display: flex;
-            gap: 6px;
-            margin-top: 10px;
+            gap: 8px;
+            margin-top: 14px;
             flex-wrap: wrap;
+            align-items: center;
+        }
+        .chip-label {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-right: 4px;
         }
         .chip-btn {
             background: var(--bg-card-hover);
             border: 1px solid var(--border);
             color: var(--text-main);
-            padding: 4px 10px;
-            border-radius: 15px;
-            font-size: 0.78rem;
+            padding: 6px 14px;
+            border-radius: 18px;
+            font-size: 0.85rem;
+            font-weight: 600;
             cursor: pointer;
             transition: all 0.15s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
         }
         .chip-btn:hover {
             border-color: var(--cyan);
+            background: rgba(88, 166, 255, 0.12);
             color: #fff;
+            transform: translateY(-1px);
         }
 
         /* Buttons */
         .btn {
             border: none;
-            border-radius: 6px;
-            padding: 8px 14px;
+            border-radius: 8px;
+            padding: 10px 16px;
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 0.88rem;
             cursor: pointer;
             transition: all 0.15s ease;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 5px;
+            gap: 6px;
             text-decoration: none;
         }
         .btn-primary { background: var(--cyan); color: #0d1117; }
-        .btn-primary:hover { filter: brightness(1.15); }
+        .btn-primary:hover { filter: brightness(1.15); transform: translateY(-1px); }
         .btn-green { background: var(--green); color: #fff; }
-        .btn-green:hover { background: var(--green-hover); }
+        .btn-green:hover { background: var(--green-hover); transform: translateY(-1px); }
         .btn-red { background: var(--red); color: #fff; }
-        .btn-red:hover { background: var(--red-hover); }
+        .btn-red:hover { background: var(--red-hover); transform: translateY(-1px); }
         .btn-neutral { background: var(--bg-card-hover); border: 1px solid var(--border); color: var(--text-main); }
-        .btn-neutral:hover { border-color: var(--border-hover); color: #fff; }
-        .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
+        .btn-neutral:hover { border-color: var(--border-hover); color: #fff; transform: translateY(-1px); }
+        .btn-sm { padding: 6px 10px; font-size: 0.8rem; border-radius: 6px; }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* Agent Cards Grid */
         .agents-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+            gap: 24px;
         }
         .agent-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 16px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-            transition: border-color 0.2s, transform 0.2s;
+            border-radius: 14px;
+            padding: 22px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+            transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 16px;
         }
         .agent-card:hover {
             border-color: var(--border-hover);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
         }
         .card-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 12px;
         }
         .bot-identity {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
         }
         .bot-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 6px;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
             background: var(--bg-card-hover);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.1rem;
+            font-size: 1.3rem;
         }
         .bot-name {
-            font-size: 1.05rem;
-            font-weight: 700;
+            font-size: 1.2rem;
+            font-weight: 800;
         }
         .action-pill {
-            font-size: 0.75rem;
-            padding: 2px 8px;
-            border-radius: 12px;
+            font-size: 0.8rem;
+            padding: 3px 10px;
+            border-radius: 14px;
             background: var(--bg-card-hover);
             color: var(--text-muted);
             font-weight: 600;
-            max-width: 150px;
+            max-width: 170px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -267,32 +285,32 @@
         /* Health & Hunger Bars */
         .vital-row {
             display: flex;
-            gap: 10px;
+            gap: 12px;
         }
         .vital-bar-box {
             flex: 1;
-            background: var(--bg-card-hover);
-            border-radius: 6px;
-            padding: 6px 10px;
-            border: 1px solid rgba(255,255,255,0.04);
+            background: var(--bg-dark);
+            border-radius: 8px;
+            padding: 8px 12px;
+            border: 1px solid rgba(255,255,255,0.06);
         }
         .vital-label {
             display: flex;
             justify-content: space-between;
-            font-size: 0.72rem;
-            font-weight: 600;
+            font-size: 0.78rem;
+            font-weight: 700;
             color: var(--text-muted);
-            margin-bottom: 4px;
+            margin-bottom: 6px;
         }
         .bar-outer {
-            height: 6px;
-            background: var(--bg-dark);
-            border-radius: 3px;
+            height: 8px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 4px;
             overflow: hidden;
         }
         .bar-inner {
             height: 100%;
-            border-radius: 3px;
+            border-radius: 4px;
             transition: width 0.3s ease;
         }
         .bar-inner.health { background: linear-gradient(90deg, #f85149, #3fb950); }
@@ -302,14 +320,14 @@
         .stats-badge-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 6px;
-            font-size: 0.78rem;
+            gap: 8px;
+            font-size: 0.82rem;
         }
         .stat-badge {
             background: var(--bg-dark);
             border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 6px;
-            padding: 6px 8px;
+            border-radius: 8px;
+            padding: 8px 12px;
             color: var(--text-main);
             overflow: hidden;
             text-overflow: ellipsis;
@@ -318,15 +336,15 @@
         .stat-badge strong {
             color: var(--text-muted);
             font-weight: 600;
-            margin-right: 4px;
+            margin-right: 6px;
         }
 
         /* 3D World View Container */
         .viewer-box {
             position: relative;
             width: 100%;
-            height: 220px;
-            border-radius: 6px;
+            height: 250px;
+            border-radius: 10px;
             overflow: hidden;
             border: 1px solid var(--border);
             background: #000;
@@ -344,31 +362,133 @@
             right: 0;
             background: rgba(13, 17, 23, 0.85);
             backdrop-filter: blur(4px);
-            padding: 4px 8px;
+            padding: 6px 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 0.75rem;
+            font-size: 0.8rem;
             z-index: 10;
+        }
+
+        /* Inventory Drawer & Visual Cards */
+        .inventory-section {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .inventory-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+        }
+        .inv-count-pill {
+            background: rgba(88, 166, 255, 0.15);
+            color: var(--cyan);
+            border: 1px solid rgba(88, 166, 255, 0.3);
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+        .equip-row {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .equip-badge {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .equip-weapon {
+            border-color: rgba(63, 185, 80, 0.4);
+            color: #7ee787;
+        }
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+            gap: 6px;
+            max-height: 180px;
+            overflow-y: auto;
+            padding: 4px 0;
+        }
+        .inv-item-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+            transition: transform 0.15s, border-color 0.15s;
+        }
+        .inv-item-card:hover {
+            transform: translateY(-1px);
+            border-color: var(--cyan);
+        }
+        .inv-item-icon {
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+        .inv-item-info {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-width: 0;
+        }
+        .inv-item-name {
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-main);
+        }
+        .inv-item-count {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--yellow);
+        }
+        .empty-inv-msg {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            padding: 10px;
+            text-align: center;
+            grid-column: 1 / -1;
         }
 
         /* Message Balloon */
         .message-balloon {
-            background: var(--bg-card-hover);
-            border-left: 3px solid var(--cyan);
-            border-radius: 0 6px 6px 0;
-            padding: 6px 10px;
-            font-size: 0.8rem;
+            background: var(--bg-dark);
+            border-left: 4px solid var(--cyan);
+            border-radius: 0 8px 8px 0;
+            padding: 10px 14px;
+            font-size: 0.88rem;
             color: var(--text-main);
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            line-height: 1.4;
         }
 
         /* Individual Bot Input Row */
         .bot-cmd-row {
             display: flex;
-            gap: 6px;
+            gap: 8px;
             margin-top: 4px;
         }
         .bot-cmd-input {
@@ -376,47 +496,32 @@
             background: var(--bg-dark);
             border: 1px solid var(--border);
             color: var(--text-main);
-            padding: 6px 8px;
-            border-radius: 4px;
-            font-size: 0.8rem;
-        }
-
-        /* Inventory Drawer */
-        .inventory-drawer {
-            background: var(--bg-dark);
-            border: 1px solid var(--border);
+            padding: 8px 12px;
             border-radius: 6px;
-            padding: 8px;
-            margin-top: 4px;
-        }
-        .inventory-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
-            gap: 4px;
-            max-height: 150px;
-            overflow-y: auto;
+            font-size: 0.85rem;
         }
 
         /* Panels & Cards */
         .players-panel, .server-panel, .settings-panel, .schematics-panel {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 24px;
         }
         .info-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 16px;
+            border-radius: 14px;
+            padding: 22px 26px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.2);
         }
         .info-card h3 {
-            font-size: 1rem;
-            font-weight: 700;
-            margin-bottom: 12px;
+            font-size: 1.15rem;
+            font-weight: 800;
+            margin-bottom: 14px;
             color: var(--cyan);
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
         }
         .player-row {
             display: flex;
@@ -716,14 +821,15 @@
             <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('!stay(-1)')">⏸ Stay Still</button>
         </div>
         <div class="quick-chips">
-            <span style="font-size:0.75rem; color:var(--text-muted); align-self:center;">Quick Actions:</span>
-            <button class="chip-btn" onclick="sendSquadCommand('do /tpa orbryx')">📍 /tpa orbryx</button>
+            <span class="chip-label">⚡ Instant Actions:</span>
+            <button class="chip-btn" onclick="sendSquadCommand('/tpa orbryx')">📍 /tpa orbryx</button>
             <button class="chip-btn" onclick="sendSquadCommand('mine logs')">🌲 Mine Logs</button>
             <button class="chip-btn" onclick="sendSquadCommand('craft wooden_pickaxe')">⛏️ Craft Pickaxe</button>
-            <button class="chip-btn" onclick="sendSquadCommand('follow me')">🏃 Follow Me</button>
+            <button class="chip-btn" onclick="sendSquadCommand('follow orbryx')">🏃 Follow orbryx</button>
             <button class="chip-btn" onclick="sendSquadCommand('defend the area')">⚔️ Defend Area</button>
-            <button class="chip-btn" onclick="sendSquadCommand('build a dirt shelter')">🏠 Build Shelter</button>
-            <button class="chip-btn" onclick="sendSquadCommand('!clearFurnace')">🔥 Clear Furnace</button>
+            <button class="chip-btn" onclick="sendSquadCommand('build dirt shelter')">🏠 Build Shelter</button>
+            <button class="chip-btn" onclick="sendSquadCommand('stop')">🛑 Emergency Stop</button>
+            <button class="chip-btn" onclick="sendSquadCommand('stay')">⏸ Stay Still</button>
         </div>
     </section>
 
@@ -1659,6 +1765,41 @@
             if (el) el.textContent = message;
         });
 
+        function cleanItemName(name) {
+            if (!name) return 'Empty';
+            return name.replace(/minecraft:/g, '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+
+        function getItemEmoji(name) {
+            if (!name) return '📦';
+            const n = name.toLowerCase();
+            if (n.includes('sword')) return '⚔️';
+            if (n.includes('bow') || n.includes('arrow')) return '🏹';
+            if (n.includes('pickaxe')) return '⛏️';
+            if (n.includes('axe')) return '🪓';
+            if (n.includes('shovel')) return '🥄';
+            if (n.includes('hoe')) return '🌾';
+            if (n.includes('helmet') || n.includes('cap')) return '🪖';
+            if (n.includes('chestplate') || n.includes('tunic')) return '👕';
+            if (n.includes('leggings') || n.includes('pants')) return '👖';
+            if (n.includes('boots')) return '👢';
+            if (n.includes('shield')) return '🛡️';
+            if (n.includes('log') || n.includes('wood') || n.includes('plank')) return '🪵';
+            if (n.includes('stone') || n.includes('cobblestone') || n.includes('deepslate')) return '🪨';
+            if (n.includes('iron')) return '⚙️';
+            if (n.includes('gold')) return '🪙';
+            if (n.includes('diamond')) return '💎';
+            if (n.includes('emerald')) return '❇️';
+            if (n.includes('coal')) return '⬛';
+            if (n.includes('torch')) return '🔥';
+            if (n.includes('bread') || n.includes('wheat')) return '🍞';
+            if (n.includes('beef') || n.includes('pork') || n.includes('mutton') || n.includes('chicken') || n.includes('meat')) return '🥩';
+            if (n.includes('apple')) return '🍎';
+            if (n.includes('bucket')) return '🪣';
+            if (n.includes('dirt') || n.includes('grass')) return '🌱';
+            return '📦';
+        }
+
         // Real-Time State Updates (Health, Hunger, Players, Entities, World)
         socket.on('state-update', (states) => {
             window.lastStates = states;
@@ -1702,10 +1843,61 @@
                     actEl.style.color = colors[st.action.kind] || '#c9d1d9';
                 }
 
-                // Inventory thumbnail
+                // Inventory slots and count pills
                 const invSlotsEl = document.getElementById(`invSlots-${name}`);
                 if (invSlotsEl && st.inventory) {
                     invSlotsEl.textContent = `${st.inventory.stacksUsed || 0}/${st.inventory.totalSlots || 36}`;
+                }
+
+                const invPillEl = document.getElementById(`invCountPill-${name}`);
+                if (invPillEl && st.inventory) {
+                    invPillEl.textContent = `${st.inventory.stacksUsed || 0} stacks`;
+                }
+
+                // Render Equipment Slots
+                const equipEl = document.getElementById(`invEquip-${name}`);
+                if (equipEl && st.inventory && st.inventory.equipment) {
+                    const eq = st.inventory.equipment;
+                    equipEl.innerHTML = `
+                        <div class="equip-badge" title="Helmet">🪖 ${cleanItemName(eq.helmet)}</div>
+                        <div class="equip-badge" title="Chestplate">👕 ${cleanItemName(eq.chestplate)}</div>
+                        <div class="equip-badge" title="Leggings">👖 ${cleanItemName(eq.leggings)}</div>
+                        <div class="equip-badge" title="Boots">👢 ${cleanItemName(eq.boots)}</div>
+                        <div class="equip-badge equip-weapon" title="Main Hand">⚔️ ${cleanItemName(eq.mainHand)}</div>
+                    `;
+                }
+
+                // Render Inventory Item Grid
+                const invGridEl = document.getElementById(`inventory-${name}`);
+                if (invGridEl && st.inventory) {
+                    let itemsList = [];
+                    if (Array.isArray(st.inventory.items) && st.inventory.items.length > 0) {
+                        itemsList = st.inventory.items;
+                    } else if (st.inventory.counts && Object.keys(st.inventory.counts).length > 0) {
+                        itemsList = Object.entries(st.inventory.counts).map(([iname, icount]) => ({
+                            name: iname,
+                            count: icount,
+                            displayName: cleanItemName(iname)
+                        }));
+                    }
+
+                    if (itemsList.length === 0) {
+                        invGridEl.innerHTML = `<div class="empty-inv-msg">🎒 Inventory empty (no items collected yet)</div>`;
+                    } else {
+                        invGridEl.innerHTML = itemsList.map(item => {
+                            const icon = getItemEmoji(item.name);
+                            const label = item.displayName || cleanItemName(item.name);
+                            return `
+                                <div class="inv-item-card" title="${label} (${item.count})">
+                                    <span class="inv-item-icon">${icon}</span>
+                                    <div class="inv-item-info">
+                                        <span class="inv-item-name">${label}</span>
+                                        <span class="inv-item-count">×${item.count}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                    }
                 }
 
                 // Collect Players & Entities for Tab 2
@@ -1842,10 +2034,25 @@
                         </div>
                     ` : ''}
 
-                    <div class="inventory-drawer" id="inventorySection-${agent.name}" style="display:none;">
-                        <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); margin-bottom:6px;">🎒 Inventory Slots</div>
-                        <div class="inventory-grid" id="inventory-${agent.name}">
-                            <span style="font-size:0.75rem; color:var(--text-muted);">Empty</span>
+                    <div class="inventory-section">
+                        <div class="inventory-section-header" onclick="toggleDetails('${agent.name}')">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span style="font-weight:700; font-size:0.92rem; color:var(--cyan);">🎒 Inventory & Equipment</span>
+                                <span class="inv-count-pill" id="invCountPill-${agent.name}">0 stacks</span>
+                            </div>
+                            <button class="btn btn-neutral btn-sm" onclick="event.stopPropagation(); toggleDetails('${agent.name}')">Toggle</button>
+                        </div>
+                        <div class="inventory-drawer" id="inventorySection-${agent.name}">
+                            <div class="equip-row" id="invEquip-${agent.name}">
+                                <div class="equip-badge">🪖 None</div>
+                                <div class="equip-badge">👕 None</div>
+                                <div class="equip-badge">👖 None</div>
+                                <div class="equip-badge">👢 None</div>
+                                <div class="equip-badge equip-weapon">⚔️ None</div>
+                            </div>
+                            <div class="inventory-grid" id="inventory-${agent.name}">
+                                <div class="empty-inv-msg">🎒 Inventory empty (no items collected yet)</div>
+                            </div>
                         </div>
                     </div>
 
@@ -1854,7 +2061,7 @@
                     </div>
 
                     <div class="bot-cmd-row">
-                        <input id="messageInput-${agent.name}" type="text" class="bot-cmd-input" placeholder="Message ${agent.name}..." onkeydown="if(event.key === 'Enter') sendMessage('${agent.name}', this.value)">
+                        <input id="messageInput-${agent.name}" type="text" class="bot-cmd-input" placeholder="Message ${agent.name} or /slash command..." onkeydown="if(event.key === 'Enter') sendMessage('${agent.name}', this.value)">
                         <button class="btn btn-primary btn-sm" onclick="sendMessage('${agent.name}', document.getElementById('messageInput-${agent.name}').value)">Send</button>
                         <button class="btn btn-red btn-sm" onclick="sendMessage('${agent.name}', '!stop')">Stop</button>
                         <button class="btn btn-neutral btn-sm" onclick="restartAgent('${agent.name}')">🔄</button>

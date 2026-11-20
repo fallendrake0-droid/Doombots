@@ -370,7 +370,78 @@ export class Agent {
         const self_prompt = source === 'system' || source === this.name;
         const from_other_bot = convoManager.isOtherAgent(source);
 
-        if (!self_prompt && !from_other_bot) { // from user, check for forced commands
+        if (!self_prompt && !from_other_bot) { // from user, check for fast commands or forced commands
+            const raw = message.trim();
+            const lower = raw.toLowerCase();
+
+            // Direct Minecraft slash commands (e.g. "/tpa orbryx", "do /tpa orbryx", "/home", "/spawn", "/gamemode")
+            const slashMatch = raw.match(/^(?:do\s+)?(\/[a-zA-Z0-9_\-]+(?:\s+.*)?)$/i);
+            if (slashMatch) {
+                const slashCmd = slashMatch[1].trim();
+                console.log(`[FastCommand] ${this.name} executing direct slash command: ${slashCmd}`);
+                this.bot.chat(slashCmd);
+                this.routeResponse(source, `Executed: ${slashCmd}`);
+                return true;
+            }
+
+            // Quick natural language intent shortcuts to avoid slow CPU LLM inference timeouts
+            if (/^(stop|halt|freeze|cancel)$/i.test(lower)) {
+                await executeCommand(this, '!stop');
+                this.routeResponse(source, 'Stopped all actions.');
+                return true;
+            }
+            if (/^(stay|stay still|wait here)$/i.test(lower)) {
+                await executeCommand(this, '!stay(-1)');
+                this.routeResponse(source, 'Staying at current position.');
+                return true;
+            }
+            if (/^(follow me|follow\s+([a-zA-Z0-9_]+))$/i.test(lower)) {
+                const targetMatch = lower.match(/^follow\s+([a-zA-Z0-9_]+)$/i);
+                const target = (targetMatch && targetMatch[1] !== 'me') ? targetMatch[1] : (source === 'ADMIN' ? 'orbryx' : source);
+                await executeCommand(this, `!followPlayer("${target}", 3)`);
+                this.routeResponse(source, `Following ${target}.`);
+                return true;
+            }
+            if (/^mine\s+(logs?|wood|trees?)/i.test(lower)) {
+                await executeCommand(this, '!collectBlocks("oak_log", 10)');
+                this.routeResponse(source, 'Mining logs.');
+                return true;
+            }
+            if (/^mine\s+(stone|cobblestone|rocks?)/i.test(lower)) {
+                await executeCommand(this, '!collectBlocks("cobblestone", 20)');
+                this.routeResponse(source, 'Mining stone.');
+                return true;
+            }
+            if (/^mine\s+(coal)/i.test(lower)) {
+                await executeCommand(this, '!collectBlocks("coal_ore", 10)');
+                this.routeResponse(source, 'Mining coal.');
+                return true;
+            }
+            if (/^mine\s+(iron)/i.test(lower)) {
+                await executeCommand(this, '!collectBlocks("iron_ore", 10)');
+                this.routeResponse(source, 'Mining iron.');
+                return true;
+            }
+            if (/^defend(\s+(the\s+area|us|me))?/i.test(lower)) {
+                this.bot.modes.setOn('hunting', true);
+                this.bot.modes.setOn('self_defense', true);
+                await executeCommand(this, '!huntAll("zombie", 32)');
+                this.routeResponse(source, 'Defending area against hostiles.');
+                return true;
+            }
+            if (/^craft\s+([a-zA-Z0-9_]+)/i.test(lower)) {
+                const itemMatch = lower.match(/^craft\s+([a-zA-Z0-9_]+)/i);
+                const item = itemMatch ? itemMatch[1] : 'wooden_pickaxe';
+                await executeCommand(this, `!craftRecipe("${item}", 1)`);
+                this.routeResponse(source, `Crafting ${item}.`);
+                return true;
+            }
+            if (/^build\s+(a\s+)?(dirt\s+)?(shelter|house|base)/i.test(lower)) {
+                await executeCommand(this, '!build("dirt", 3, 3, 2)');
+                this.routeResponse(source, 'Building basic shelter.');
+                return true;
+            }
+
             const user_command_name = containsCommand(message);
             if (user_command_name) {
                 if (!commandExists(user_command_name)) {
