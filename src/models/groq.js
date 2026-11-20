@@ -4,12 +4,38 @@ import { getKey, recordKeyFailure, getKeyCount } from '../utils/keys.js';
 // THIS API IS NOT TO BE CONFUSED WITH GROK!
 // Go to grok.js for that. :)
 
+const DECOMMISSIONED_GROQ_MODELS = {
+    'llama-3.3-70b-versatile': 'openai/gpt-oss-120b',
+    'llama-3.1-8b-instant': 'openai/gpt-oss-20b',
+    'llama-3.1-70b-versatile': 'openai/gpt-oss-120b',
+    'llama-3.2-1b-preview': 'openai/gpt-oss-20b',
+    'llama-3.2-3b-preview': 'openai/gpt-oss-20b',
+    'llama3-8b-8192': 'openai/gpt-oss-20b',
+    'llama3-70b-8192': 'openai/gpt-oss-120b',
+    'mixtral-8x7b-32768': 'openai/gpt-oss-120b',
+    'gemma-7b-it': 'openai/gpt-oss-20b',
+    'gemma2-9b-it': 'openai/gpt-oss-20b'
+};
+
+export function normalizeGroqModel(name) {
+    if (!name) return 'openai/gpt-oss-120b';
+    const clean = name.replace(/^groq\//, '');
+    if (DECOMMISSIONED_GROQ_MODELS[clean]) {
+        return DECOMMISSIONED_GROQ_MODELS[clean];
+    }
+    return clean;
+}
+
 // Umbrella class for everything under the sun... That GroqCloud provides, that is.
 export class GroqCloudAPI {
     static prefix = 'groq';
 
     constructor(model_name, url, params) {
-        this.model_name = model_name;
+        const normalized = normalizeGroqModel(model_name);
+        if (model_name && normalized !== model_name.replace(/^groq\//, '')) {
+            console.warn(`[Groq] Notice: '${model_name}' was decommissioned by Groq. Upgraded to active model '${normalized}'.`);
+        }
+        this.model_name = normalized;
         this.url = url;
         this.params = params || {};
 
@@ -39,7 +65,8 @@ export class GroqCloudAPI {
             this.params.max_completion_tokens = 4000;
         }
 
-        const model = this.model_name || 'openai/gpt-oss-120b';
+        const model = normalizeGroqModel(this.model_name || 'openai/gpt-oss-120b');
+        this.model_name = model;
         const pack = {
             messages,
             model,

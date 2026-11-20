@@ -59,7 +59,10 @@ export function printDashboard(settings, profileData = {}) {
     }
     const serverTarget = `${host}:${port}`;
     const agentName = profileData.name || settings.profile?.name || 'Doombot';
-    const modelTarget = profileData.model || settings.profile?.model || 'ollama/qwen2.5:0.5b';
+    let modelTarget = profileData.model || settings.profile?.model || 'ollama/qwen2.5:0.5b';
+    if (modelTarget.includes('llama-3.3-70b-versatile') && modelTarget.includes('groq')) {
+        modelTarget = 'groq/openai/gpt-oss-120b';
+    }
     const mindPort = settings.mindserver_port || 8080;
     const protocolVersion = '1.21.4';
 
