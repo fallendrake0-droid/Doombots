@@ -54,6 +54,17 @@ export function createMindServer(host_public = false, port = 8080) {
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
     app.use(express.static(path.join(__dirname, 'public')));
 
+    // Direct route to open bot's 3D viewer
+    app.get('/viewer/:agent', (req, res) => {
+        const agentName = req.params.agent;
+        const conn = agent_connections[agentName];
+        if (conn && conn.viewer_port) {
+            const host = req.hostname || 'localhost';
+            return res.redirect(`http://${host}:${conn.viewer_port}`);
+        }
+        res.status(404).send(`Agent '${agentName}' or 3D viewer not found.`);
+    });
+
     // Texture proxy: resolve item/block textures using minecraft-assets with version fallback
     app.get('/assets/item/:agent/:name.png', async (req, res) => {
         try {
@@ -255,6 +266,21 @@ export function createMindServer(host_public = false, port = 8080) {
         });
 
 		socket.on('send-message', (agentName, data) => {
+            if (agentName === 'all' || agentName === '*' || !agentName) {
+                const payload = (typeof data === 'object' && data?.message)
+                    ? data
+                    : { from: 'ADMIN', message: String(data) };
+                console.log(`[MindServer] Broadcasting command to all bots: ${payload.message}`);
+                for (const name of Object.keys(agent_connections)) {
+                    try {
+                        agent_connections[name].socket?.emit('send-message', payload);
+                    } catch (err) {
+                        console.error(`Error sending to ${name}:`, err);
+                    }
+                }
+                return;
+            }
+
 			if (!agent_connections[agentName]) {
 				console.warn(`Agent ${agentName} not in game, cannot send message via MindServer.`);
                 return;
@@ -265,6 +291,20 @@ export function createMindServer(host_public = false, port = 8080) {
 				console.error('Error: ', error);
 			}
 		});
+
+        socket.on('send-message-all', (data) => {
+            const payload = (typeof data === 'object' && data?.message)
+                ? data
+                : { from: 'ADMIN', message: String(data) };
+            console.log(`[MindServer] Broadcasting command to all bots: ${payload.message}`);
+            for (const name of Object.keys(agent_connections)) {
+                try {
+                    agent_connections[name].socket?.emit('send-message', payload);
+                } catch (err) {
+                    console.error(`Error sending to ${name}:`, err);
+                }
+            }
+        });
 
         socket.on('bot-output', (agentName, message) => {
             io.emit('bot-output', agentName, message);

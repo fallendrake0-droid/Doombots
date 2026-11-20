@@ -253,9 +253,25 @@ export class Agent {
         this.bot.on('whisper', respondFunc);
         
         this.bot.on('chat', (username, message) => {
-            if (serverProxy.getNumOtherAgents() > 0) return;
-            // only respond to open chat messages when there are no other agents
-            respondFunc(username, message);
+            // Never respond to messages originating from other bots to avoid infinite chat loops
+            if (convoManager.isOtherAgent(username) || username === this.name) return;
+
+            // Check if message is specifically directed to another bot (e.g. "Doombot2: mine wood")
+            const otherBotNames = serverProxy.getAgents().filter(a => a !== this.name);
+            const isForAnotherBot = otherBotNames.some(name => {
+                const lower = message.toLowerCase().trim();
+                return lower.startsWith(name.toLowerCase() + ':') || lower.startsWith(name.toLowerCase() + ',');
+            });
+            if (isForAnotherBot) return;
+
+            // Strip own bot name prefix if present (e.g. "Doombot: mine logs" -> "mine logs")
+            let cleanMsg = message.trim();
+            const ownPrefixRegex = new RegExp(`^${this.name}[:,-]?\\s*`, 'i');
+            cleanMsg = cleanMsg.replace(ownPrefixRegex, '');
+            // Strip squad prefixes ("all:", "bots:", "squad:") so one chat commands all bots
+            cleanMsg = cleanMsg.replace(/^(all|bots|squad)[:,-]?\s*/i, '');
+
+            respondFunc(username, cleanMsg);
         });
 
         // Set up auto-eat
