@@ -261,7 +261,7 @@ for (let i = 0; i < botCount; i++) {
     await Mindcraft.createAgent(agentSettings);
 
     if (i < botCount - 1) {
-        // Stagger connections by 2.5 seconds to prevent server connection throttle
-        await new Promise(resolve => setTimeout(resolve, 2500));
+        console.log(`\x1b[36m[Doombots]\x1b[0m Waiting 6s before connecting next bot (avoids Aternos/Spigot connection throttle)...`);
+        await new Promise(resolve => setTimeout(resolve, 6000));
     }
 }

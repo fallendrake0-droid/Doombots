@@ -67,8 +67,8 @@ export class AgentProcess {
 
                 if (this.retryCount < MAX_RETRIES) {
                     this.retryCount++;
-                    const delayMs = Math.min(5000 * this.retryCount, 25000);
-                    console.log(`[AgentProcess] Connection attempt failed. Retrying in ${delayMs / 1000}s (attempt ${this.retryCount}/${MAX_RETRIES})...`);
+                    const delayMs = Math.min(6000 + (count_id * 3000), 30000);
+                    console.log(`[AgentProcess] Reconnecting in ${delayMs / 1000}s (attempt ${this.retryCount}/${MAX_RETRIES})...`);
                     setTimeout(() => {
                         this.start(true, 'Agent process restarted.', count_id, this.port);
                     }, delayMs);

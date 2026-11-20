@@ -32,8 +32,12 @@ export async function addBrowserViewer(bot, count_id = 0) {
         }
 
         if (typeof mineflayerViewer === 'function') {
+            const primaryOnly = settings.viewer_primary_only !== false && process.env.VIEWER_ALL !== 'true';
+            if (primaryOnly && count_id > 0) {
+                return; // Primary bot (Doombot, port 3000) streams 3D view for the whole squad
+            }
             const port = 3000 + (count_id || 0);
-            const viewDistance = settings.view_distance || (settings.low_memory_mode ? 4 : 6);
+            const viewDistance = settings.view_distance || 4;
             try {
                 mineflayerViewer(bot, {
                     port,

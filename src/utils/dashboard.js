@@ -69,8 +69,7 @@ export function printDashboard(settings, profileData = {}) {
     const mindPort = settings.mindserver_port || 8080;
     const protocolVersion = '1.21.4';
     const viewerActive = settings.render_bot_view !== false;
-    const viewerPortDisplay = botCount > 1 ? `3000-${3000 + botCount - 1}` : '3000';
-    const viewerDisplay = viewerActive ? `http://localhost:3000 (Ports ${viewerPortDisplay})` : 'Disabled';
+    const viewerDisplay = viewerActive ? 'http://localhost:3000 (Active)' : 'Disabled';
 
     const BOX_WIDTH = 70;
     const padRow = (content) => {
