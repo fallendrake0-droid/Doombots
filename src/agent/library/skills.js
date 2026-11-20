@@ -1308,6 +1308,16 @@ export async function goToNearestEntity(bot, entityType, min_distance=2, range=6
     return true;
 }
 
+export function getPlayer(bot, username) {
+    if (!username || !bot.players) return null;
+    if (bot.players[username]) return bot.players[username];
+    const target = username.toLowerCase();
+    for (const [name, p] of Object.entries(bot.players)) {
+        if (name.toLowerCase() === target) return p;
+    }
+    return null;
+}
+
 export async function goToPlayer(bot, username, distance=3) {
     /**
      * Navigate to the given player.
@@ -1330,9 +1340,11 @@ export async function goToPlayer(bot, username, distance=3) {
 
     bot.modes.pause('self_defense');
     bot.modes.pause('cowardice');
-    let player = bot.players[username].entity
+    const playerObj = getPlayer(bot, username);
+    const player = playerObj?.entity;
     if (!player) {
-        log(bot, `Could not find ${username}.`);
+        log(bot, `Player ${username} is not in visual range. Sending /tpa ${username}...`);
+        try { bot.chat(`/tpa ${username}`); } catch {}
         return false;
     }
 
@@ -1342,6 +1354,7 @@ export async function goToPlayer(bot, username, distance=3) {
     await goToGoal(bot, goal, true);
 
     log(bot, `You have reached ${username}.`);
+    return true;
 }
 
 
@@ -1354,9 +1367,12 @@ export async function followPlayer(bot, username, distance=4) {
      * @example
      * await skills.followPlayer(bot, "player");
      **/
-    let player = bot.players[username].entity
-    if (!player)
+    const playerObj = getPlayer(bot, username);
+    const player = playerObj?.entity;
+    if (!player) {
+        log(bot, `Could not find player ${username} nearby.`);
         return false;
+    }
 
     const move = new pf.Movements(bot);
     move.digCost = 10;

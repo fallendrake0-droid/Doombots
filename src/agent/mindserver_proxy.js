@@ -51,7 +51,6 @@ class MindServerProxy {
             this.agents = agents;
             convoManager.updateAgents(agents);
             if (this.agent?.task) {
-                console.log(this.agent.name, 'updating available agents');
                 this.agent.task.updateAvailableAgents(agents);
             }
         });
@@ -63,9 +62,23 @@ class MindServerProxy {
 		
         this.socket.on('send-message', (data) => {
             try {
-                this.agent.respondFunc(data.from, data.message);
+                const from = data?.from || 'ADMIN';
+                const message = data?.message || String(data);
+                if (typeof this.agent?.respondFunc === 'function') {
+                    this.agent.respondFunc(from, message);
+                } else if (typeof this.agent?.handleMessage === 'function') {
+                    this.agent.handleMessage(from, message);
+                } else {
+                    setTimeout(() => {
+                        try {
+                            if (typeof this.agent?.respondFunc === 'function') {
+                                this.agent.respondFunc(from, message);
+                            }
+                        } catch {}
+                    }, 1000);
+                }
             } catch (error) {
-                console.error('Error: ', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+                console.error('Error in send-message: ', error?.message || error);
             }
         });
 

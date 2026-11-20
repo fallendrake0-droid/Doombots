@@ -1,1110 +1,874 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Mindcraft</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doombots Control Center</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
+        :root {
+            --bg-dark: #0d1117;
+            --bg-card: #161b22;
+            --bg-card-hover: #1c2128;
+            --border: #30363d;
+            --border-hover: #484f58;
+            --text-main: #f0f6fc;
+            --text-muted: #8b949e;
+            --cyan: #58a6ff;
+            --green: #238636;
+            --green-hover: #2ea043;
+            --red: #da3633;
+            --red-hover: #f85149;
+            --yellow: #d29922;
+            --purple: #bc8cff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background: #1a1a1a;
-            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-main);
+            padding: 16px 20px 80px 20px;
+            min-height: 100vh;
         }
-        #agents {
-            background: #2d2d2d;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        h1 {
-            color: #ffffff;
-        }
-        .agent {
-            margin: 10px 0;
-            padding: 10px;
-            background: #363636;
-            border-radius: 4px;
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
-        }
-        .restart-btn, .start-btn, .stop-btn {
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-left: 5px;
-        }
-        .restart-btn {
-            background: #4CAF50;
-        }
-        .start-btn {
-            background: #2196F3;
-        }
-        .stop-btn {
-            background: #f44336;
-        }
-        .restart-btn:hover { background: #45a049; }
-        .start-btn:hover { background: #1976D2; }
-        .stop-btn:hover { background: #d32f2f; }
-        .gear-btn {
-            background: #505050;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            padding: 2px 6px;
-            cursor: pointer;
-            margin-left: 6px;
-            font-size: 0.9em;
-        }
-        .gear-btn:hover { background: #5a5a5a; }
-        .status-icon {
-            font-size: 12px;
-            margin-right: 8px;
-        }
-        .status-icon.online {
-            color: #4CAF50;
-        }
-        .status-icon.offline {
-            color: #f44336;
-        }
-        #settingsForm {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 8px;
-            margin-top: 10px;
-        }
-        .setting-wrapper {
+
+        /* Header Navbar */
+        .header-bar {
             display: flex;
             align-items: center;
-            gap: 6px;
-            background: #3a3a3a;
-            padding: 6px 8px;
-            border-radius: 4px;
-            width: 100%;
-            box-sizing: border-box;
-            min-width: 0;
+            justify-content: space-between;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 20px;
+            margin-bottom: 16px;
         }
-        .setting-wrapper label {
-            flex: 0 0 50%;
-            font-size: 0.9em;
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .header-title h1 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(90deg, #58a6ff, #bc8cff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .status-badge.online {
+            background: rgba(35, 134, 54, 0.2);
+            color: #3fb950;
+            border: 1px solid rgba(63, 185, 80, 0.4);
+        }
+        .status-badge.offline {
+            background: rgba(218, 54, 51, 0.2);
+            color: #f85149;
+            border: 1px solid rgba(248, 81, 73, 0.4);
+        }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+            overflow-x: auto;
+        }
+        .nav-tab {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid transparent;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .nav-tab:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .nav-tab.active {
+            color: var(--text-main);
+            background: var(--bg-card);
+            border-color: var(--border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        /* Unified Squad Command Bar */
+        .squad-bar {
+            background: linear-gradient(180deg, #161b22 0%, #1a222d 100%);
+            border: 1px solid rgba(88, 166, 255, 0.3);
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+        .squad-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .squad-header span {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--cyan);
+        }
+        .squad-header small {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+        .squad-input-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .squad-input {
+            flex: 1;
+            background: #0d1117;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 9px 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: border-color 0.2s;
+        }
+        .squad-input:focus {
+            outline: none;
+            border-color: var(--cyan);
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.2);
+        }
+        .quick-chips {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        .chip-btn {
+            background: #21262d;
+            border: 1px solid var(--border);
+            color: #c9d1d9;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .chip-btn:hover {
+            background: #30363d;
+            border-color: var(--cyan);
+            color: #fff;
+        }
+
+        /* Buttons */
+        .btn {
+            border: none;
+            border-radius: 6px;
+            padding: 8px 14px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            text-decoration: none;
+        }
+        .btn-primary { background: var(--cyan); color: #0d1117; }
+        .btn-primary:hover { background: #79b8ff; }
+        .btn-green { background: var(--green); color: #fff; }
+        .btn-green:hover { background: var(--green-hover); }
+        .btn-red { background: var(--red); color: #fff; }
+        .btn-red:hover { background: var(--red-hover); }
+        .btn-neutral { background: #21262d; border: 1px solid var(--border); color: #c9d1d9; }
+        .btn-neutral:hover { background: #30363d; color: #fff; }
+        .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Agent Cards Grid */
+        .agents-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 16px;
+        }
+        .agent-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            transition: border-color 0.2s, transform 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .agent-card:hover {
+            border-color: var(--border-hover);
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding-bottom: 10px;
+        }
+        .bot-identity {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .bot-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            background: #21262d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+        .bot-name {
+            font-size: 1.05rem;
+            font-weight: 700;
+        }
+        .action-pill {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            background: #21262d;
+            color: #8b949e;
+            font-weight: 600;
+            max-width: 150px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        .setting-wrapper input[type="text"],
-        .setting-wrapper input[type="number"] {
-            flex: 1 1 0;
-            background: #262626;
-            border: 1px solid #555;
-            color: #e0e0e0;
-            border-radius: 4px;
-            padding: 4px 6px;
-            max-width: 100%;
-            min-width: 0;
+
+        /* Health & Hunger Bars */
+        .vital-row {
+            display: flex;
+            gap: 10px;
         }
-        .setting-wrapper input[type="checkbox"] {
-            transform: scale(1.2);
+        .vital-bar-box {
+            flex: 1;
+            background: #21262d;
+            border-radius: 6px;
+            padding: 6px 10px;
+            border: 1px solid rgba(255,255,255,0.04);
         }
-        .agent-view-container {
-            width: 100%;
-            height: 100%;
-            aspect-ratio: 4/3;
+        .vital-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        .bar-outer {
+            height: 6px;
+            background: #0d1117;
+            border-radius: 3px;
             overflow: hidden;
         }
-        .agent-viewer {
+        .bar-inner {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        .bar-inner.health { background: linear-gradient(90deg, #f85149, #3fb950); }
+        .bar-inner.hunger { background: linear-gradient(90deg, #d29922, #f0883e); }
+
+        /* Stats Grid */
+        .stats-badge-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+            font-size: 0.78rem;
+        }
+        .stat-badge {
+            background: #0d1117;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 6px;
+            padding: 6px 8px;
+            color: #c9d1d9;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .stat-badge strong {
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-right: 4px;
+        }
+
+        /* Equipment & Armor Row */
+        .equip-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #0d1117;
+            border: 1px solid rgba(255,255,255,0.04);
+            border-radius: 6px;
+            padding: 6px 10px;
+        }
+        .armor-grid {
+            display: flex;
+            gap: 4px;
+        }
+        .armor-slot {
+            width: 26px;
+            height: 26px;
+            border-radius: 4px;
+            background: #21262d;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+        }
+        .armor-slot img {
+            width: 20px;
+            height: 20px;
+            image-rendering: pixelated;
+        }
+
+        /* 3D World View Container */
+        .viewer-box {
+            position: relative;
+            width: 100%;
+            height: 220px;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            background: #000;
+        }
+        .viewer-frame {
             width: 100%;
             height: 100%;
             border: none;
             display: block;
         }
-        .last-message {
-            font-style: italic;
-            color: #aaa;
-            margin-top: 5px;
-            white-space: nowrap;
+        .viewer-header-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(13, 17, 23, 0.8);
+            backdrop-filter: blur(4px);
+            padding: 4px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            z-index: 10;
+        }
+
+        /* Message Balloon */
+        .message-balloon {
+            background: #21262d;
+            border-left: 3px solid var(--cyan);
+            border-radius: 0 6px 6px 0;
+            padding: 6px 10px;
+            font-size: 0.8rem;
+            color: #c9d1d9;
             overflow: hidden;
             text-overflow: ellipsis;
-            width: 100%;
+            white-space: nowrap;
         }
-        .start-btn:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-        .agent-view-container {
-            margin-top: 6px;
+
+        /* Individual Bot Input Row */
+        .bot-cmd-row {
             display: flex;
-            justify-content: flex-start;
+            gap: 6px;
+            margin-top: 4px;
         }
-        .agent-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 8px;
-            width: 100%;
-            align-items: start;
-        }
-        .agent-grid .cell {
-            background: #3a3a3a;
+        .bot-cmd-input {
+            flex: 1;
+            background: #0d1117;
+            border: 1px solid var(--border);
+            color: var(--text-main);
             padding: 6px 8px;
             border-radius: 4px;
+            font-size: 0.8rem;
         }
-        .agent-grid .cell.title {
-            background: transparent;
-            padding: 0;
-        }
-        .agent-inventory {
-            margin-top: 8px;
-            background: #2f2f2f;
+
+        /* Inventory Drawer */
+        .inventory-drawer {
+            background: #0d1117;
+            border: 1px solid var(--border);
             border-radius: 6px;
             padding: 8px;
+            margin-top: 4px;
         }
-        .agent-inventory h3 { margin: 0 0 6px 0; font-size: 1em; }
         .inventory-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 6px;
-        }
-        /* Inventory item visuals */
-        .inventory-grid.empty {
-            display: grid;
-            grid-template-columns: 1fr;
-            color: #999;
-        }
-        .inv-item {
-            position: relative;
-            display: grid;
-            grid-template-rows: auto auto;
-            justify-items: center;
-            align-items: center;
+            grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
             gap: 4px;
-            background: #2f2f2f;
-            border: 1px solid #444;
-            border-radius: 6px;
-            padding: 8px;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+            max-height: 150px;
+            overflow-y: auto;
         }
-        .inv-img {
-            width: 32px;
-            height: 32px;
+        .inv-slot {
+            width: 42px;
+            height: 42px;
+            background: #21262d;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .inv-slot img {
+            width: 24px;
+            height: 24px;
             image-rendering: pixelated;
-            image-rendering: crisp-edges;
         }
         .inv-count {
             position: absolute;
-            right: 6px;
-            bottom: 6px;
-            background: rgba(0,0,0,0.6);
+            bottom: 1px;
+            right: 2px;
+            font-size: 0.65rem;
+            font-weight: 700;
             color: #fff;
-            font-size: 0.8em;
-            padding: 2px 6px;
+            text-shadow: 1px 1px 1px #000;
+        }
+
+        /* Players & Mobs Section */
+        .players-panel, .server-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 16px;
+        }
+        .info-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
             border-radius: 10px;
+            padding: 16px;
         }
-        .inv-name {
-            font-size: 0.85em;
-            color: #ccc;
-            text-align: center;
-            max-width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        /* Armor icons */
-        .armor-grid {
+        .info-card h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--cyan);
             display: flex;
             align-items: center;
             gap: 8px;
         }
-        .armor-slot {
-            position: relative;
-            width: 36px;
-            height: 36px;
+        .player-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #0d1117;
+            border: 1px solid var(--border);
             border-radius: 6px;
-            background: #2f2f2f;
-            border: 1px solid #444;
+            margin-bottom: 8px;
+        }
+        .mob-list {
             display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .armor-slot.empty { opacity: 0.4; }
-        .armor-placeholder { color: #888; font-size: 0.9em; }
-        .agent-details-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            flex-wrap: wrap;
             gap: 6px;
-            width: 100%;
         }
-        .controls-row {
-            margin-top: 8px;
-            display: grid;
-            grid-template-columns: auto minmax(100px, 1fr) repeat(5, auto);
-            gap: 8px;
+        .mob-tag {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            display: inline-flex;
             align-items: center;
+            gap: 6px;
         }
-        .msg-input {
-            width: calc(100% - 8px);
-            background: #262626;
-            border: 1px solid #555;
-            color: #e0e0e0;
-            border-radius: 4px;
-            padding: 4px 6px;
+        .mob-tag.hostile { border-color: rgba(248, 81, 73, 0.4); color: #ff7b72; }
+        .mob-tag.passive { border-color: rgba(63, 185, 80, 0.4); color: #7ee787; }
+
+        /* Server Specs Table */
+        .spec-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
         }
-        .neutral-btn {
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-left: 5px;
-            background: #505050;
+        .spec-table tr {
+            border-bottom: 1px solid rgba(255,255,255,0.05);
         }
-        .neutral-btn:hover { background: #5a5a5a; }
-        .neutral-btn:disabled {
-            background: #383838;
-            color: #666;
-            cursor: not-allowed;
+        .spec-table td {
+            padding: 8px 6px;
         }
-        .msg-input:disabled {
-            background: #1a1a1a;
-            color: #666;
-            cursor: not-allowed;
+        .spec-table td:first-child {
+            color: var(--text-muted);
+            font-weight: 600;
+            width: 40%;
         }
-        .page-footer {
+
+        /* Full 3D View Tab */
+        .full-viewer-container {
+            width: 100%;
+            height: calc(100vh - 240px);
+            min-height: 480px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            background: #000;
+            position: relative;
+        }
+
+        /* Fixed Bottom Action Bar */
+        .bottom-bar {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            background: #2d2d2d;
-            padding: 16px;
+            background: #161b22;
+            border-top: 1px solid var(--border);
+            padding: 10px 20px;
             display: flex;
-            gap: 12px;
             justify-content: space-between;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
-        }
-        body {
-            padding-bottom: 80px;  /* Make room for footer */
-        }
-        .agent-stats-row {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 8px;
-            margin: 6px 0;
-            font-size: 0.9em;
-            color: #cccccc;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        .agent-stats-row .stat {
-            background: #3a3a3a;
-            padding: 6px 8px;
-            border-radius: 4px;
-        }
-        .status-badge {
-            font-size: 0.75em;
-            margin-left: 8px;
-            padding: 2px 6px;
-            border-radius: 4px;
-            background: #3a3a3a;
-            color: #cccccc;
-            text-transform: lowercase;
-        }
-        .status-badge.online { color: #4CAF50; }
-        .status-badge.offline { color: #f44336; }
-        .title-row {
-            display: flex;
             align-items: center;
-            gap: 10px;
+            box-shadow: 0 -4px 12px rgba(0,0,0,0.3);
+            z-index: 100;
         }
-        .title-left {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .title-spacer { flex: 1; }
-        /* Modal styles */
+
+        /* Modal Styles */
         .modal-backdrop {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(4px);
             display: none;
             align-items: center;
             justify-content: center;
             z-index: 1000;
         }
-        .modal {
-            background: #2d2d2d;
-            border-radius: 8px;
-            width: 80vw;
-            height: 80vh;
+        .modal-box {
+            background: #161b22;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 85vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
         .modal-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
             display: flex;
-            align-items: center;
             justify-content: space-between;
-            padding: 12px 16px;
-            border-bottom: 1px solid #3a3a3a;
-        }
-        .modal-close-btn {
-            background: #f44336;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            padding: 4px 8px;
-            cursor: pointer;
+            align-items: center;
         }
         .modal-body {
-            flex: 1 1 auto;
-            overflow: auto;
-            padding: 12px 16px;
+            padding: 16px 18px;
+            overflow-y: auto;
+            flex: 1;
         }
         .modal-footer {
+            padding: 12px 18px;
+            border-top: 1px solid var(--border);
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 16px;
-            border-top: 1px solid #3a3a3a;
+            justify-content: flex-end;
+            gap: 8px;
         }
-        .footer-left { color: #cccccc; font-style: italic; }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 10px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .form-group label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        .form-group input, .form-group select {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
     </style>
 </head>
 <body>
-    <div class="title-row">
-        <div class="title-left">
-            <h1 style="margin: 0;">Mindcraft</h1>
-            <span id="msStatus" class="status-badge offline">mindserver offline</span>
-        </div>
-        <div class="title-spacer"></div>
-    </div>
 
-    <!-- Squad Command: One Chat Controls ALL Bots -->
-    <div class="squad-command-box" style="margin: 12px 16px; padding: 12px 16px; background: #161b22; border: 1px solid #30363d; border-radius: 8px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-            <span style="font-weight:bold; color:#58a6ff; font-size:14px;">⚡ Squad Command (One Chat Controls ALL Bots):</span>
-            <span style="font-size:12px; color:#8b949e;">Type a task or command below to control the entire squad at once</span>
+    <!-- Header Navbar -->
+    <header class="header-bar">
+        <div class="header-title">
+            <span style="font-size:1.5rem;">🤖</span>
+            <div>
+                <h1>DOOMBOTS CONTROL CENTER</h1>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Autonomous AI Minecraft Agent Platform • Java 1.21.4 Cross-Play Engine</small>
+            </div>
         </div>
-        <div style="display:flex; gap: 8px;">
-            <input id="squadCmdInput" type="text" class="msg-input" style="flex:1;" placeholder="Enter command for ALL bots (e.g. 'mine wood', 'follow me', 'build a house', '!stop')..." onkeydown="if(event.key === 'Enter') sendSquadCommand()">
-            <button class="start-btn" onclick="sendSquadCommand()" style="background:#238636; font-weight:bold; padding: 6px 14px;">Send to All Bots</button>
-            <button class="neutral-btn" onclick="sendSquadCommand('!stop')">🛑 Stop All</button>
-            <button class="neutral-btn" onclick="sendSquadCommand('!stay(-1)')">⏸ Stay Still</button>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <span id="msStatus" class="status-badge offline">● MindServer Offline</span>
+            <span id="targetServerBadge" class="status-badge online" style="display:none;">🌍 Target Server Active</span>
         </div>
-    </div>
+    </header>
 
-    <div id="agents"></div>
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+        <button class="nav-tab active" onclick="switchTab('squad')">🤖 Squad Overview</button>
+        <button class="nav-tab" onclick="switchTab('players')">👤 Players & Mobs</button>
+        <button class="nav-tab" onclick="switchTab('server')">🌍 Server & World</button>
+        <button class="nav-tab" onclick="switchTab('viewer3d')">🌐 3D World View</button>
+        <button class="nav-tab" onclick="switchTab('chat')">💬 Live Chat & Cheatsheet</button>
+    </nav>
 
-    <div class="page-footer">
-        <div>
-            <button id="openCreateAgentBtn" class="start-btn">New Agent</button>
+    <!-- ⚡ Unified Squad Command Bar (Always Available on Squad & Chat tabs) -->
+    <section class="squad-bar" id="squadBar">
+        <div class="squad-header">
+            <span>⚡ Unified Squad Command (One Chat Controls ALL Bots)</span>
+            <small>Type any command or slash command to broadcast to the entire team</small>
         </div>
-        <div style="display:flex; gap:12px;">
-            <button class="stop-btn" onclick="disconnectAllAgents()">Disconnect All Agents</button>
-            <button class="stop-btn" onclick="confirmShutdown()">Full Shutdown</button>
+        <div class="squad-input-row">
+            <input id="squadCmdInput" type="text" class="squad-input" placeholder="Type a task for ALL bots (e.g. 'do /tpa orbryx', 'mine wood', 'follow me', 'build a shelter', '!stop')..." onkeydown="if(event.key === 'Enter') sendSquadCommand()">
+            <button class="btn btn-primary" onclick="sendSquadCommand()">⚡ Send to All Bots</button>
+            <button class="btn btn-red btn-sm" onclick="sendSquadCommand('!stop')">🛑 Stop All</button>
+            <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('!stay(-1)')">⏸ Stay Still</button>
         </div>
-    </div>
+        <div class="quick-chips">
+            <span style="font-size:0.75rem; color:var(--text-muted); align-self:center;">Quick Actions:</span>
+            <button class="chip-btn" onclick="sendSquadCommand('do /tpa orbryx')">📍 /tpa orbryx</button>
+            <button class="chip-btn" onclick="sendSquadCommand('mine logs')">🌲 Mine Logs</button>
+            <button class="chip-btn" onclick="sendSquadCommand('craft wooden_pickaxe')">⛏️ Craft Pickaxe</button>
+            <button class="chip-btn" onclick="sendSquadCommand('follow me')">🏃 Follow Me</button>
+            <button class="chip-btn" onclick="sendSquadCommand('defend the area')">⚔️ Defend Area</button>
+            <button class="chip-btn" onclick="sendSquadCommand('build a dirt shelter')">🏠 Build Shelter</button>
+            <button class="chip-btn" onclick="sendSquadCommand('!clearFurnace')">🔥 Clear Furnace</button>
+        </div>
+    </section>
 
-    <!-- Modal -->
+    <!-- TAB 1: SQUAD OVERVIEW -->
+    <main id="tab-squad" class="tab-content">
+        <div id="agents" class="agents-grid">
+            <div style="color:var(--text-muted); font-size:0.9rem; padding:20px; grid-column: 1 / -1; text-align:center;">
+                Connecting to agents...
+            </div>
+        </div>
+    </main>
+
+    <!-- TAB 2: PLAYERS & MOBS -->
+    <main id="tab-players" class="tab-content" style="display:none;">
+        <div class="players-panel">
+            <div class="info-card">
+                <h3><span>👤</span> Players Detected on Server</h3>
+                <div id="playerListContainer">
+                    <div style="color:var(--text-muted); font-size:0.85rem;">Scanning for online players...</div>
+                </div>
+            </div>
+            <div class="info-card">
+                <h3><span>🧟</span> Nearby Entities & Mobs</h3>
+                <div id="entityListContainer" class="mob-list">
+                    <span style="color:var(--text-muted); font-size:0.85rem;">Scanning surroundings...</span>
+                </div>
+                <div style="margin-top:14px; display:flex; gap:6px;">
+                    <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('!attack zombie')">⚔️ Attack Nearest Zombie</button>
+                    <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('!attack skeleton')">🏹 Attack Skeleton</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- TAB 3: SERVER & WORLD -->
+    <main id="tab-server" class="tab-content" style="display:none;">
+        <div class="server-panel">
+            <div class="info-card">
+                <h3><span>🌍</span> Target Server Information</h3>
+                <table class="spec-table">
+                    <tr><td>Server Address</td><td id="srvHost" style="color:var(--cyan); font-weight:600;">Connecting...</td></tr>
+                    <tr><td>Server Port</td><td id="srvPort">38410</td></tr>
+                    <tr><td>Protocol Version</td><td>Minecraft Java 1.21.4 (Cross-Play Bridge)</td></tr>
+                    <tr><td>Compatibility Layer</td><td>LoginGuard (ViaVersion / ViaBackwards / Geyser)</td></tr>
+                    <tr><td>Authentication</td><td>Offline / Cracked & Microsoft Ready</td></tr>
+                    <tr><td>MindServer API</td><td>http://localhost:8080 (Active)</td></tr>
+                </table>
+            </div>
+            <div class="info-card">
+                <h3><span>🌲</span> World Environment & Atmosphere</h3>
+                <table class="spec-table">
+                    <tr><td>Current Dimension</td><td id="worldDimension" style="color:var(--green); font-weight:600;">Overworld</td></tr>
+                    <tr><td>Active Biome</td><td id="worldBiome">Jungle</td></tr>
+                    <tr><td>Time of Day</td><td id="worldTime">Day / Night</td></tr>
+                    <tr><td>Weather Condition</td><td id="worldWeather">Clear</td></tr>
+                    <tr><td>Total Squad Bots</td><td id="worldBotsCount">5 Autonomous Agents</td></tr>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- TAB 4: 3D WORLD VIEW -->
+    <main id="tab-viewer3d" class="tab-content" style="display:none;">
+        <div class="info-card" style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <h3 style="margin:0;"><span>🌐</span> 3D Interactive World View (Three.js Web Stream)</h3>
+                <small style="color:var(--text-muted);">Interactive camera stream centered on Doombot. Drag to orbit, scroll to zoom.</small>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <a href="http://localhost:3000" target="_blank" class="btn btn-primary btn-sm">Open in Dedicated Tab ↗</a>
+                <button class="btn btn-neutral btn-sm" onclick="reload3DViewer()">🔄 Reload Stream</button>
+            </div>
+        </div>
+        <div class="full-viewer-container">
+            <iframe id="mainViewerFrame" src="http://localhost:3000" class="viewer-frame"></iframe>
+        </div>
+    </main>
+
+    <!-- TAB 5: LIVE CHAT & COMMANDS -->
+    <main id="tab-chat" class="tab-content" style="display:none;">
+        <div class="players-panel">
+            <div class="info-card" style="grid-column: 1 / -1;">
+                <h3><span>💬</span> In-Game Command Cheatsheet</h3>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:10px; font-size:0.85rem; color:#c9d1d9;">
+                    <div style="background:#0d1117; padding:10px; border-radius:6px; border:1px solid var(--border);">
+                        <strong style="color:var(--cyan);">Teleport & Navigation:</strong><br>
+                        <code>do /tpa orbryx</code> - Sends /tpa to player<br>
+                        <code>follow me</code> - Follows you continuously<br>
+                        <code>!goToPlayer orbryx</code> - Navigates to player<br>
+                        <code>!stay(-1)</code> - Keeps bot in place
+                    </div>
+                    <div style="background:#0d1117; padding:10px; border-radius:6px; border:1px solid var(--border);">
+                        <strong style="color:var(--green);">Mining & Gathering:</strong><br>
+                        <code>mine logs 10</code> - Gathers nearby logs<br>
+                        <code>collect cobblestone 20</code> - Collects stone<br>
+                        <code>!pickupNearbyItems</code> - Collects dropped items<br>
+                        <code>!clearFurnace</code> - Empties nearest furnace
+                    </div>
+                    <div style="background:#0d1117; padding:10px; border-radius:6px; border:1px solid var(--border);">
+                        <strong style="color:var(--yellow);">Crafting & Building:</strong><br>
+                        <code>craft wooden_pickaxe</code> - Crafts tool<br>
+                        <code>craft crafting_table</code> - Makes table<br>
+                        <code>build a dirt shelter</code> - Builds structure<br>
+                        <code>!placeHere torch</code> - Places torch
+                    </div>
+                    <div style="background:#0d1117; padding:10px; border-radius:6px; border:1px solid var(--border);">
+                        <strong style="color:var(--red);">Combat & Control:</strong><br>
+                        <code>!stop</code> - Forcibly stops current action<br>
+                        <code>defend the area</code> - Fights hostile mobs<br>
+                        <code>!attack zombie</code> - Attacks nearest zombie<br>
+                        <code>!givePlayer orbryx wood 5</code> - Drops items
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Fixed Bottom Action Bar -->
+    <footer class="bottom-bar">
+        <div style="display:flex; align-items:center; gap:8px;">
+            <button id="openCreateAgentBtn" class="btn btn-green btn-sm">+ New Agent</button>
+            <span style="font-size:0.8rem; color:var(--text-muted);">Doombots Autonomous Engine v1.0</span>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <button class="btn btn-neutral btn-sm" onclick="disconnectAllAgents()">Disconnect Squad</button>
+            <button class="btn btn-red btn-sm" onclick="confirmShutdown()">Full Shutdown</button>
+        </div>
+    </footer>
+
+    <!-- Create Agent Modal -->
     <div id="createAgentModal" class="modal-backdrop">
-        <div class="modal">
+        <div class="modal-box">
             <div class="modal-header">
-                <h2 style="margin:0;">Create Agent</h2>
-                <button id="closeCreateAgentBtn" class="modal-close-btn">Close</button>
+                <h2>Create Agent</h2>
+                <button id="closeCreateAgentBtn" class="btn btn-red btn-sm">Close</button>
             </div>
             <div class="modal-body">
-                <div id="createAgentSection">
-                    <div id="profileStatus" style="margin:6px 0;">Profile: Not uploaded</div>
-                    <div id="settingsForm"></div>
-                    <div id="createError" style="color:#f44336;margin-top:10px;"></div>
-                    <input type="file" id="profileFileInput" accept=".json,application/json" style="display:none">
-                </div>
+                <div id="profileStatus" style="margin-bottom:8px; font-size:0.85rem; color:var(--cyan);">Profile: Not uploaded</div>
+                <div id="settingsForm" class="form-grid"></div>
+                <div id="createError" style="color:var(--red); margin-top:8px; font-size:0.85rem;"></div>
+                <input type="file" id="profileFileInput" accept=".json,application/json" style="display:none">
             </div>
             <div class="modal-footer">
-                <div class="footer-left" id="footerStatus">Configure settings, then upload a profile and create the agent.</div>
-                <div class="footer-actions">
-                    <button id="uploadProfileBtn" class="start-btn">Upload Profile</button>
-                    <button id="submitCreateAgentBtn" class="start-btn" disabled>Create Agent</button>
-                </div>
+                <button id="uploadProfileBtn" class="btn btn-neutral">Upload Profile</button>
+                <button id="submitCreateAgentBtn" class="btn btn-green" disabled>Create Agent</button>
             </div>
         </div>
     </div>
 
     <!-- Agent Settings Modal -->
     <div id="agentSettingsModal" class="modal-backdrop">
-        <div class="modal">
+        <div class="modal-box">
             <div class="modal-header">
-                <h2 id="agentSettingsTitle" style="margin:0;">Agent Settings</h2>
-                <button id="closeAgentSettingsBtn" class="modal-close-btn">Close</button>
+                <h2 id="agentSettingsTitle">Agent Settings</h2>
+                <button id="closeAgentSettingsBtn" class="btn btn-red btn-sm">Close</button>
             </div>
             <div class="modal-body">
-                <div id="agentSettingsSection">
-                    <div id="agentSettingsForm"></div>
-                    <div id="agentSettingsError" style="color:#f44336;margin-top:10px;"></div>
-                </div>
+                <div id="agentSettingsForm" class="form-grid"></div>
+                <div id="agentSettingsError" style="color:var(--red); margin-top:8px; font-size:0.85rem;"></div>
             </div>
             <div class="modal-footer">
-                <div class="footer-left" id="agentSettingsFooter">Modify settings then apply to restart the agent.</div>
-                <div class="footer-actions">
-                    <button id="discardAgentSettingsBtn" class="stop-btn" style="background:#777;">Discard Changes</button>
-                    <button id="applyAgentSettingsBtn" class="start-btn" disabled>Apply & Restart</button>
-                </div>
+                <button id="discardSettingsBtn" class="btn btn-neutral">Discard</button>
+                <button id="applySettingsBtn" class="btn btn-green">Apply & Restart</button>
             </div>
         </div>
     </div>
 
     <script>
-        const socket = io({ path: window.location.pathname + 'socket.io' })
-        const agentsDiv = document.getElementById('agents');
-        let settingsSpec = {};
-        let profileData = null;
-        const agentSettings = {};
-        const agentLastMessage = {};
-        const inventoryOpen = {};
+        const socket = io();
+
         let currentAgents = [];
-
-        // Item texture helpers (use PrismarineJS minecraft-assets CDN with graceful fallbacks)
-        const BASE_ICON_VERSION_CANDIDATES = ['1.21.8'];
-        const PATH_CANDIDATES = ['items', 'blocks'];
-        function buildVersionCandidatesForAgent(agentName) {
-            const preferred = (agentSettings[agentName] && agentSettings[agentName].minecraft_version && agentSettings[agentName].minecraft_version !== 'auto')
-                ? [String(agentSettings[agentName].minecraft_version)]
-                : [];
-            const merged = [...preferred, ...BASE_ICON_VERSION_CANDIDATES];
-            // de-duplicate while preserving order
-            const seen = new Set();
-            const uniq = [];
-            for (const v of merged) { if (!seen.has(v)) { seen.add(v); uniq.push(v); } }
-            return uniq;
-        }
-        function getItemIconUrl(itemName, vers, pathType) {
-            return `https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/${vers}/${pathType}/${itemName}.png`;
-        }
-        function buildIconUrlCandidates(itemName, agentName) {
-            // Prefer local proxy that resolves items vs blocks using minecraft-assets
-            const proxiedFirst = [`/assets/item/${agentName}/${itemName}.png`];
-            const versList = buildVersionCandidatesForAgent(agentName);
-            const urls = [...proxiedFirst];
-            for (const vers of versList) {
-                for (const p of PATH_CANDIDATES) {
-                    urls.push(getItemIconUrl(itemName, vers, p));
-                }
-            }
-            return urls;
-        }
-        function fallbackItemIcon(imgEl) {
-            const list = (imgEl.dataset.urlList ? imgEl.dataset.urlList.split('||') : []);
-            let i = Number(imgEl.dataset.urlIndex || '0');
-            if (i < list.length - 1) {
-                i++;
-                imgEl.dataset.urlIndex = String(i);
-                imgEl.src = list[i];
-            } else {
-                imgEl.onerror = null;
-                imgEl.src = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="100%" height="100%" fill="#444"/><text x="50%" y="55%" font-size="12" fill="#bbb" text-anchor="middle">?</text></svg>');
-            }
-        }
-        function prettyItemName(name) {
-            return String(name || '').replace(/_/g, ' ');
-        }
-
-        function iconHTMLForItem(itemName, title, agentName) {
-            const cands = buildIconUrlCandidates(itemName, agentName);
-            const icon = cands[0];
-            return `
-                <div class="armor-slot" title="${title}">
-                    <img class="inv-img" src="${icon}" data-url-index="0" data-url-list="${cands.join('||')}" onerror="fallbackItemIcon(this)" alt="${title}">
-                </div>
-            `;
-        }
-        function emptySlotHTML(label) {
-            return `<div class="armor-slot empty" title="${label}: none"><span class="armor-placeholder">-</span></div>`;
-        }
-
-        const statusEl = document.getElementById('msStatus');
-        function updateStatus(connected) {
-            if (!statusEl) return;
-            if (connected) {
-                statusEl.textContent = 'MindServer online';
-                statusEl.classList.remove('offline');
-                statusEl.classList.add('online');
-            } else {
-                statusEl.textContent = 'MindServer offline';
-                statusEl.classList.remove('online');
-                statusEl.classList.add('offline');
-            }
-        }
-        function subscribeToState() {
-            socket.emit('listen-to-agents');
-        }
-        // Initial status
-        updateStatus(false);
-        socket.on('connect', () => {
-            updateStatus(true);
-            subscribeToState();
-            // Clear all cached settings on reconnect
-            Object.keys(agentSettings).forEach(name => delete agentSettings[name]);
-        });
-        socket.on('disconnect', () => {
-            updateStatus(false);
-        });
-        socket.on('connect_error', () => {
-            updateStatus(false);
-        });
-
-        fetch('/settings_spec.json')
-            .then(r => r.json())
-            .then(spec => {
-                settingsSpec = spec;
-                buildSettingsForm();
-            });
-
-        function buildSettingsForm() {
-            const form = document.getElementById('settingsForm');
-            form.innerHTML = '';
-            // ensure grid for multi-column layout
-            form.style.display = 'grid';
-            form.style.gridTemplateColumns = 'repeat(auto-fit, minmax(320px, 1fr))';
-            form.style.gap = '8px';
-            Object.keys(settingsSpec).forEach(key => {
-                if (key === 'profile') return; // profile handled via upload
-                const cfg = settingsSpec[key];
-                const wrapper = document.createElement('div');
-                wrapper.className = 'setting-wrapper';
-                const label = document.createElement('label');
-                label.textContent = key;
-                label.title = cfg.description || '';
-                let input;
-                switch (cfg.type) {
-                    case 'boolean':
-                        input = document.createElement('input');
-                        input.type = 'checkbox';
-                        input.checked = cfg.default === true;
-                        break;
-                    case 'number':
-                        input = document.createElement('input');
-                        input.type = 'number';
-                        input.value = cfg.default;
-                        break;
-                    default:
-                        input = document.createElement('input');
-                        input.type = 'text';
-                        input.value = typeof cfg.default === 'object' ? JSON.stringify(cfg.default) : cfg.default;
-                }
-                input.title = cfg.description || '';
-                input.id = `setting-${key}`;
-                wrapper.appendChild(label);
-                wrapper.appendChild(input);
-                form.appendChild(wrapper);
-            });
-        }
-
-        document.getElementById('uploadProfileBtn').addEventListener('click', () => {
-            document.getElementById('profileFileInput').click();
-        });
-
-        document.getElementById('profileFileInput').addEventListener('change', e => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = ev => {
-                try {
-                    profileData = JSON.parse(ev.target.result);
-                    document.getElementById('submitCreateAgentBtn').disabled = false;
-                    document.getElementById('profileStatus').textContent = `Profile: ${profileData.name || 'Uploaded'}`;
-                    document.getElementById('createError').textContent = '';
-                } catch (err) {
-                    document.getElementById('createError').textContent = 'Invalid profile JSON: ' + err.message;
-                    profileData = null;
-                    document.getElementById('submitCreateAgentBtn').disabled = true;
-                    document.getElementById('profileStatus').textContent = 'Profile: Not uploaded';
-                }
-            };
-            reader.readAsText(file);
-            e.target.value = '';
-        });
-
-        document.getElementById('submitCreateAgentBtn').addEventListener('click', () => {
-            if (!profileData) return;
-            const settings = { profile: profileData };
-            Object.keys(settingsSpec).forEach(key => {
-                if (key === 'profile') return;
-                const input = document.getElementById(`setting-${key}`);
-                if (!input) return;
-                const type = settingsSpec[key].type;
-                let val;
-                if (type === 'boolean') val = input.checked;
-                else if (type === 'number') val = Number(input.value);
-                else if (type === 'array' || type === 'object') {
-                    try { val = JSON.parse(input.value); }
-                    catch { val = input.value; }
-                } else val = input.value;
-                settings[key] = val;
-            });
-            socket.emit('create-agent', settings, res => {
-                if (!res.success) {
-                    document.getElementById('createError').textContent = res.error || 'Unknown error';
-                } else {
-                    // reset on success
-                    profileData = null;
-                    document.getElementById('submitCreateAgentBtn').disabled = true;
-                    document.getElementById('profileStatus').textContent = 'Profile: Not uploaded';
-                    document.getElementById('createError').textContent = '';
-                    hideCreateAgentModal();
-                }
-            });
-        });
-
-        // Modal open/close logic
-        const modalBackdrop = document.getElementById('createAgentModal');
-        document.getElementById('openCreateAgentBtn').addEventListener('click', () => {
-            buildSettingsForm();
-            modalBackdrop.style.display = 'flex';
-        });
-        function hideCreateAgentModal() {
-            modalBackdrop.style.display = 'none';
-        }
-        document.getElementById('closeCreateAgentBtn').addEventListener('click', hideCreateAgentModal);
-
-        socket.on('bot-output', (agentName, message) => {
-            agentLastMessage[agentName] = message;
-            const messageDiv = document.getElementById(`lastMessage-${agentName}`);
-            if (messageDiv) {
-                messageDiv.textContent = message;
-            }
-        });
-
-        // Subscribe to aggregated state updates (re-sent on each connect)
-        socket.on('state-update', (states) => {
-            window.lastStates = states;
-            Object.keys(states || {}).forEach(name => {
-                const st = states[name];
-                const healthEl = document.getElementById(`health-${name}`);
-                if (st && !st.error) {
-                    const gp = st.gameplay || {};
-                    if (healthEl && typeof gp.health === 'number') {
-                        const hMax = typeof gp.healthMax === 'number' ? gp.healthMax : 20;
-                        healthEl.textContent = `health: ${gp.health}/${hMax}`;
-                    }
-                    const posEl = document.getElementById(`pos-${name}`);
-                    const hunEl = document.getElementById(`hunger-${name}`);
-                    const bioEl = document.getElementById(`biome-${name}`);
-                    const modeEl = document.getElementById(`mode-${name}`);
-                    const itemsEl = document.getElementById(`items-${name}`);
-                    const equippedEl = document.getElementById(`equipped-${name}`);
-                    const invGrid = document.getElementById(`inventory-${name}`);
-                    const actionEl = document.getElementById(`action-${name}`);
-                    if (posEl && gp.position) {
-                        const p = gp.position;
-                        posEl.textContent = `x ${p.x}, y ${p.y}, z ${p.z}`;
-                    }
-                    if (hunEl && typeof gp.hunger === 'number') {
-                        const fMax = typeof gp.hungerMax === 'number' ? gp.hungerMax : 20;
-                        hunEl.textContent = `hunger: ${gp.hunger}/${fMax}`;
-                    }
-                    if (bioEl && gp.biome) bioEl.textContent = `biome: ${gp.biome}`;
-                    if (modeEl && gp.gamemode) modeEl.textContent = `gamemode: ${gp.gamemode}`;
-                    if (itemsEl && st.inventory) {
-                        const used = st.inventory.stacksUsed ?? 0;
-                        const total = st.inventory.totalSlots ?? 0;
-                        itemsEl.textContent = `inventory slots: ${used}/${total}`;
-                    }
-                    if (equippedEl && st.inventory?.equipment) {
-                        const e = st.inventory.equipment;
-                        equippedEl.textContent = `equipped: ${e.mainHand || 'none'}`;
-                    }
-                    const armorEl = document.getElementById(`armor-${name}`);
-                    if (armorEl && st.inventory?.equipment) {
-                        const e = st.inventory.equipment;
-                        const parts = [];
-                        parts.push(e.helmet ? iconHTMLForItem(e.helmet, `head: ${prettyItemName(e.helmet)}`, name) : emptySlotHTML('head'));
-                        parts.push(e.chestplate ? iconHTMLForItem(e.chestplate, `chest: ${prettyItemName(e.chestplate)}`, name) : emptySlotHTML('chest'));
-                        parts.push(e.leggings ? iconHTMLForItem(e.leggings, `legs: ${prettyItemName(e.leggings)}`, name) : emptySlotHTML('legs'));
-                        parts.push(e.boots ? iconHTMLForItem(e.boots, `feet: ${prettyItemName(e.boots)}`, name) : emptySlotHTML('feet'));
-                        // Main hand for quick glance
-                        parts.push(e.mainHand ? iconHTMLForItem(e.mainHand, `main hand: ${prettyItemName(e.mainHand)}`, name) : emptySlotHTML('main hand'));
-                        armorEl.innerHTML = `<div class="armor-grid">${parts.join('')}</div>`;
-                    }
-                    if (actionEl && st.action) {
-                        actionEl.textContent = `${st.action.current || 'Idle'}`;
-                        const _statusColors = { acting: '#4CAF50', chatting: '#42a5f5', thinking: '#9e9e9e', stopped: '#f44336', idle: '#888' };
-                        actionEl.style.color = _statusColors[st.action.kind] || '';
-                    }
-                    if (invGrid && st.inventory?.counts) {
-                        const counts = st.inventory.counts;
-                        const entries = Object.entries(counts);
-                        if (entries.length) {
-                            invGrid.classList.remove('empty');
-                            invGrid.innerHTML = entries
-                                .sort((a, b) => a[0].localeCompare(b[0]))
-                                .map(([k, v]) => {
-                                    const title = prettyItemName(k);
-                                    const safeAttr = k.replace(/'/g, "\\'");
-                                    const iconCandidates = buildIconUrlCandidates(k, name);
-                                    const icon = iconCandidates[0];
-                                    return `
-                                        <div class="inv-item" title="${title}">
-                                            <img class="inv-img" src="${icon}" data-url-index="0" data-url-list="${iconCandidates.join('||')}" onerror="fallbackItemIcon(this)" alt="${title}">
-                                            <div class="inv-count">${v}</div>
-                                            <div class="inv-name">${title}</div>
-                                        </div>
-                                    `;
-                                })
-                                .join('');
-                        } else {
-                            invGrid.classList.add('empty');
-                            invGrid.innerHTML = '<div class="cell">(empty)</div>';
-                        }
-                    }
-                }
-            });
-        });
-
-        function fetchAgentSettings(name) {
-            return new Promise((resolve) => {
-                if (agentSettings[name]) { resolve(agentSettings[name]); return; }
-                socket.emit('get-settings', name, res => {
-                    if (res.settings) {
-                        agentSettings[name] = res.settings;
-                        resolve(res.settings);
-                    } else resolve(null);
-                });
-            });
-        }
-
-        // Agent settings modal logic
-        const agentSettingsModal = document.getElementById('agentSettingsModal');
-        const agentSettingsForm = document.getElementById('agentSettingsForm');
-        const applyBtn = document.getElementById('applyAgentSettingsBtn');
-        const discardBtn = document.getElementById('discardAgentSettingsBtn');
-        const closeAgentSettingsBtn = document.getElementById('closeAgentSettingsBtn');
-        const agentSettingsTitle = document.getElementById('agentSettingsTitle');
-        let currentAgentName = null;
+        let agentSettings = {};
+        let inventoryOpen = {};
+        let agentLastMessage = {};
         let originalAgentSettings = null;
+        let currentAgentName = null;
+        let settingsSpec = {};
 
-        function buildAgentSettingsForm(settings) {
-            agentSettingsForm.innerHTML = '';
-            agentSettingsForm.style.display = 'grid';
-            agentSettingsForm.style.gridTemplateColumns = 'repeat(auto-fit, minmax(320px, 1fr))';
-            agentSettingsForm.style.gap = '8px';
-            Object.keys(settingsSpec).forEach(key => {
-                if (key === 'profile') return; // profile not edited here
-                const cfg = settingsSpec[key];
-                const wrapper = document.createElement('div');
-                wrapper.className = 'setting-wrapper';
-                const label = document.createElement('label');
-                label.textContent = key;
-                label.title = cfg.description || '';
-                let input;
-                switch (cfg.type) {
-                    case 'boolean':
-                        input = document.createElement('input');
-                        input.type = 'checkbox';
-                        input.checked = Boolean(settings[key]);
-                        break;
-                    case 'number':
-                        input = document.createElement('input');
-                        input.type = 'number';
-                        input.value = settings[key] ?? cfg.default ?? 0;
-                        break;
-                    default:
-                        input = document.createElement('input');
-                        input.type = 'text';
-                        const defVal = settings[key] ?? cfg.default ?? '';
-                        input.value = typeof defVal === 'object' ? JSON.stringify(defVal) : defVal;
-                }
-                input.id = `agent-setting-${key}`;
-                input.addEventListener('input', onAgentSettingsChanged);
-                if (input.type === 'checkbox') input.addEventListener('change', onAgentSettingsChanged);
-                wrapper.appendChild(label);
-                wrapper.appendChild(input);
-                agentSettingsForm.appendChild(wrapper);
-            });
-            onAgentSettingsChanged();
-        }
+        // Tab Navigation
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
 
-        function openAgentSettings(name) {
-            currentAgentName = name;
-            agentSettingsTitle.textContent = `${name} Settings`;
-            fetchAgentSettings(name).then(settings => {
-                originalAgentSettings = JSON.parse(JSON.stringify(settings || {}));
-                buildAgentSettingsForm(settings || {});
-                agentSettingsModal.style.display = 'flex';
-            });
-        }
-        window.openAgentSettings = openAgentSettings;
+            const targetTab = document.getElementById(`tab-${tabId}`);
+            if (targetTab) targetTab.style.display = 'block';
 
-        function getEditedAgentSettings() {
-            const newSettings = { profile: (originalAgentSettings && originalAgentSettings.profile) || {} };
-            Object.keys(settingsSpec).forEach(key => {
-                if (key === 'profile') return;
-                const cfg = settingsSpec[key];
-                const input = document.getElementById(`agent-setting-${key}`);
-                if (!input) return;
-                let val;
-                if (cfg.type === 'boolean') val = input.checked;
-                else if (cfg.type === 'number') val = Number(input.value);
-                else if (cfg.type === 'array' || cfg.type === 'object') {
-                    try { val = JSON.parse(input.value); }
-                    catch { val = input.value; }
-                } else val = input.value;
-                newSettings[key] = val;
-            });
-            return newSettings;
-        }
+            const activeBtn = Array.from(document.querySelectorAll('.nav-tab')).find(b => b.getAttribute('onclick')?.includes(tabId));
+            if (activeBtn) activeBtn.classList.add('active');
 
-        function shallowEqual(a, b) {
-            if (!a || !b) return false;
-            const keys = Object.keys(settingsSpec).filter(k => k !== 'profile');
-            for (const k of keys) {
-                const va = a[k];
-                const vb = b[k];
-                if (typeof va === 'object' || typeof vb === 'object') {
-                    if (JSON.stringify(va) !== JSON.stringify(vb)) return false;
-                } else if (va !== vb) return false;
-            }
-            return true;
-        }
-
-        function onAgentSettingsChanged() {
-            if (!originalAgentSettings) { applyBtn.disabled = true; return; }
-            const edited = getEditedAgentSettings();
-            applyBtn.disabled = shallowEqual(edited, originalAgentSettings);
-        }
-
-        function closeAgentSettings() {
-            agentSettingsModal.style.display = 'none';
-            currentAgentName = null;
-            originalAgentSettings = null;
-        }
-
-        function updateAgentViewer(name) {
-            const agentEl = document.getElementById(`agent-${name}`);
-            if (!agentEl) return;
-
-            const settings = agentSettings[name];
-            const viewerContainer = agentEl.querySelector('.agent-view-container');
-            if (!viewerContainer) return;
-
-            const agentState = currentAgents.find(a => a.name === name);
-            const shouldShow = agentState?.in_game && settings?.render_bot_view === true;
-            viewerContainer.parentElement.style.display = shouldShow ? '' : 'none';
-        }
-
-        discardBtn.addEventListener('click', () => {
-            if (!currentAgentName || !originalAgentSettings) return;
-            buildAgentSettingsForm(originalAgentSettings);
-        });
-
-        applyBtn.addEventListener('click', () => {
-            if (!currentAgentName) return;
-            const edited = getEditedAgentSettings();
-            socket.emit('set-agent-settings', currentAgentName, edited);
-            // Update local settings immediately
-            agentSettings[currentAgentName] = { ...edited, fetched: true };
-            updateAgentViewer(currentAgentName);
-            closeAgentSettings();
-        });
-
-        closeAgentSettingsBtn.addEventListener('click', closeAgentSettings);
-
-
-        function renderAgentCard(agent) {
-            const cfg = agentSettings[agent.name] || {};
-            const showViewer = agent.in_game && (cfg.render_bot_view !== false);
-            const viewerHost = window.location.hostname || 'localhost';
-            const viewerPort = agent.viewerPort;
-            const viewerUrl = viewerPort ? `http://${viewerHost}:${viewerPort}` : '';
-            const viewerHTML = (showViewer && viewerUrl) ? `
-                <div class="agent-view-container" style="flex-direction:column;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; background:#1b2838; padding:3px 6px; font-size:11px; border-radius:4px 4px 0 0;">
-                        <span style="color:#64b5f6; font-weight:bold;">🌐 3D World View</span>
-                        <a href="${viewerUrl}" target="_blank" style="color:#90caf9; text-decoration:none;" title="Open in new full tab">Open Full ↗</a>
-                    </div>
-                    <iframe class="agent-viewer" id="viewer-${agent.name}" src="${viewerUrl}"></iframe>
-                </div>` : '';
-            const lastMessage = agentLastMessage[agent.name] || '';
-            const invOpen = inventoryOpen[agent.name] === true;
-            const invStyle = invOpen ? '' : 'display:none;';
-            return `
-                    <div class="agent" id="agent-${agent.name}">
-                        <div class="agent-grid">
-                            <div class="cell title" style="grid-column: 1 / -1; display:flex; align-items:center; justify-content:space-between;">
-                                <span><span class="status-icon ${agent.in_game ? 'online' : 'offline'}">●</span>${agent.name}${agent.socket_connected && !agent.in_game ? '<span style="margin-left:6px;color:#f0ad4e;">joining...</span>' : ''}
-                                    <button class="gear-btn" title="Settings" onclick="openAgentSettings('${agent.name}')">⚙</button>
-                                    <button class="gear-btn" title="Inventory" onclick="toggleDetails('${agent.name}')">Inventory</button>
-                                    ${viewerUrl ? `<a class="gear-btn" href="${viewerUrl}" target="_blank" title="Open 3D World View in full tab" style="text-decoration:none;">🌐 3D View</a>` : ''}
-                                </span>
-                            </div>
-                            ${showViewer ? `<div class="cell" style="grid-row: span 3; padding:0;">${viewerHTML}</div>` : ''}
-                            <div class="cell" id="action-${agent.name}">action: -</div>
-                            <div class="cell" id="mode-${agent.name}">gamemode: -</div>
-                            <div class="cell" id="health-${agent.name}">health: -</div>
-                            <div class="cell" id="hunger-${agent.name}">hunger: -</div>
-                            <div class="cell" id="pos-${agent.name}">pos: -</div>
-                            <div class="cell" id="biome-${agent.name}">biome: -</div>
-                            <div class="cell" id="items-${agent.name}">inventory slots: -</div>
-                            <div class="cell" id="equipped-${agent.name}">equipped: -</div>
-                            <div class="agent-inventory" id="inventorySection-${agent.name}" style="${invStyle} grid-column: 1 / -1;">
-                                <h3>Inventory</h3>
-                                <div class="cell" id="armor-${agent.name}" style="margin-bottom: 8px;">armor: -</div>
-                                <div class="inventory-grid" id="inventory-${agent.name}"></div>
-                            </div>
-                            <div id="lastMessage-${agent.name}" class="last-message" style="grid-column: 1 / -1;"><strong>Last Message:</strong> ${lastMessage}</div>
-                        </div>
-                        <div class="controls-row">
-                            <button class="start-btn" id="sendBtn-${agent.name}" disabled onclick="sendMessage('${agent.name}', document.getElementById('messageInput-${agent.name}').value)">Send</button>
-                            <input class="msg-input" type="text" id="messageInput-${agent.name}" placeholder="Enter message..." 
-                                oninput="onMsgInputChange('${agent.name}')"
-                                onkeydown="if(event.key === 'Enter') document.getElementById('sendBtn-${agent.name}').click()"
-                                ${!agent.in_game ? 'disabled' : ''}>
-                            <button class="neutral-btn" onclick="sendMessage('${agent.name}', '!stop')" ${!agent.in_game ? 'disabled' : ''}>Stop Action</button>
-                            <button class="neutral-btn" onclick="sendMessage('${agent.name}', '!stay(-1)')" ${!agent.in_game ? 'disabled' : ''}>Stay Still</button>
-                            <button class="neutral-btn" onclick="restartAgent('${agent.name}')" ${!agent.in_game ? 'disabled' : ''}>Restart</button>
-                            <button class="neutral-btn" ${agent.in_game ? `onclick=\"disconnectAgent('${agent.name}')\"` : (agent.socket_connected ? 'disabled' : `onclick=\"startAgent('${agent.name}')\"`)}>${agent.in_game ? 'Disconnect' : (agent.socket_connected ? 'Connecting...' : 'Connect')}</button>
-                            <button class="stop-btn" onclick="destroyAgent('${agent.name}')">Remove</button>
-                        </div>
-                    </div>`;
-        }
-
-        async function renderAgents(agents) {
-            if (!agents.length) {
-                agentsDiv.innerHTML = '<div class="agent">No agents connected</div>';
-                return;
-            }
-
-            // If agentsDiv is empty, do a full render
-            if (!agentsDiv.children.length) {
-                agentsDiv.innerHTML = agents.map(agent => renderAgentCard(agent)).join('');
-                // Update all viewers after initial render
-                setTimeout(() => {
-                    agents.forEach(a => {
-                        if (a.in_game) updateAgentViewer(a.name);
-                    });
-                }, 0);
-                return;
-            }
-
-            // Compare with current agents to find changes
-            const prevAgents = currentAgents.reduce((acc, a) => ({ ...acc, [a.name]: a }), {});
-            const changedAgents = agents.filter(a => {
-                const prev = prevAgents[a.name];
-                return !prev || prev.in_game !== a.in_game || prev.viewerPort !== a.viewerPort || prev.socket_connected !== a.socket_connected;
-            });
-
-            // Update only changed agents
-            changedAgents.forEach(agent => {
-                const el = document.getElementById(`agent-${agent.name}`);
-                if (el) {
-                    // Update existing card
-                    el.outerHTML = renderAgentCard(agent);
-                    if (agent.in_game) updateAgentViewer(agent.name);
-                } else {
-                    // Add new card
-                    agentsDiv.insertAdjacentHTML('beforeend', renderAgentCard(agent));
-                    if (agent.in_game) updateAgentViewer(agent.name);
-                }
-            });
-
-            // Remove cards for agents that no longer exist
-            Array.from(agentsDiv.children).forEach(el => {
-                const name = el.id.replace('agent-', '');
-                if (!agents.find(a => a.name === name)) {
-                    el.remove();
-                    delete inventoryOpen[name];
-                }
-            });
-        }
-
-        socket.on('agents-status', async (agents) => {
-            // Fetch settings for all agents that don't have current settings
-            const needSettings = agents.filter(a => !agentSettings[a.name]);
-            if (needSettings.length > 0) {
-                await Promise.all(needSettings.map(async (a) => {
-                    const settings = await fetchAgentSettings(a.name);
-                    if (settings) {
-                        agentSettings[a.name] = settings;
-                    }
-                }));
-            }
-
-            // Compare with current agents to find changes
-            const prevAgents = currentAgents.reduce((acc, a) => ({ ...acc, [a.name]: a }), {});
-            const changedAgents = agents.filter(a => {
-                const prev = prevAgents[a.name];
-                return !prev || prev.in_game !== a.in_game || prev.viewerPort !== a.viewerPort || prev.socket_connected !== a.socket_connected;
-            });
-
-            // Update current agents list
-            currentAgents = agents;
-
-            // If agentsDiv is empty, do a full render
-            if (!agentsDiv.children.length) {
-                agentsDiv.innerHTML = agents.map(agent => renderAgentCard(agent)).join('');
-                // Update all viewers after initial render
-                setTimeout(() => {
-                    agents.forEach(a => {
-                        if (a.in_game) updateAgentViewer(a.name);
-                    });
-                }, 0);
-                return;
-            }
-
-            // Update only changed agents
-            changedAgents.forEach(agent => {
-                const el = document.getElementById(`agent-${agent.name}`);
-                if (el) {
-                    // Update existing card
-                    el.outerHTML = renderAgentCard(agent);
-                    if (agent.in_game) updateAgentViewer(agent.name);
-                } else {
-                    // Add new card
-                    agentsDiv.insertAdjacentHTML('beforeend', renderAgentCard(agent));
-                    if (agent.in_game) updateAgentViewer(agent.name);
-                }
-            });
-
-            // Remove cards for agents that no longer exist
-            Array.from(agentsDiv.children).forEach(el => {
-                const name = el.id.replace('agent-', '');
-                if (!agents.find(a => a.name === name)) {
-                    el.remove();
-                    delete inventoryOpen[name];
-                }
-            });
-        });
-
-        function restartAgent(n) { socket.emit('restart-agent', n); }
-        function disconnectAgent(n) { socket.emit('stop-agent', n); }
-        function startAgent(n) { 
-            const btn = document.querySelector(`button[onclick="startAgent('${n}')"]`);
-            if (btn) {
-                btn.textContent = 'Connecting...';
-                btn.disabled = true;
-                // Re-enable after 10s if still disabled (agent failed to connect)
-                setTimeout(() => {
-                    const retryBtn = document.querySelector(`button[onclick=\\"startAgent('${n}')\\"]`);
-                    const agentState = (window.currentAgents || []).find(a => a.name === n);
-                    const stillWaiting = agentState ? (!agentState.in_game && !agentState.socket_connected) : true;
-                    if (retryBtn && stillWaiting) {
-                        retryBtn.disabled = false;
-                        retryBtn.textContent = 'Connect';
-                    }
-                }, 10000);
-            }
-            socket.emit('start-agent', n);
-        }
-        function stopAgent(n) { socket.emit('stop-agent', n); }
-        function destroyAgent(n) { socket.emit('destroy-agent', n); }
-        function disconnectAllAgents() { 
-            socket.emit('stop-all-agents'); 
-        }
-        function confirmShutdown() {
-            if (confirm('Are you sure you want to perform a full shutdown?\nThis will stop all agents and close the server.')) {
-                socket.emit('shutdown');
+            // Hide squad command on server/3D tabs to maximize viewing space
+            const squadBar = document.getElementById('squadBar');
+            if (squadBar) {
+                squadBar.style.display = (tabId === 'viewer3d') ? 'none' : 'block';
             }
         }
+        window.switchTab = switchTab;
+
+        function reload3DViewer() {
+            const frame = document.getElementById('mainViewerFrame');
+            if (frame) {
+                const host = window.location.hostname || 'localhost';
+                frame.src = `http://${host}:3000?t=` + Date.now();
+            }
+        }
+        window.reload3DViewer = reload3DViewer;
+
+        // Squad Command Broadcast
         function sendSquadCommand(customMsg) {
             const input = document.getElementById('squadCmdInput');
             const msg = customMsg || (input ? input.value.trim() : '');
@@ -1118,27 +882,315 @@
             if (!m || !m.trim()) return;
             socket.emit('send-message', n, { from: 'ADMIN', message: m });
             const input = document.getElementById(`messageInput-${n}`);
-            const btn = document.getElementById(`sendBtn-${n}`);
             if (input) input.value = '';
-            if (btn) btn.disabled = true;
         }
-        function onMsgInputChange(name) {
-            const input = document.getElementById(`messageInput-${name}`);
-            const btn = document.getElementById(`sendBtn-${name}`);
-            if (btn && input) {
-                btn.disabled = !(input.value && input.value.trim().length > 0);
+        window.sendMessage = sendMessage;
+
+        // Fetch settings spec
+        fetch('/settings_spec.json')
+            .then(r => r.json())
+            .then(spec => { settingsSpec = spec; })
+            .catch(() => {});
+
+        // Socket Events
+        socket.on('connect', () => {
+            const ms = document.getElementById('msStatus');
+            if (ms) {
+                ms.className = 'status-badge online';
+                ms.textContent = '● MindServer Online';
+            }
+            socket.emit('listen-to-agents');
+        });
+
+        socket.on('disconnect', () => {
+            const ms = document.getElementById('msStatus');
+            if (ms) {
+                ms.className = 'status-badge offline';
+                ms.textContent = '● MindServer Offline';
+            }
+        });
+
+        socket.on('bot-output', (agentName, message) => {
+            agentLastMessage[agentName] = message;
+            const el = document.getElementById(`lastMessage-${agentName}`);
+            if (el) el.textContent = message;
+        });
+
+        // Real-Time State Updates (Health, Hunger, Players, Entities, World)
+        socket.on('state-update', (states) => {
+            window.lastStates = states;
+            if (!states) return;
+
+            const allDetectedPlayers = new Set();
+            const allNearbyEntities = new Map();
+
+            Object.keys(states).forEach(name => {
+                const st = states[name];
+                if (!st || st.error) return;
+
+                const gp = st.gameplay || {};
+
+                // Health & Hunger Bars
+                const hVal = typeof gp.health === 'number' ? gp.health : 20;
+                const hEl = document.getElementById(`healthVal-${name}`);
+                const hBar = document.getElementById(`healthBar-${name}`);
+                if (hEl) hEl.textContent = `${hVal}/20`;
+                if (hBar) hBar.style.width = `${Math.min(100, (hVal / 20) * 100)}%`;
+
+                const fVal = typeof gp.hunger === 'number' ? gp.hunger : 20;
+                const fEl = document.getElementById(`hungerVal-${name}`);
+                const fBar = document.getElementById(`hungerBar-${name}`);
+                if (fEl) fEl.textContent = `${fVal}/20`;
+                if (fBar) fBar.style.width = `${Math.min(100, (fVal / 20) * 100)}%`;
+
+                // Coordinates, Biome, Action
+                const posEl = document.getElementById(`pos-${name}`);
+                if (posEl && gp.position) {
+                    posEl.textContent = `${gp.position.x}, ${gp.position.y}, ${gp.position.z}`;
+                }
+
+                const biomeEl = document.getElementById(`biome-${name}`);
+                if (biomeEl && gp.biome) biomeEl.textContent = gp.biome;
+
+                const actEl = document.getElementById(`action-${name}`);
+                if (actEl && st.action) {
+                    actEl.textContent = st.action.current || 'Idle';
+                    const colors = { acting: '#3fb950', chatting: '#58a6ff', thinking: '#bc8cff', stopped: '#f85149', idle: '#8b949e' };
+                    actEl.style.color = colors[st.action.kind] || '#c9d1d9';
+                }
+
+                // Inventory thumbnail
+                const invSlotsEl = document.getElementById(`invSlots-${name}`);
+                if (invSlotsEl && st.inventory) {
+                    invSlotsEl.textContent = `${st.inventory.stacksUsed || 0}/${st.inventory.totalSlots || 36}`;
+                }
+
+                // Collect Players & Entities for Tab 2
+                if (Array.isArray(gp.players)) {
+                    gp.players.forEach(p => allDetectedPlayers.add(p));
+                }
+                if (Array.isArray(gp.entities)) {
+                    gp.entities.forEach(ent => {
+                        allNearbyEntities.set(ent, (allNearbyEntities.get(ent) || 0) + 1);
+                    });
+                }
+
+                // World stats for Tab 3
+                if (gp.dimension) document.getElementById('worldDimension').textContent = gp.dimension;
+                if (gp.biome) document.getElementById('worldBiome').textContent = gp.biome;
+                if (gp.timeOfDay) document.getElementById('worldTime').textContent = gp.timeOfDay;
+                if (gp.weather) document.getElementById('worldWeather').textContent = gp.weather;
+            });
+
+            // Update Tab 2 (Players List)
+            const pContainer = document.getElementById('playerListContainer');
+            if (pContainer) {
+                if (allDetectedPlayers.size === 0) {
+                    pContainer.innerHTML = `<div style="color:var(--text-muted); font-size:0.85rem;">No other players currently within visual range.</div>`;
+                } else {
+                    pContainer.innerHTML = Array.from(allDetectedPlayers).map(p => `
+                        <div class="player-row">
+                            <span style="font-weight:700; color:#fff;">👤 ${p}</span>
+                            <div style="display:flex; gap:6px;">
+                                <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('do /tpa ${p}')">⚡ Teleport Squad (/tpa ${p})</button>
+                                <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('follow ${p}')">🏃 Follow</button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            // Update Tab 2 (Entities / Mobs List)
+            const eContainer = document.getElementById('entityListContainer');
+            if (eContainer) {
+                if (allNearbyEntities.size === 0) {
+                    eContainer.innerHTML = `<span style="color:var(--text-muted); font-size:0.85rem;">No mobs or entities detected nearby.</span>`;
+                } else {
+                    const hostiles = ['zombie', 'skeleton', 'creeper', 'spider', 'enderman', 'witch', 'drowned', 'phantom'];
+                    eContainer.innerHTML = Array.from(allNearbyEntities.entries()).map(([type, count]) => {
+                        const isHostile = hostiles.includes(type.toLowerCase());
+                        return `<span class="mob-tag ${isHostile ? 'hostile' : 'passive'}">${isHostile ? '⚔️' : '🐾'} ${type} (${count})</span>`;
+                    }).join('');
+                }
+            }
+        });
+
+        // Agents Status (Renders Agent Cards)
+        socket.on('agents-status', async (agents) => {
+            currentAgents = agents || [];
+            const container = document.getElementById('agents');
+            if (!container) return;
+
+            const targetBadge = document.getElementById('targetServerBadge');
+            if (targetBadge) {
+                targetBadge.style.display = agents.length > 0 ? 'inline-flex' : 'none';
+            }
+
+            const botsCountEl = document.getElementById('worldBotsCount');
+            if (botsCountEl) botsCountEl.textContent = `${agents.filter(a => a.in_game).length} / ${agents.length} Online`;
+
+            // Render/Update cards
+            agents.forEach((agent, idx) => {
+                let card = document.getElementById(`agent-${agent.name}`);
+                if (!card) {
+                    card = document.createElement('div');
+                    card.id = `agent-${agent.name}`;
+                    card.className = 'agent-card';
+                    container.appendChild(card);
+                }
+
+                const viewerHost = window.location.hostname || 'localhost';
+                const viewerPort = agent.viewerPort || (3000 + idx);
+                const viewerUrl = `http://${viewerHost}:${viewerPort}`;
+                const showViewer = agent.in_game && idx === 0; // Primary bot provides 3D stream
+
+                card.innerHTML = `
+                    <div class="card-header">
+                        <div class="bot-identity">
+                            <div class="bot-avatar">${agent.in_game ? '🤖' : '⏳'}</div>
+                            <div>
+                                <span class="bot-name">${agent.name}</span>
+                                <span class="status-badge ${agent.in_game ? 'online' : 'offline'}" style="margin-left:6px;">${agent.in_game ? 'In-Game' : 'Joining...'}</span>
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <span class="action-pill" id="action-${agent.name}">Idle</span>
+                            <a href="${viewerUrl}" target="_blank" class="btn btn-neutral btn-sm" title="Open 3D View">🌐 3D</a>
+                            <button class="btn btn-neutral btn-sm" onclick="toggleDetails('${agent.name}')" title="Inventory">🎒</button>
+                            <button class="btn btn-neutral btn-sm" onclick="openAgentSettings('${agent.name}')" title="Settings">⚙</button>
+                        </div>
+                    </div>
+
+                    <div class="vital-row">
+                        <div class="vital-bar-box">
+                            <div class="vital-label">
+                                <span>❤️ Health</span>
+                                <span id="healthVal-${agent.name}">20/20</span>
+                            </div>
+                            <div class="bar-outer">
+                                <div class="bar-inner health" id="healthBar-${agent.name}" style="width:100%;"></div>
+                            </div>
+                        </div>
+                        <div class="vital-bar-box">
+                            <div class="vital-label">
+                                <span>🍗 Hunger</span>
+                                <span id="hungerVal-${agent.name}">20/20</span>
+                            </div>
+                            <div class="bar-outer">
+                                <div class="bar-inner hunger" id="hungerBar-${agent.name}" style="width:100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stats-badge-grid">
+                        <div class="stat-badge"><strong>📍 Pos:</strong><span id="pos-${agent.name}">0, 0, 0</span></div>
+                        <div class="stat-badge"><strong>🌲 Biome:</strong><span id="biome-${agent.name}">Jungle</span></div>
+                        <div class="stat-badge"><strong>🎒 Bags:</strong><span id="invSlots-${agent.name}">0/36</span></div>
+                        <div class="stat-badge"><strong>🛡️ Port:</strong><span>${viewerPort}</span></div>
+                    </div>
+
+                    ${showViewer ? `
+                        <div class="viewer-box">
+                            <div class="viewer-header-overlay">
+                                <span>🌐 Live 3D World View</span>
+                                <a href="${viewerUrl}" target="_blank" style="color:var(--cyan); text-decoration:none;">Full Screen ↗</a>
+                            </div>
+                            <iframe class="viewer-frame" src="${viewerUrl}"></iframe>
+                        </div>
+                    ` : ''}
+
+                    <div class="inventory-drawer" id="inventorySection-${agent.name}" style="display:none;">
+                        <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); margin-bottom:6px;">🎒 Inventory Slots</div>
+                        <div class="inventory-grid" id="inventory-${agent.name}">
+                            <span style="font-size:0.75rem; color:var(--text-muted);">Empty</span>
+                        </div>
+                    </div>
+
+                    <div class="message-balloon" id="lastMessage-${agent.name}">
+                        ${agentLastMessage[agent.name] || 'Ready for orders.'}
+                    </div>
+
+                    <div class="bot-cmd-row">
+                        <input id="messageInput-${agent.name}" type="text" class="bot-cmd-input" placeholder="Message ${agent.name}..." onkeydown="if(event.key === 'Enter') sendMessage('${agent.name}', this.value)">
+                        <button class="btn btn-primary btn-sm" onclick="sendMessage('${agent.name}', document.getElementById('messageInput-${agent.name}').value)">Send</button>
+                        <button class="btn btn-red btn-sm" onclick="sendMessage('${agent.name}', '!stop')">Stop</button>
+                        <button class="btn btn-neutral btn-sm" onclick="restartAgent('${agent.name}')">🔄</button>
+                    </div>
+                `;
+            });
+
+            // Remove disconnected agents
+            Array.from(container.children).forEach(el => {
+                const name = el.id.replace('agent-', '');
+                if (!agents.find(a => a.name === name)) el.remove();
+            });
+        });
+
+        function toggleDetails(name) {
+            const el = document.getElementById(`inventorySection-${name}`);
+            if (el) el.style.display = (el.style.display === 'none') ? 'block' : 'none';
+        }
+        window.toggleDetails = toggleDetails;
+
+        function restartAgent(n) { socket.emit('restart-agent', n); }
+        function disconnectAllAgents() { socket.emit('stop-all-agents'); }
+        function confirmShutdown() {
+            if (confirm('Are you sure you want to shut down Doombots and exit?')) {
+                socket.emit('shutdown');
             }
         }
 
-        function toggleDetails(name) {
-            const invSection = document.getElementById(`inventorySection-${name}`);
-            if (!invSection) return;
-            const visible = invSection.style.display !== 'none';
-            const newVisible = !visible;
-            invSection.style.display = newVisible ? '' : 'none';
-            inventoryOpen[name] = newVisible;
+        // Modals for Create Agent & Settings
+        const createAgentModal = document.getElementById('createAgentModal');
+        const openCreateAgentBtn = document.getElementById('openCreateAgentBtn');
+        const closeCreateAgentBtn = document.getElementById('closeCreateAgentBtn');
+        if (openCreateAgentBtn) openCreateAgentBtn.onclick = () => { createAgentModal.style.display = 'flex'; };
+        if (closeCreateAgentBtn) closeCreateAgentBtn.onclick = () => { createAgentModal.style.display = 'none'; };
+
+        const agentSettingsModal = document.getElementById('agentSettingsModal');
+        const closeAgentSettingsBtn = document.getElementById('closeAgentSettingsBtn');
+        if (closeAgentSettingsBtn) closeAgentSettingsBtn.onclick = () => { agentSettingsModal.style.display = 'none'; };
+
+        function openAgentSettings(name) {
+            currentAgentName = name;
+            document.getElementById('agentSettingsTitle').textContent = `Settings: ${name}`;
+            socket.emit('get-settings', name, (res) => {
+                if (res && res.settings) {
+                    originalAgentSettings = res.settings;
+                    const form = document.getElementById('agentSettingsForm');
+                    form.innerHTML = '';
+                    Object.keys(settingsSpec).forEach(k => {
+                        if (k === 'profile') return;
+                        const spec = settingsSpec[k];
+                        const val = res.settings[k] !== undefined ? res.settings[k] : spec.default;
+                        const grp = document.createElement('div');
+                        grp.className = 'form-group';
+                        grp.innerHTML = `<label>${k}</label><input type="${spec.type === 'number' ? 'number' : 'text'}" name="${k}" value="${val}">`;
+                        form.appendChild(grp);
+                    });
+                    agentSettingsModal.style.display = 'flex';
+                }
+            });
         }
-        window.toggleDetails = toggleDetails;
+        window.openAgentSettings = openAgentSettings;
+
+        document.getElementById('applySettingsBtn').onclick = () => {
+            if (!currentAgentName) return;
+            const form = document.getElementById('agentSettingsForm');
+            const newSettings = {};
+            Array.from(form.querySelectorAll('input')).forEach(inp => {
+                newSettings[inp.name] = inp.type === 'number' ? Number(inp.value) : inp.value;
+            });
+            socket.emit('set-agent-settings', currentAgentName, newSettings);
+            agentSettingsModal.style.display = 'none';
+        };
+
+        // Populate server host if available from settings
+        fetch('/settings_spec.json').then(() => {
+            const host = window.location.hostname || 'ZCClanOnTOP.aternos.me';
+            const srvHost = document.getElementById('srvHost');
+            if (srvHost) srvHost.textContent = host;
+        });
     </script>
 </body>
-</html> 
+</html>

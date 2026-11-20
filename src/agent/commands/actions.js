@@ -33,7 +33,14 @@ export const actionsList = [
             'prompt': { type: 'string', description: 'A natural language prompt to guide code generation. Make a detailed step-by-step plan.' }
         },
         perform: async function(agent, prompt) {
-            // just ignore prompt - it is now in context in chat history
+            const raw = String(prompt || '').trim();
+            // If the prompt is a Minecraft slash command like /tpa, /tp, /spawn, execute directly!
+            if (raw.startsWith('/') || raw.startsWith('"/') || raw.startsWith("'/")) {
+                const cmd = raw.replace(/^["']|["']$/g, '').trim();
+                agent.bot.chat(cmd);
+                return `Executed server command: ${cmd}`;
+            }
+
             if (!settings.allow_insecure_coding) { 
                 agent.openChat('newAction is disabled. Enable with allow_insecure_coding=true in settings.js');
                 return "newAction not allowed! Code writing is disabled in settings. Notify the user.";
@@ -49,6 +56,18 @@ export const actionsList = [
             await agent.actions.runAction('action:newAction', actionFn, {timeout: settings.code_timeout_mins});
             return result;
         }
+    },
+    {
+        name: '!sendChat',
+        description: 'Send a chat message or Minecraft slash command directly to the server (e.g. !sendChat("/tpa orbryx") or !sendChat("/home")).',
+        params: {
+            'message': { type: 'string', description: 'The chat message or slash command to execute.' }
+        },
+        perform: runAsAction(async (agent, message) => {
+            if (!message) return 'No message provided';
+            agent.bot.chat(message);
+            return `Executed in Minecraft: ${message}`;
+        })
     },
     {
         name: '!stop',
