@@ -77,6 +77,14 @@ const modes_list = [
                 }
             }
             else if (Date.now() - bot.lastDamageTime < 3000 && (bot.health < 5 || bot.lastDamageTaken >= bot.health)) {
+                // If actively fighting or a hostile mob is in close melee range, do not interrupt combat to run backwards
+                if (agent.actions.currentActionLabel?.includes('self_defense') || agent.actions.currentActionLabel?.includes('attack')) {
+                    return;
+                }
+                const nearbyHostile = world.getNearestEntityWhere(bot, entity => mc.isHostile(entity), 6);
+                if (nearbyHostile && bot.modes.isOn('self_defense')) {
+                    return;
+                }
                 say(agent, 'I\'m dying!');
                 execute(this, agent, async () => {
                     await skills.moveAway(bot, 20);
@@ -142,10 +150,26 @@ const modes_list = [
         }
     },
     {
+        name: 'self_defense',
+        description: 'Attack nearby enemies and zombies fighting back. Interrupts non-combat actions.',
+        interrupts: ['all'],
+        on: true,
+        active: false,
+        update: async function (agent) {
+            const enemy = world.getNearestEntityWhere(agent.bot, entity => mc.isHostile(entity), 12);
+            if (enemy) {
+                say(agent, `Fighting ${enemy.name}!`);
+                execute(this, agent, async () => {
+                    await skills.defendSelf(agent.bot, 12);
+                });
+            }
+        }
+    },
+    {
         name: 'cowardice',
         description: 'Run away from enemies. Interrupts all actions.',
         interrupts: ['all'],
-        on: true,
+        on: false,
         active: false,
         update: async function (agent) {
             const enemy = world.getNearestEntityWhere(agent.bot, entity => mc.isHostile(entity), 16);
@@ -153,22 +177,6 @@ const modes_list = [
                 say(agent, `Aaa! A ${enemy.name.replace("_", " ")}!`);
                 execute(this, agent, async () => {
                     await skills.avoidEnemies(agent.bot, 24);
-                });
-            }
-        }
-    },
-    {
-        name: 'self_defense',
-        description: 'Attack nearby enemies. Interrupts all actions.',
-        interrupts: ['all'],
-        on: true,
-        active: false,
-        update: async function (agent) {
-            const enemy = world.getNearestEntityWhere(agent.bot, entity => mc.isHostile(entity), 8);
-            if (enemy && await world.isClearPath(agent.bot, enemy)) {
-                say(agent, `Fighting ${enemy.name}!`);
-                execute(this, agent, async () => {
-                    await skills.defendSelf(agent.bot, 8);
                 });
             }
         }

@@ -262,10 +262,15 @@ export class Agent {
             if (convoManager.isOtherAgent(username) || username === this.name) return;
 
             // Check if message is specifically directed to another bot (e.g. "Doombot2: mine wood")
-            const otherBotNames = serverProxy.getAgents().filter(a => a !== this.name);
-            const isForAnotherBot = otherBotNames.some(name => {
-                const lower = message.toLowerCase().trim();
-                return lower.startsWith(name.toLowerCase() + ':') || lower.startsWith(name.toLowerCase() + ',');
+            const rawAgents = serverProxy.getAgents() || [];
+            const otherBotNames = rawAgents
+                .map(a => (typeof a === 'string' ? a : a?.name))
+                .filter(Boolean)
+                .filter(n => n !== this.name);
+            const isForAnotherBot = otherBotNames.some(botName => {
+                const lower = String(message || '').toLowerCase().trim();
+                const target = String(botName).toLowerCase();
+                return lower.startsWith(target + ':') || lower.startsWith(target + ',');
             });
             if (isForAnotherBot) return;
 
@@ -548,6 +553,16 @@ export class Agent {
             if (this.bot.health < prev_health) {
                 this.bot.lastDamageTime = Date.now();
                 this.bot.lastDamageTaken = prev_health - this.bot.health;
+
+                // Immediate counter-attack: retaliate against attacking zombies/hostile mobs
+                if (this.bot.modes?.isOn('self_defense') && !this.actions.currentActionLabel?.includes('self_defense')) {
+                    const attacker = world.getNearestEntityWhere(this.bot, entity => mc.isHostile(entity), 10);
+                    if (attacker) {
+                        this.actions.runAction('mode:self_defense', async () => {
+                            await skills.defendSelf(this.bot, 12);
+                        });
+                    }
+                }
             }
             prev_health = this.bot.health;
         });

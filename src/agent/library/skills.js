@@ -21,16 +21,30 @@ async function autoLight(bot) {
     return false;
 }
 
-async function equipHighestAttack(bot) {
-    let weapons = bot.inventory.items().filter(item => item.name.includes('sword') || (item.name.includes('axe') && !item.name.includes('pickaxe')));
-    if (weapons.length === 0)
-        weapons = bot.inventory.items().filter(item => item.name.includes('pickaxe') || item.name.includes('shovel'));
-    if (weapons.length === 0)
-        return;
-    weapons.sort((a, b) => b.attackDamage - a.attackDamage);
-    let weapon = weapons[0];
-    if (weapon)
-        await bot.equip(weapon, 'hand');
+const WEAPON_DAMAGE = {
+    'netherite_axe': 10, 'diamond_axe': 9, 'iron_axe': 9, 'stone_axe': 9, 'golden_axe': 7, 'wooden_axe': 7,
+    'netherite_sword': 8, 'diamond_sword': 7, 'iron_sword': 6, 'stone_sword': 5, 'golden_sword': 4, 'wooden_sword': 4,
+    'netherite_pickaxe': 6, 'diamond_pickaxe': 5, 'iron_pickaxe': 4, 'stone_pickaxe': 3, 'golden_pickaxe': 2, 'wooden_pickaxe': 2,
+    'netherite_shovel': 6.5, 'diamond_shovel': 5.5, 'iron_shovel': 4.5, 'stone_shovel': 3.5, 'golden_shovel': 2.5, 'wooden_shovel': 2.5
+};
+
+export async function equipHighestAttack(bot) {
+    if (!bot?.inventory) return;
+    const items = bot.inventory.items();
+    let bestItem = null;
+    let maxDamage = 1;
+    for (const item of items) {
+        const dmg = WEAPON_DAMAGE[item.name] || (item.name.includes('sword') ? 4 : (item.name.includes('axe') && !item.name.includes('pickaxe') ? 3.5 : 1));
+        if (dmg > maxDamage) {
+            maxDamage = dmg;
+            bestItem = item;
+        }
+    }
+    if (bestItem) {
+        try {
+            await bot.equip(bestItem, 'hand');
+        } catch {}
+    }
 }
 
 export async function craftRecipe(bot, itemName, num=1) {
@@ -367,48 +381,57 @@ export async function attackEntity(bot, entity, kill=true) {
     }
 }
 
-export async function defendSelf(bot, range=9) {
+export async function defendSelf(bot, range=12) {
     /**
      * Defend yourself from all nearby hostile mobs until there are no more.
      * @param {MinecraftBot} bot, reference to the minecraft bot.
-     * @param {number} range, the range to look for mobs. Defaults to 8.
+     * @param {number} range, the range to look for mobs. Defaults to 12.
      * @returns {Promise<boolean>} true if the bot found any enemies and has killed them, false if no entities were found.
      * @example
      * await skills.defendSelf(bot);
      * **/
     bot.modes.pause('self_defense');
     bot.modes.pause('cowardice');
+    bot.modes.pause('self_preservation');
     let attacked = false;
-    let enemy = world.getNearestEntityWhere(bot, entity => mc.isHostile(entity), range);
-    while (enemy) {
+
+    const isAlive = (e) => e && e.isValid && (e.health === undefined || e.health > 0);
+    let enemy = world.getNearestEntityWhere(bot, entity => mc.isHostile(entity) && isAlive(entity), range);
+
+    while (enemy && isAlive(enemy) && !bot.interrupt_code) {
         await equipHighestAttack(bot);
-        if (bot.entity.position.distanceTo(enemy.position) >= 4 && enemy.name !== 'creeper' && enemy.name !== 'phantom') {
-            try {
-                bot.pathfinder.setMovements(new pf.Movements(bot));
-                await bot.pathfinder.goto(new pf.goals.GoalFollow(enemy, 3.5), true);
-            } catch (err) {/* might error if entity dies, ignore */}
-        }
-        if (bot.entity.position.distanceTo(enemy.position) <= 2) {
-            try {
-                bot.pathfinder.setMovements(new pf.Movements(bot));
-                let inverted_goal = new pf.goals.GoalInvert(new pf.goals.GoalFollow(enemy, 2));
-                await bot.pathfinder.goto(inverted_goal, true);
-            } catch (err) {/* might error if entity dies, ignore */}
-        }
-        bot.pvp.attack(enemy);
         attacked = true;
-        await new Promise(resolve => setTimeout(resolve, 500));
-        enemy = world.getNearestEntityWhere(bot, entity => mc.isHostile(entity), range);
-        if (bot.interrupt_code) {
-            bot.pvp.stop();
-            return false;
+
+        const dist = bot.entity.position.distanceTo(enemy.position);
+
+        // Close-range melee attack: aim directly and swing weapon immediately
+        if (dist <= 3.8) {
+            try {
+                await bot.lookAt(enemy.position.offset(0, (enemy.height || 1.8) * 0.75, 0), true);
+                bot.attack(enemy);
+            } catch {}
         }
+
+        // Engage PVP pathfinding towards enemy
+        try {
+            bot.pvp.attack(enemy);
+        } catch {}
+
+        await new Promise(resolve => setTimeout(resolve, 250));
+
+        // Re-check for nearest active hostile mob
+        enemy = world.getNearestEntityWhere(bot, entity => mc.isHostile(entity) && isAlive(entity), range);
     }
-    bot.pvp.stop();
-    if (attacked)
+
+    try { bot.pvp.stop(); } catch {}
+    bot.modes.unpause('self_preservation');
+
+    if (attacked) {
         log(bot, `Successfully defended self.`);
-    else
+        try { await pickupNearbyItems(bot); } catch {}
+    } else {
         log(bot, `No enemies nearby to defend self from.`);
+    }
     return attacked;
 }
 
