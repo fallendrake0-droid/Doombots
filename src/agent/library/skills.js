@@ -503,7 +503,24 @@ export async function collectBlock(bot, blockType, num=1, exclude=null) {
                 success = true;
             }
             else {
-                await bot.collectBlock.collect(block);
+                const collectPromise = bot.collectBlock.collect(block);
+                const timeoutPromise = new Promise((_, reject) => {
+                    const timer = setTimeout(() => reject(new Error('Collect block timed out')), 20000);
+                    const pollInterrupt = setInterval(() => {
+                        if (bot.interrupt_code) {
+                            clearTimeout(timer);
+                            clearInterval(pollInterrupt);
+                            try { bot.collectBlock?.cancelTask?.(() => {}); } catch {}
+                            try { bot.pathfinder?.stop(); } catch {}
+                            reject(new Error('Interrupted'));
+                        }
+                    }, 200);
+                    collectPromise.finally(() => {
+                        clearTimeout(timer);
+                        clearInterval(pollInterrupt);
+                    });
+                });
+                await Promise.race([collectPromise, timeoutPromise]);
                 success = true;
             }
             if (success)

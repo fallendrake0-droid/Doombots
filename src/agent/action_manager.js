@@ -27,15 +27,26 @@ export class ActionManager {
 
     async stop() {
         if (!this.executing) return;
-        const timeout = setTimeout(() => {
-            this.agent.cleanKill('Code execution refused stop after 10 seconds. Killing process.');
-        }, 10000);
-        while (this.executing) {
+        let attempts = 0;
+        const maxAttempts = 10; // ~3 seconds max wait before forcibly releasing
+        while (this.executing && attempts < maxAttempts) {
+            attempts++;
             this.agent.requestInterrupt();
             console.log('waiting for code to finish executing...');
             await new Promise(resolve => setTimeout(resolve, 300));
         }
-        clearTimeout(timeout);
+        if (this.executing) {
+            console.warn('[ActionManager] Forcibly releasing stuck action to avoid disconnecting or crashing.');
+            try { this.agent.bot.interrupt_code = true; } catch {}
+            try { this.agent.bot.pathfinder?.stop(); } catch {}
+            try { this.agent.bot.clearControlStates?.(); } catch {}
+            try { this.agent.bot.stopDigging?.(); } catch {}
+            try { this.agent.bot.collectBlock?.cancelTask?.(() => {}); } catch {}
+            try { this.agent.bot.pvp?.stop(); } catch {}
+            this.executing = false;
+            this.currentActionLabel = '';
+            this.currentActionFn = null;
+        }
     } 
 
     cancelResume() {

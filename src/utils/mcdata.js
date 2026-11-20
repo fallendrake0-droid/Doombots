@@ -201,6 +201,21 @@ export function initBot(username) {
     bot.loadPlugin(autoEat);
     bot.loadPlugin(armorManager); // auto equip armor
 
+    try {
+        bot.setMaxListeners(100);
+        if (bot._client) bot._client.setMaxListeners(100);
+        if (bot.collectBlock && typeof bot.collectBlock.setMaxListeners === 'function') {
+            bot.collectBlock.setMaxListeners(100);
+        }
+    } catch {}
+
+    // Ensure keep_alive is answered immediately to prevent 60-second timeouts
+    bot._client.on('keep_alive', (packet) => {
+        try {
+            bot._client.write('keep_alive', { keepAliveId: packet.keepAliveId });
+        } catch {}
+    });
+
     // Handle resource packs immediately so servers do not hang in configuration/joining state
     const handleResourcePack = (data) => {
         try {

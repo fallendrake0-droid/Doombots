@@ -303,10 +303,11 @@ export class Agent {
 
     requestInterrupt() {
         this.bot.interrupt_code = true;
-        this.bot.stopDigging();
-        this.bot.collectBlock.cancelTask();
-        this.bot.pathfinder.stop();
-        this.bot.pvp.stop();
+        try { this.bot.stopDigging(); } catch {}
+        try { this.bot.collectBlock?.cancelTask?.(() => {}); } catch {}
+        try { this.bot.pathfinder?.stop(); } catch {}
+        try { this.bot.pvp?.stop(); } catch {}
+        try { this.bot.clearControlStates(); } catch {}
     }
 
     clearBotLogs() {
