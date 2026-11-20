@@ -157,7 +157,7 @@ export class Prompter {
 
         if (prompt.includes('$STATS')) {
             let stats = await getCommand('!stats').perform(this.agent) + '\n';
-            if (!settings.low_memory_mode && !settings.fast_mode && !this.profile.model?.includes('ollama')) {
+            if (!settings.minimize_tokens && !settings.low_memory_mode && !settings.fast_mode && !this.profile.model?.includes('ollama')) {
                 stats += await getCommand('!entities').perform(this.agent) + '\n';
                 stats += await getCommand('!nearbyBlocks').perform(this.agent);
             }
@@ -171,7 +171,7 @@ export class Prompter {
             prompt = prompt.replaceAll('$ACTION', this.agent.actions.currentActionLabel);
         }
         if (prompt.includes('$COMMAND_DOCS')) {
-            const isCompact = settings.low_memory_mode || settings.fast_mode || this.profile.model?.includes('ollama');
+            const isCompact = settings.minimize_tokens || settings.low_memory_mode || settings.fast_mode || this.profile.model?.includes('ollama') || settings.show_command_syntax === 'shortened';
             prompt = prompt.replaceAll('$COMMAND_DOCS', getCommandDocs(this.agent, isCompact));
         }
         if (prompt.includes('$CODE_DOCS')) {

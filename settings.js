@@ -70,12 +70,13 @@ const settings = {
     "allow_vision": false, // allows vision model to interpret screenshots as inputs (keep false on Termux)
     "blocked_actions" : ["!checkBlueprint", "!checkBlueprintLevel", "!getBlueprint", "!getBlueprintLevel"] , // commands to disable and remove from docs. Ex: ["!setMode"]
     "code_timeout_mins": -1, // minutes code is allowed to run. -1 for no timeout
-    "relevant_docs_count": 5, // number of relevant code function docs to select for prompting. -1 for all
+    "relevant_docs_count": 2, // number of relevant code function docs to select for prompting (optimized for minimum tokens)
 
-    "max_messages": autoLowMem ? 12 : 15, // max number of messages to keep in context (tuned for low memory)
-    "num_examples": 2, // number of examples to give to the model
+    "minimize_tokens": true, // optimize prompts across all bots to consume minimum tokens
+    "max_messages": 6, // lean conversation context to keep token usage low
+    "num_examples": 1, // single concise example minimizes prompt overhead
     "max_commands": -1, // max number of commands that can be used in consecutive responses. -1 for no limit
-    "show_command_syntax": "full", // "full", "shortened", or "none"
+    "show_command_syntax": "shortened", // condensed command syntax to save 800+ tokens per request
     "narrate_behavior": true, // chat simple automatic actions ('Picking up item!')
     "chat_bot_messages": true, // publicly chat messages to other bots
 

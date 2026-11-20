@@ -62,7 +62,7 @@ export class GroqCloudAPI {
         }
 
         if (!this.params.max_completion_tokens) {
-            this.params.max_completion_tokens = 4000;
+            this.params.max_completion_tokens = 512;
         }
 
         const model = normalizeGroqModel(this.model_name || 'openai/gpt-oss-120b');
