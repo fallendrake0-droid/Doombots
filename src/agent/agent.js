@@ -1048,21 +1048,74 @@ export class Agent {
             const firstWord = String(message || '').split(/\s+/)[0];
             if (jsonMsg?.translate?.startsWith('death') && firstWord === this.name) {
                 console.log(`[DeathRecovery] ${this.name} died: ${message}`);
+                let death_pos = null;
                 try {
-                    const death_pos = this.bot.entity?.position;
-                    if (death_pos) {
+                    const pos = this.bot.entity?.position;
+                    if (pos) {
+                        death_pos = pos.clone();
                         this.memory_bank.rememberPlace('last_death_position', death_pos.x, death_pos.y, death_pos.z);
                     }
                 } catch {}
                 this.actions.stop().catch(() => {});
                 try { this.bot.clearControlStates(); } catch {}
                 try { this.bot.pathfinder?.stop(); } catch {}
-                // Auto equip best available gear upon respawn without burning LLM rate limits
+
+                // Determine if killed by a player (PVP death)
+                const mobNames = [
+                    'zombie', 'skeleton', 'creeper', 'spider', 'cave_spider', 'enderman', 'witch', 
+                    'drowned', 'husk', 'stray', 'phantom', 'pillager', 'vindicator', 'evoker', 
+                    'ravager', 'piglin', 'hoglin', 'zombified_piglin', 'blaze', 'ghast', 'wither', 
+                    'ender_dragon', 'warden', 'guardian', 'elder_guardian', 'silverfish', 'endermite', 
+                    'slime', 'magma_cube', 'breeze', 'bogged', 'vex', 'shulker', 'iron_golem', 'wolf'
+                ];
+                const msgLower = (message || '').toLowerCase();
+                const serverPlayers = Object.keys(this.bot.players || {}).filter(p => p !== this.name && !convoManager.isOtherAgent(p));
+
+                let killedByPlayer = false;
+                if (serverPlayers.some(p => msgLower.includes(p.toLowerCase()))) {
+                    killedByPlayer = true;
+                }
+                const killerComp = jsonMsg?.with?.[1]?.text || jsonMsg?.with?.[1] || '';
+                if (killerComp && typeof killerComp === 'string') {
+                    const kLower = killerComp.toLowerCase().trim();
+                    if (!mobNames.includes(kLower) && kLower.length > 2 && !kLower.includes('intent')) {
+                        killedByPlayer = true;
+                    }
+                }
+                const pvpRegex = /(?:slain by|shot by|killed by|fireballed by|blown up by|pummeled by)\s+([a-zA-Z0-9_]+)/i;
+                const pvpMatch = message.match(pvpRegex);
+                if (pvpMatch) {
+                    const suspected = pvpMatch[1].toLowerCase();
+                    if (!mobNames.includes(suspected)) {
+                        killedByPlayer = true;
+                    }
+                }
+
+                if (killedByPlayer) {
+                    console.log(`[DeathRecovery] ${this.name} died in PVP to a player (${message}). Per instructions, NOT returning to loot drop.`);
+                } else {
+                    console.log(`[DeathRecovery] ${this.name} died to mob/environment (${message}). Scheduled automatic item retrieval on respawn.`);
+                }
+
+                // On respawn: equip best available starter gear and retrieve dropped items if non-PVP
                 this.bot.once('spawn', async () => {
-                    await new Promise(r => setTimeout(r, 1200));
+                    await new Promise(r => setTimeout(r, 1500));
                     try {
-                        const { autoEquipBest } = await import('./library/skills.js');
+                        const { autoEquipBest, goToPosition, pickupNearbyItems } = await import('./library/skills.js');
                         await autoEquipBest(this.bot);
+
+                        // If not killed by a player and death coords exist, retrieve dropped stuff!
+                        if (!killedByPlayer && death_pos) {
+                            console.log(`[DeathRecovery] ${this.name} navigating to death coords (${death_pos.x.toFixed(1)}, ${death_pos.y.toFixed(1)}, ${death_pos.z.toFixed(1)}) to recover items...`);
+                            try {
+                                await goToPosition(this.bot, death_pos.x, death_pos.y, death_pos.z, 2);
+                                await pickupNearbyItems(this.bot, 24);
+                                await autoEquipBest(this.bot);
+                                console.log(`[DeathRecovery] ${this.name} successfully recovered dropped items!`);
+                            } catch (navErr) {
+                                console.warn(`[DeathRecovery] Could not reach death coordinates:`, navErr?.message || navErr);
+                            }
+                        }
                     } catch {}
                 });
             }
@@ -1081,8 +1134,8 @@ export class Agent {
         // Init NPC controller
         try { this.npc.init(); } catch {}
 
-        // This update loop ensures that each update() is called one at a time, even if it takes longer than the interval
-        const INTERVAL = 300;
+        // Optimized update loop interval (500ms for low-spec CPU & 4GB RAM)
+        const INTERVAL = 500;
         let last = Date.now();
         setTimeout(async () => {
             while (true) {

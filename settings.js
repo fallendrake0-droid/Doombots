@@ -24,13 +24,13 @@ const settings = {
     "auth": "offline", // or "microsoft"
 
     // Performance & Memory optimization for Linux 4GB RAM & Termux
-    "fast_mode": autoFastMode, // eliminates artificial latency, enables async memory saves
-    "low_memory_mode": autoLowMem, // memory caps, periodic chunk pruning, aggressive GC
-    "max_agent_memory_mb": isTermux ? 768 : (isLowMemorySystem ? 1024 : 1536), // Node V8 heap ceiling per agent
+    "fast_mode": true, // eliminates artificial latency, enables async memory saves
+    "low_memory_mode": true, // memory caps, periodic chunk pruning, aggressive GC
+    "max_agent_memory_mb": isTermux ? 512 : 768, // Node V8 heap ceiling per agent (optimized for 4GB RAM)
 
     // the mindserver manages all agents and hosts the UI
     "mindserver_port": 8080,
-    "auto_open_ui": !isTermux && !process.env.HEADLESS, // disable auto browser launch on Termux/headless Linux
+    "auto_open_ui": false, // Do not auto-open browser on startup (user can open manually)
     
     "base_profile": "assistant", // survival, assistant, creative, or god_mode
     "profiles": [
@@ -66,7 +66,7 @@ const settings = {
     "render_bot_view": true, // Enable 2D/3D World View in browser (http://localhost:3000)
     "viewer_primary_only": true, // Stream world view from primary bot (port 3000) to keep CPU & network light
     "viewer_first_person": false, // false for 2D side-scroller view (Mario-style), true for 3D first-person
-    "view_distance": 3, // World view render distance in chunks (optimized for fast FPS and low latency)
+    "view_distance": 2, // World view render distance in chunks (optimized for 4GB RAM, weak CPU/GPU, fast FPS)
 
     "allow_insecure_coding": true, // Enable full action capability & code writing ("make it so they can do everything")
     "allow_vision": false, // allows vision model to interpret screenshots as inputs (keep false on Termux)

@@ -38,6 +38,13 @@ const argv = yargs(args)
     })
     .argv;
 
+// Proactive memory cleanup for 4GB RAM systems (runs when --expose-gc is enabled)
+if (typeof global.gc === 'function') {
+    setInterval(() => {
+        try { global.gc(); } catch {}
+    }, 45000);
+}
+
 // Guard against unhandled socket write EPIPE or ECONNRESET when Minecraft server closes connection
 function formatDiagnostic(err, type = 'Exception') {
     const time = new Date().toISOString().replace('T', ' ').substring(11, 19);

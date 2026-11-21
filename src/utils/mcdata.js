@@ -88,6 +88,7 @@ export function initBot(username) {
         version: targetVersion,
         fakeHost: host,
         checkTimeoutInterval: 90000,  // 90s keep-alive check (default 30s) — reduces false timeout kicks on slow servers
+        viewDistance: (settings.view_distance && settings.view_distance > 3) ? 'short' : 'tiny', // Slashes RAM & CPU for 4GB RAM systems
     };
 
     console.log(`[mcdata] Connecting bot '${username}' to ${options.host}:${options.port} (protocol: ${options.version}, auth: ${options.auth})...`);

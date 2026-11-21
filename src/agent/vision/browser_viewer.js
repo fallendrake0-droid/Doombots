@@ -18,6 +18,10 @@ export async function addBrowserViewer(bot, count_id = 0) {
                 execSync('npm install prismarine-viewer --no-save', { stdio: 'inherit' });
                 mod = await import('prismarine-viewer');
                 console.log(`\x1b[32m[Viewer]\x1b[0m ✔ 'prismarine-viewer' installed successfully!`);
+                try {
+                    const { applyViewer2dPatch } = await import('../../../scripts/apply-patches.js');
+                    applyViewer2dPatch();
+                } catch {}
             } catch (installErr) {
                 console.warn(`[Viewer] Auto-install failed:`, installErr?.message || installErr);
             }
@@ -26,6 +30,10 @@ export async function addBrowserViewer(bot, count_id = 0) {
     }
 
     if (mod) {
+        try {
+            const { applyViewer2dPatch } = await import('../../../scripts/apply-patches.js');
+            applyViewer2dPatch();
+        } catch {}
         let mineflayerViewer = mod.mineflayer;
         if (!mineflayerViewer && mod.default) {
             mineflayerViewer = mod.default.mineflayer || (typeof mod.default === 'function' ? mod.default : null);

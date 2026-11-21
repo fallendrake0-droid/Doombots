@@ -1253,12 +1253,12 @@
                 <small style="color:var(--text-muted);">2D side-view stream tracking Doombot. High FPS, low CPU load, smooth side-scroller camera. Drag to pan/orbit or scroll to zoom.</small>
             </div>
             <div style="display:flex; gap:8px;">
-                <a href="http://localhost:3000" target="_blank" class="btn btn-primary btn-sm">Full Screen Tab ↗</a>
+                <button onclick="window.open('http://' + (window.location.hostname || 'localhost') + ':3000', '_blank')" class="btn btn-primary btn-sm">Full Screen Tab ↗</button>
                 <button class="btn btn-neutral btn-sm" onclick="reload3DViewer()">🔄 Reload 2D Stream</button>
             </div>
         </div>
         <div class="full-viewer-container" style="height:650px;">
-            <iframe id="mainViewerFrame" src="http://localhost:3000" class="viewer-frame"></iframe>
+            <iframe id="mainViewerFrame" src="about:blank" class="viewer-frame"></iframe>
         </div>
     </main>
 
@@ -1718,6 +1718,19 @@
             const squadBar = document.getElementById('squadBar');
             if (squadBar) {
                 squadBar.style.display = (tabId === 'viewer3d' || tabId === 'settings') ? 'none' : 'block';
+            }
+
+            const frame = document.getElementById('mainViewerFrame');
+            if (frame) {
+                const host = window.location.hostname || 'localhost';
+                if (tabId === 'viewer3d') {
+                    if (!frame.src || frame.src === 'about:blank' || frame.src.endsWith('about:blank')) {
+                        frame.src = `http://${host}:3000`;
+                    }
+                } else {
+                    // Unload WebGL viewer canvas from GPU and RAM while browsing other tabs (saves memory on 4GB RAM systems)
+                    frame.src = 'about:blank';
+                }
             }
 
             if (tabId === 'schematics' && allSchematics.length === 0) {
