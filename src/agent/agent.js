@@ -184,26 +184,12 @@ export class Agent {
                 serverProxy.login();
 
                 // Apply Red Knight skin across all supported server skin plugins (SkinsRestorer, Fabric Tailor, ChangeSkin)
-                try {
-                    const skinConfig = this.prompter?.profile?.skin || settings.skin || {
-                        name: 'Zolvd',
-                        url: 'https://namemc.com/texture/777895bfd4bb9994.png',
-                        model: 'classic'
-                    };
-                    const skinUrl = skinConfig.url || skinConfig.path || 'https://namemc.com/texture/777895bfd4bb9994.png';
-                    const skinName = skinConfig.name || 'Zolvd';
-                    const skinModel = skinConfig.model || 'classic';
-
-                    console.log(`\x1b[35m[Skin]\x1b[0m 🛡️ Applying Red Knight skin for \x1b[1m\x1b[32m${this.name}\x1b[0m (${skinName})...`);
-                    setTimeout(() => {
-                        try {
-                            // SkinsRestorer standard command on Spigot/Paper/Aternos
-                            this.bot.chat(`/skin ${skinName}`);
-                            // Fabric Tailor command
-                            this.bot.chat(`/skin set URL ${skinModel} ${skinUrl}`);
-                        } catch {}
-                    }, 2500);
-                } catch {}
+                setTimeout(() => {
+                    this.applySquadSkin();
+                }, 2500);
+                setTimeout(() => {
+                    this.applySquadSkin();
+                }, 7500);
 
                 await addBrowserViewer(this.bot, count_id);
                 console.log('Initializing vision intepreter...');
@@ -250,6 +236,35 @@ export class Agent {
                 process.exit(0);
             }
         });
+    }
+
+    applySquadSkin() {
+        try {
+            const skinConfig = this.prompter?.profile?.skin || settings.skin || {
+                name: 'Zolvd',
+                url: 'https://namemc.com/texture/777895bfd4bb9994.png',
+                model: 'classic'
+            };
+            const skinUrl = skinConfig.url || skinConfig.path || 'https://namemc.com/texture/777895bfd4bb9994.png';
+            const skinName = skinConfig.name || 'Zolvd';
+            const skinModel = skinConfig.model || 'classic';
+
+            console.log(`\x1b[35m[Skin]\x1b[0m 🛡️ Applying Red Knight skin for \x1b[1m\x1b[32m${this.name}\x1b[0m (${skinName})...`);
+            // Primary SkinsRestorer commands on Spigot/Paper/Aternos
+            this.bot.chat(`/skin ${skinName}`);
+            this.bot.chat(`/skin set ${skinName}`);
+            // Fabric Tailor command
+            this.bot.chat(`/skin set URL ${skinModel} ${skinUrl}`);
+
+            // Staggered update for server skin cache
+            setTimeout(() => {
+                try {
+                    this.bot.chat('/skin update');
+                } catch {}
+            }, 3000);
+        } catch (err) {
+            console.warn(`[Skin] Error applying skin for ${this.name}:`, err?.message || err);
+        }
     }
 
     async _setupEventHandlers(save_data, init_message) {
@@ -762,11 +777,8 @@ export class Agent {
 
         // Direct Offline Skin Command
         if (/^(?:skin|set\s+skin|apply\s+skin|change\s+skin|red\s+knight\s+skin|red\s+knight)$/i.test(lower)) {
-            const skinName = 'Zolvd';
-            const skinUrl = 'https://namemc.com/texture/777895bfd4bb9994.png';
-            this.bot.chat(`/skin ${skinName}`);
-            this.bot.chat(`/skin set URL classic ${skinUrl}`);
-            this.routeResponse(source, `Applied Red Knight skin (${skinName}) to ${this.name}.`);
+            this.applySquadSkin();
+            this.routeResponse(source, `Applied Red Knight skin (Zolvd) to ${this.name}.`);
             return true;
         }
 

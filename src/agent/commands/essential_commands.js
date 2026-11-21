@@ -1303,11 +1303,16 @@ export const essentialCommandsList = [
             'skinName': { type: 'string', description: 'Skin name or URL (default: Zolvd)' }
         },
         perform: async function(agent, skinName = 'Zolvd') {
-            const bot = agent.bot;
-            const skinUrl = 'https://namemc.com/texture/777895bfd4bb9994.png';
-            bot.chat(`/skin ${skinName}`);
-            bot.chat(`/skin set URL classic ${skinUrl}`);
-            return `Applied Red Knight skin (${skinName}) to ${bot.username}.`;
+            if (typeof agent.applySquadSkin === 'function') {
+                agent.applySquadSkin();
+            } else {
+                const bot = agent.bot;
+                const skinUrl = 'https://namemc.com/texture/777895bfd4bb9994.png';
+                bot.chat(`/skin ${skinName}`);
+                bot.chat(`/skin set ${skinName}`);
+                bot.chat(`/skin set URL classic ${skinUrl}`);
+            }
+            return `Applied Red Knight skin (${skinName}) to ${agent.bot.username}.`;
         }
     }
 ];

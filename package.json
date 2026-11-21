@@ -1,6 +1,6 @@
 {
     "name": "doombots",
-    "description": "Autonomous AI Minecraft Agent Platform with Collaborative Squad Operations, Deepslate Diamond Mining at Y=-58, Multi-Stack Gathering, 2D Side-View Stream, Smart /back Death Recovery, Zero-API Offline Command Suite, and Low-Spec Optimization",
+    "description": "Autonomous AI Minecraft Agent Platform with Multi-Version Cross-Play Engine & Local/Cloud LLM Support",
     "version": "1.0.0",
     "type": "module",
     "dependencies": {
@@ -46,7 +46,7 @@
         "gl": "^8.1.6"
     },
     "scripts": {
-        "test": "node node_modules/eslint/bin/eslint.js src/ main.js settings.js setup.js scripts/",
+        "test": "eslint src/ main.js settings.js setup.js scripts/",
         "postinstall": "node scripts/apply-patches.js",
         "start": "node main.js",
         "configure": "node setup.js",
