@@ -3488,27 +3488,37 @@ export async function sealLavaBreach(bot, lavaBlock) {
 
 export function isCaveAhead(bot, fromPos, forwardVec) {
     /**
-     * Inspects 2-4 blocks ahead in mining direction for open cave cavities or deep pitfall drops.
-     * Returns true if open cave air or dangerous void is detected.
+     * Inspects ahead in mining direction for underground cave cavities or liquid pitfalls.
+     * Cave avoidance strictly applies underground; surface atmosphere is open sky, not a cave!
      */
     if (!bot?.blockAt || !fromPos || !forwardVec) return false;
-    let airCount = 0;
-    for (let step = 1; step <= 4; step++) {
-        const checkEye = fromPos.offset(forwardVec.x * step, 1, forwardVec.z * step).floored();
-        const checkFeet = fromPos.offset(forwardVec.x * step, 0, forwardVec.z * step).floored();
-        const checkFloor = fromPos.offset(forwardVec.x * step, -1, forwardVec.z * step).floored();
 
-        const eyeBlock = bot.blockAt(checkEye);
-        const feetBlock = bot.blockAt(checkFeet);
-        const floorBlock = bot.blockAt(checkFloor);
-
-        if (eyeBlock && (eyeBlock.name === 'air' || eyeBlock.name === 'cave_air')) airCount++;
-        if (feetBlock && (feetBlock.name === 'air' || feetBlock.name === 'cave_air')) airCount++;
-        if (floorBlock && (floorBlock.name === 'air' || floorBlock.name === 'cave_air' || floorBlock.name.includes('lava') || floorBlock.name.includes('water'))) {
-            return true; // Pitfall drop or liquid pit
+    // Check if underground: look for solid ceiling above fromPos
+    let solidAbove = 0;
+    for (let dy = 1; dy <= 8; dy++) {
+        const blk = bot.blockAt(fromPos.offset(0, dy, 0));
+        if (blk && blk.name !== 'air' && blk.name !== 'cave_air' && !blk.name.includes('leaves')) {
+            solidAbove++;
         }
     }
-    return airCount >= 3;
+    if (solidAbove < 2) {
+        return false; // Outdoors on the surface under open sky!
+    }
+
+    // Underground cavity / liquid pitfall check
+    for (let step = 1; step <= 3; step++) {
+        const checkFloor = fromPos.offset(forwardVec.x * step, -1, forwardVec.z * step).floored();
+        const floorBlock = bot.blockAt(checkFloor);
+        if (floorBlock && (floorBlock.name.includes('lava') || floorBlock.name.includes('water'))) {
+            return true;
+        }
+        const checkFeet = fromPos.offset(forwardVec.x * step, 0, forwardVec.z * step).floored();
+        const feetBlock = bot.blockAt(checkFeet);
+        if (feetBlock && feetBlock.name === 'cave_air') {
+            return true;
+        }
+    }
+    return false;
 }
 
 export async function sealCaveOpening(bot, pos, forwardVec) {
@@ -3706,29 +3716,30 @@ export async function safeStaircaseDown(bot, targetY = -58) {
         }
 
         // 3. Falling gravel check above target
-        const eyeStep = currentPos.offset(currentHeading.x, 1, currentHeading.z);
-        await handleGravelAbove(bot, eyeStep);
-
-        // 4. Dig 3 blocks for safe step: eye level, foot level, and next floor step
-        const footStep = currentPos.offset(currentHeading.x, 0, currentHeading.z);
-        const floorStep = currentPos.offset(currentHeading.x, -1, currentHeading.z);
+        const headStep = currentPos.offset(currentHeading.x, 1, currentHeading.z);
+        const eyeStep = currentPos.offset(currentHeading.x, 0, currentHeading.z);
+        const footStep = currentPos.offset(currentHeading.x, -1, currentHeading.z);
+        const floorStep = currentPos.offset(currentHeading.x, -2, currentHeading.z);
 
         try {
+            await handleGravelAbove(bot, headStep);
+
+            // Break clearance blocks (head, eye, foot)
+            await breakBlockAt(bot, headStep.x, headStep.y, headStep.z);
             await breakBlockAt(bot, eyeStep.x, eyeStep.y, eyeStep.z);
             await breakBlockAt(bot, footStep.x, footStep.y, footStep.z);
+
             // Verify step floor is solid: if air/liquid, place solid block to walk on
             const floorBlock = bot.blockAt(floorStep);
-            if (floorBlock && (floorBlock.name === 'air' || floorBlock.name === 'cave_air' || floorBlock.name.includes('lava') || floorBlock.name.includes('water'))) {
-                const plugItem = bot.inventory.items().find(it => ['cobblestone', 'deepslate', 'dirt', 'stone'].includes(it.name));
+            if (!floorBlock || floorBlock.name === 'air' || floorBlock.name === 'cave_air' || floorBlock.name.includes('lava') || floorBlock.name.includes('water')) {
+                const plugItem = bot.inventory.items().find(it => ['cobblestone', 'cobbled_deepslate', 'deepslate', 'dirt', 'stone'].includes(it.name));
                 if (plugItem) {
                     await placeBlock(bot, plugItem.name, floorStep.x, floorStep.y, floorStep.z, 'bottom', true);
                 }
-            } else {
-                await breakBlockAt(bot, floorStep.x, floorStep.y, floorStep.z);
             }
 
-            // Move onto the new step
-            await goToPosition(bot, footStep.x + 0.5, footStep.y, footStep.z + 0.5, 1);
+            // Move onto the new step (feet at footStep.y, which is y - 1)
+            await goToPosition(bot, footStep.x + 0.5, footStep.y, footStep.z + 0.5, 0.8);
 
             // Light with torches every 6 steps
             if (steps % 6 === 0) {
@@ -3750,7 +3761,7 @@ export async function safeStaircaseDown(bot, targetY = -58) {
     return bot.entity.position.y <= (destY + 2);
 }
 
-export async function diamondStripMine(bot, maxDiamonds = 64, tunnelLength = 60) {
+export async function diamondStripMine(bot, maxDiamonds = 64, tunnelLength = 80, forcedHeading = null) {
     /**
      * Diamond strip-mining operation at optimal diamond Y level:
      * - First safely descends to Y = -58 if not already at diamond level.
@@ -3772,7 +3783,7 @@ export async function diamondStripMine(bot, maxDiamonds = 64, tunnelLength = 60)
     await autoEquipBest(bot);
     await equipBestToolFor(bot, 'deepslate_diamond_ore');
 
-    let heading = new Vec3(1, 0, 0); // Mining direction
+    let heading = forcedHeading || new Vec3(1, 0, 0); // Mining direction
     let diamondsMined = 0;
     let distanceMined = 0;
 
@@ -3879,74 +3890,51 @@ export async function diamondStripMine(bot, maxDiamonds = 64, tunnelLength = 60)
 export async function squadMineDiamonds(bot, targetNum = 64) {
     /**
      * Master collaborative squad diamond mining:
-     * - Multi-bot specialized teamwork:
-     *   - Bot 0 (Lead Miner): Digs safe staircase to Y=-58, tunnels forward, extracts diamond veins.
-     *   - Bot 1 (Branch Miner): Digs parallel branch tunnels 3 blocks apart to maximize vein discovery.
-     *   - Bot 2 (Torch Bearer): Stays 3 blocks behind miners, monitors light level, places wall torches.
-     *   - Bot 3 (Sentry Guard): Equips shield & sword, watches rear/flanks, slays zombies/skeletons/creepers.
-     *   - Bot 4 (Logistics Hauler): Vacuums all drops, monitors teammates' food/durability, passes supplies.
-     * - If solo (1 bot): Automatically executes all duties safely!
+     * - Every active bot participates in the mining expedition!
+     * - Scans 64m radar for any exposed diamond veins.
+     * - Safely carves staircase down to optimal diamond depth Y=-58 without fall/lava damage.
+     * - Each bot is assigned a distinct quadrant / heading to strip-mine and extract diamond veins.
+     * - Places torches and vacuums up all drops automatically!
      */
     if (!bot?.entity?.position) return false;
     await autoEquipBest(bot);
+    await equipBestToolFor(bot, 'deepslate_diamond_ore');
 
     const nameMatch = bot.username.match(/\d+$/);
     const botIndex = nameMatch ? (parseInt(nameMatch[0], 10) - 1) : 0;
     const bestY = getBestDiamondYLevel(bot);
 
-    const roles = [
-        '⛏️ Lead Diamond Miner',
-        '⛏️ Branch Shaft Miner',
-        '🕯️ Torch Bearer & Illuminator',
-        '🛡️ Sentry Combat Guard',
-        '🎒 Logistics Hauler & Collector'
+    log(bot, `[SquadDiamonds] ${bot.username} starting diamond expedition (Goal: ${targetNum} diamonds / ${Math.round(targetNum / 64)} stacks, Depth: Y=${bestY})...`);
+
+    // 1. Check for exposed diamond ore within 64 blocks
+    try {
+        const exposed = world.getNearestBlocksWhere(bot, b => b.name.includes('diamond'), 64, 1);
+        if (exposed.length > 0) {
+            log(bot, `[SquadDiamonds] ${bot.username} found exposed diamond vein at [${exposed[0].position.x}, ${exposed[0].position.y}, ${exposed[0].position.z}]! Mining...`);
+            const mined = await mineFullVein(bot, exposed[0]);
+            targetNum -= mined;
+            if (targetNum <= 0) return true;
+        }
+    } catch {}
+
+    // 2. Headings for squad bots so each bot digs a distinct shaft:
+    const headings = [
+        new Vec3(1, 0, 0),   // Bot 0 (Doombot): East (+X)
+        new Vec3(0, 0, 1),   // Bot 1 (Doombot2): South (+Z)
+        new Vec3(-1, 0, 0),  // Bot 2 (Doombot3): West (-X)
+        new Vec3(0, 0, -1),  // Bot 3 (Doombot4): North (-Z)
+        new Vec3(1, 0, 1)    // Bot 4 (Doombot5): South-East
     ];
-    const role = roles[botIndex % roles.length];
-    log(bot, `[SquadDiamonds] ${bot.username} joining diamond expedition (Role: ${role}, Goal: ${targetNum} diamonds / ${Math.round(targetNum / 64)} stacks, Depth: Y=${bestY})...`);
+    const assignedHeading = headings[botIndex % headings.length];
 
-    // Guard Role (Bot 3): Station at mine entrance/rear and defend miners from hostiles
-    if (botIndex === 3) {
-        log(bot, `[SquadTeamwork] ${bot.username} active as Underground Sentry Guard: watching flanks with shield and sword.`);
-        await equipHighestAttack(bot);
-        let guardCycles = 0;
-        while (guardCycles < 50 && !bot.interrupt_code) {
-            const threat = world.getNearestEntityWhere(bot, e => mc.isHostile(e) && !isAlly(bot, e), 18);
-            if (threat) {
-                await squadMutualProtection(bot, threat, 22);
-            }
-            await new Promise(r => setTimeout(r, 1000));
-            guardCycles++;
-        }
-        return true;
+    // 3. Descend to Y=-58 if above diamond layer
+    if (bot.entity.position.y > (bestY + 3)) {
+        log(bot, `[SquadDiamonds] ${bot.username} excavating safe staircase down to Y=${bestY}...`);
+        await safeStaircaseDown(bot, bestY);
     }
 
-    // Torch Bearer Role (Bot 2): Follows miners, checks light level, places torches
-    if (botIndex === 2) {
-        log(bot, `[SquadTeamwork] ${bot.username} active as Torch Bearer: illuminating corridors so mobs cannot spawn.`);
-        let lightCycles = 0;
-        while (lightCycles < 40 && !bot.interrupt_code) {
-            await autoLight(bot);
-            await pickupNearbyItems(bot, 16);
-            await new Promise(r => setTimeout(r, 1500));
-            lightCycles++;
-        }
-        return true;
-    }
-
-    // Logistics Hauler Role (Bot 4): Follows and vacuums drops
-    if (botIndex === 4) {
-        log(bot, `[SquadTeamwork] ${bot.username} active as Logistics Hauler: vacuuming dropped ores and blocks.`);
-        let haulCycles = 0;
-        while (haulCycles < 40 && !bot.interrupt_code) {
-            await pickupNearbyItems(bot, 24);
-            await new Promise(r => setTimeout(r, 1200));
-            haulCycles++;
-        }
-        return true;
-    }
-
-    // Miners (Bot 0 & 1):
-    return (await diamondStripMine(bot, targetNum, 80)) > 0;
+    // 4. Strip mine at Y=-58
+    return (await diamondStripMine(bot, targetNum, 80, assignedHeading)) > 0;
 }
 
 export async function squadMineStone(bot, targetNum = 64) {
