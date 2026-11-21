@@ -69,7 +69,11 @@ export function printDashboard(settings, profileData = {}) {
     const mindPort = settings.mindserver_port || 8080;
     const protocolVersion = '1.21.4';
     const viewerActive = settings.render_bot_view !== false;
-    const viewerDisplay = viewerActive ? 'http://localhost:3000 (Active)' : 'Disabled';
+    const isFirstPerson = Boolean(settings.viewer_first_person);
+    const viewerTitle = isFirstPerson ? '🌐 3D WORLD VIEW  :' : '🎮 2D WORLD VIEW  :';
+    const viewerDisplay = viewerActive ? (isFirstPerson ? 'http://localhost:3000 (3D Mode)' : 'http://localhost:3000 (2D Mario View)') : 'Disabled';
+    const viewerCheckLabel = isFirstPerson ? '✔ 3D World View:' : '✔ 2D World View:';
+    const viewerCheckDesc = isFirstPerson ? '(Interactive 3D First-Person View)' : '(2D Mario Side-View & Bot Stream)';
 
     const BOX_WIDTH = 70;
     const padRow = (content) => {
@@ -93,11 +97,11 @@ ${padRow(`${bold}${yellow}🌍 TARGET SERVER  :${reset} ${yellow}${serverTarget}
 ${padRow(`${bold}${green}🤖 ACTIVE SQUAD   :${reset} ${bold}${green}${squadTitle}${reset}`)}
 ${padRow(`${bold}${magenta}🧠 AI MODEL       :${reset} ${magenta}${modelTarget}${reset}`)}
 ${padRow(`${bold}${blue}🛡️ LOGIN GUARD    :${reset} ${green}Active${reset} ${dim}(Minecraft 1.21.11 & Geyser / Aternos Bridged)${reset}`)}
-${padRow(`${bold}${cyan}🌐 3D WORLD VIEW  :${reset} ${cyan}${viewerDisplay}${reset}`)}
+${padRow(`${bold}${cyan}${viewerTitle}${reset} ${cyan}${viewerDisplay}${reset}`)}
 ${padRow(`${bold}${yellow}⚡ ENGINE MODE    :${reset} ${green}Fast Response (0ms delay)${reset} ${dim}| Low-Memory (4GB RAM)${reset}`)}
   ${cyan}└${'─'.repeat(BOX_WIDTH + 4)}┘${reset}
   ${bold}${green}✔ Control Center:${reset} ${bold}${cyan}http://localhost:${mindPort}${reset} ${dim}(controlcenter:localhost)${reset}
-  ${bold}${cyan}✔ 3D World View:${reset}  ${bold}${cyan}http://localhost:3000${reset} ${dim}(Interactive 3D Camera & Bot View)${reset}
+  ${bold}${cyan}${viewerCheckLabel}${reset}  ${bold}${cyan}http://localhost:3000${reset} ${dim}${viewerCheckDesc}${reset}
   ${dim}💡 Type commands directly in Minecraft chat or control the agents from the web dashboard.${reset}
 `);
 }

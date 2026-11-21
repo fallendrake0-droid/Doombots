@@ -62,10 +62,10 @@ const settings = {
     "language": "en", // translate to/from this language. Supports these language names: https://cloud.google.com/translate/docs/languages
     "bot_count": 5, // Number of bots to spawn into Minecraft (default: 5)
     "spawn_delay": 14, // Seconds to stagger multi-bot logins (avoids Aternos/Spigot connection rate limit throttle)
-    "render_bot_view": true, // Enable 3D World View in browser (http://localhost:3000)
-    "viewer_primary_only": true, // Stream 3D world view from primary bot (port 3000) to keep CPU & network light
-    "viewer_first_person": true, // true for true 3D first-person Minecraft camera (no 2D Mario side-scroller view)
-    "view_distance": 3, // 3D world view render distance in chunks (optimized for fast FPS and low latency)
+    "render_bot_view": true, // Enable 2D/3D World View in browser (http://localhost:3000)
+    "viewer_primary_only": true, // Stream world view from primary bot (port 3000) to keep CPU & network light
+    "viewer_first_person": false, // false for 2D side-scroller view (Mario-style), true for 3D first-person
+    "view_distance": 3, // World view render distance in chunks (optimized for fast FPS and low latency)
 
     "allow_insecure_coding": true, // Enable full action capability & code writing ("make it so they can do everything")
     "allow_vision": false, // allows vision model to interpret screenshots as inputs (keep false on Termux)

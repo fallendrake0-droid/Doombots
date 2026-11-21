@@ -857,7 +857,7 @@
         <button class="nav-tab" onclick="switchTab('players')">👤 Players & Mobs</button>
         <button class="nav-tab" onclick="switchTab('schematics')">📐 Schematics</button>
         <button class="nav-tab" onclick="switchTab('server')">🌍 Server & World</button>
-        <button class="nav-tab" onclick="switchTab('viewer3d')">🌐 3D World View</button>
+        <button class="nav-tab" onclick="switchTab('viewer3d')">🎮 2D World View</button>
         <button class="nav-tab" onclick="switchTab('chat')">💬 Live Chat</button>
         <button class="nav-tab" onclick="switchTab('settings')">⚙️ Settings & Themes</button>
     </nav>
@@ -1198,16 +1198,16 @@
         </div>
     </main>
 
-    <!-- TAB 5: 3D WORLD VIEW -->
+    <!-- TAB 5: 2D WORLD VIEW -->
     <main id="tab-viewer3d" class="tab-content" style="display:none;">
         <div class="info-card" style="margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
             <div>
-                <h3 style="margin:0;"><span>🌐</span> 3D Minecraft Perspective View (High-FPS Three.js Stream)</h3>
-                <small style="color:var(--text-muted);">Real 3D perspective stream centered on Doombot. Click inside to look around with mouse, use W/A/S/D to move camera.</small>
+                <h3 style="margin:0;"><span>🎮</span> 2D Interactive World View (Mario-Style Side-View Stream)</h3>
+                <small style="color:var(--text-muted);">2D side-view stream tracking Doombot. High FPS, low CPU load, smooth side-scroller camera. Drag to pan/orbit or scroll to zoom.</small>
             </div>
             <div style="display:flex; gap:8px;">
                 <a href="http://localhost:3000" target="_blank" class="btn btn-primary btn-sm">Full Screen Tab ↗</a>
-                <button class="btn btn-neutral btn-sm" onclick="reload3DViewer()">🔄 Reload 3D Stream</button>
+                <button class="btn btn-neutral btn-sm" onclick="reload3DViewer()">🔄 Reload 2D Stream</button>
             </div>
         </div>
         <div class="full-viewer-container" style="height:650px;">
@@ -2124,7 +2124,7 @@
                     ${showViewer ? `
                         <div class="viewer-box">
                             <div class="viewer-header-overlay">
-                                <span>🌐 Live 3D World View</span>
+                                <span>🎮 Live 2D World View</span>
                                 <a href="${viewerUrl}" target="_blank" style="color:var(--cyan); text-decoration:none;">Full Screen ↗</a>
                             </div>
                             <iframe class="viewer-frame" src="${viewerUrl}"></iframe>

@@ -46,7 +46,15 @@ function parseArguments() {
         .option('viewer', {
             alias: ['v', 'view'],
             type: 'boolean',
-            describe: 'Enable 3D world view in browser (default: true)'
+            describe: 'Enable world view in browser (default: true)'
+        })
+        .option('2d', {
+            type: 'boolean',
+            describe: 'Enable 2D side-view camera mode (default: true)'
+        })
+        .option('3d', {
+            type: 'boolean',
+            describe: 'Enable 3D first-person camera mode'
         })
         .option('configure', {
             type: 'boolean',
@@ -88,6 +96,12 @@ if (args.bots !== undefined) {
 }
 if (args.viewer !== undefined) {
     settings.render_bot_view = args.viewer;
+}
+if (args['3d'] !== undefined) {
+    settings.viewer_first_person = Boolean(args['3d']);
+}
+if (args['2d'] !== undefined) {
+    settings.viewer_first_person = !Boolean(args['2d']);
 }
 if (args.host) {
     let rawHost = String(args.host).trim();
@@ -162,6 +176,12 @@ if (process.env.BOT_COUNT) {
 }
 if (process.env.RENDER_BOT_VIEW !== undefined) {
     settings.render_bot_view = process.env.RENDER_BOT_VIEW === 'true';
+}
+if (process.env.VIEWER_2D !== undefined) {
+    settings.viewer_first_person = process.env.VIEWER_2D === 'false';
+}
+if (process.env.VIEWER_FIRST_PERSON !== undefined) {
+    settings.viewer_first_person = process.env.VIEWER_FIRST_PERSON === 'true';
 }
 if (process.env.SETTINGS_JSON) {
     try {

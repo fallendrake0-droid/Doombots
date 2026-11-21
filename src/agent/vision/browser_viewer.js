@@ -37,14 +37,16 @@ export async function addBrowserViewer(bot, count_id = 0) {
                 return; // Primary bot (Doombot, port 3000) streams 3D view for the whole squad
             }
             const port = 3000 + (count_id || 0);
-            const viewDistance = settings.view_distance || 4;
+            const viewDistance = settings.view_distance || 3;
+            const isFirstPerson = Boolean(settings.viewer_first_person);
+            const viewType = isFirstPerson ? '3D First-Person View' : '2D Mario Side-View';
             try {
                 mineflayerViewer(bot, {
                     port,
-                    firstPerson: Boolean(settings.viewer_first_person),
+                    firstPerson: isFirstPerson,
                     viewDistance
                 });
-                console.log(`\x1b[36m[Viewer]\x1b[0m 🌐 3D World View active for \x1b[1m\x1b[32m${bot.username}\x1b[0m at \x1b[4m\x1b[34mhttp://localhost:${port}\x1b[0m`);
+                console.log(`\x1b[36m[Viewer]\x1b[0m 🎮 ${viewType} active for \x1b[1m\x1b[32m${bot.username}\x1b[0m at \x1b[4m\x1b[34mhttp://localhost:${port}\x1b[0m`);
             } catch (vErr) {
                 console.warn(`[Viewer] Failed to start viewer on port ${port}:`, vErr?.message || vErr);
             }
