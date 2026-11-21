@@ -3887,54 +3887,204 @@ export async function diamondStripMine(bot, maxDiamonds = 64, tunnelLength = 80,
     return diamondsMined;
 }
 
+export function findNearbyDiamondOres(bot, maxDist = 128, maxCount = 64) {
+    if (!bot?.entity?.position || !bot.findBlocks) return [];
+    try {
+        const id1 = mc.getBlockId('diamond_ore');
+        const id2 = mc.getBlockId('deepslate_diamond_ore');
+        const matchingIds = [];
+        if (id1) matchingIds.push(id1);
+        if (id2) matchingIds.push(id2);
+
+        let positions = bot.findBlocks({
+            point: bot.entity.position,
+            matching: matchingIds.length > 0 ? matchingIds : (b => b && b.name.includes('diamond')),
+            maxDistance: maxDist,
+            count: maxCount
+        }) || [];
+
+        return positions.map(pos => bot.blockAt(pos)).filter(b => b != null);
+    } catch {
+        return [];
+    }
+}
+
+export async function mineDirectlyToTarget(bot, targetPos, maxSteps = 160) {
+    /**
+     * Tunnels directly in a straight bee-line shaft straight to targetPos coordinates.
+     * Breaches and clears blocks, bridges liquid/air gaps, places torches, and extracts ore.
+     */
+    if (!bot?.entity?.position || !targetPos) return 0;
+    let steps = 0;
+
+    while (steps < maxSteps && !bot.interrupt_code) {
+        steps++;
+        const curPos = bot.entity.position.floored();
+        const dist = bot.entity.position.distanceTo(targetPos);
+
+        // Within reach! (4.2 blocks)
+        if (dist <= 4.2) {
+            log(bot, `[DirectDiamond] 💎 Reached diamond ore! Extracting vein...`);
+            const targetBlock = bot.blockAt(targetPos);
+            if (targetBlock && targetBlock.name.includes('diamond')) {
+                return await mineFullVein(bot, targetBlock);
+            }
+            return 1;
+        }
+
+        // Fast pathfinder attempt if path is already mostly open
+        if (dist <= 20) {
+            try {
+                const movements = configureMovements(bot, new pf.Movements(bot), true);
+                bot.pathfinder.setMovements(movements);
+                await goToGoal(bot, new pf.goals.GoalNear(targetPos.x, targetPos.y, targetPos.z, 2));
+                if (bot.entity.position.distanceTo(targetPos) <= 4.2) {
+                    const blk = bot.blockAt(targetPos);
+                    if (blk && blk.name.includes('diamond')) {
+                        return await mineFullVein(bot, blk);
+                    }
+                    return 1;
+                }
+            } catch {}
+        }
+
+        const dx = targetPos.x - curPos.x;
+        const dy = targetPos.y - curPos.y;
+        const dz = targetPos.z - curPos.z;
+
+        // Choose horizontal direction
+        let stepX = 0;
+        let stepZ = 0;
+        if (Math.abs(dx) >= Math.abs(dz) && Math.abs(dx) > 0) {
+            stepX = Math.sign(dx);
+        } else if (Math.abs(dz) > 0) {
+            stepZ = Math.sign(dz);
+        } else {
+            stepX = 1;
+        }
+
+        // Vertical step
+        let stepY = 0;
+        if (dy < 0) {
+            stepY = -1; // Descend towards diamond
+        } else if (dy > 0 && Math.abs(dx) <= 1 && Math.abs(dz) <= 1) {
+            stepY = 1;  // Ascend if underneath
+        }
+
+        // Target foot position for this step
+        const nextFoot = curPos.offset(stepX, stepY, stepZ);
+        const nextEye = nextFoot.offset(0, 1, 0);
+        const nextHead = nextFoot.offset(0, 2, 0);
+        const nextFloor = nextFoot.offset(0, -1, 0);
+
+        try {
+            // Defend if attacked
+            const hostile = world.getNearestEntityWhere(bot, e => mc.isHostile(e) && !isAlly(bot, e), 10);
+            if (hostile) {
+                await squadMutualProtection(bot, hostile, 14);
+                await autoEquipBest(bot);
+                await equipBestToolFor(bot, 'deepslate_diamond_ore');
+            }
+
+            // Lava hazard check
+            const lavas = detectLavaNear(bot, nextFoot, 2);
+            if (lavas.length > 0) {
+                for (const l of lavas) {
+                    await sealLavaBreach(bot, l);
+                }
+            }
+
+            // Clear blocks to walk into nextFoot
+            await handleGravelAbove(bot, nextHead);
+            await breakBlockAt(bot, nextHead.x, nextHead.y, nextHead.z);
+            await breakBlockAt(bot, nextEye.x, nextEye.y, nextEye.z);
+            await breakBlockAt(bot, nextFoot.x, nextFoot.y, nextFoot.z);
+
+            // Ensure solid floor underneath nextFoot
+            const floorBlk = bot.blockAt(nextFloor);
+            if (!floorBlk || floorBlk.name === 'air' || floorBlk.name === 'cave_air' || floorBlk.name.includes('lava') || floorBlk.name.includes('water')) {
+                const plugItem = bot.inventory.items().find(it => ['cobblestone', 'cobbled_deepslate', 'deepslate', 'dirt', 'stone'].includes(it.name));
+                if (plugItem) {
+                    await placeBlock(bot, plugItem.name, nextFloor.x, nextFloor.y, nextFloor.z, 'bottom', true);
+                }
+            }
+
+            // Move onto nextFoot
+            await goToPosition(bot, nextFoot.x + 0.5, nextFoot.y, nextFoot.z + 0.5, 0.8);
+
+            // Light & items
+            if (steps % 6 === 0) await autoLight(bot);
+            if (steps % 4 === 0) await pickupNearbyItems(bot, 6);
+        } catch {
+            // If direct step blocked, try alternate axis
+            const altX = (stepX === 0) ? (Math.sign(dx) || 1) : 0;
+            const altZ = (stepZ === 0) ? (Math.sign(dz) || 1) : 0;
+            try {
+                const altFoot = curPos.offset(altX, stepY, altZ);
+                await breakBlockAt(bot, altFoot.x, altFoot.y + 1, altFoot.z);
+                await breakBlockAt(bot, altFoot.x, altFoot.y, altFoot.z);
+                await goToPosition(bot, altFoot.x + 0.5, altFoot.y, altFoot.z + 0.5, 0.8);
+            } catch {}
+        }
+    }
+    return 0;
+}
+
 export async function squadMineDiamonds(bot, targetNum = 64) {
     /**
-     * Master collaborative squad diamond mining:
-     * - Every active bot participates in the mining expedition!
-     * - Scans 64m radar for any exposed diamond veins.
-     * - Safely carves staircase down to optimal diamond depth Y=-58 without fall/lava damage.
-     * - Each bot is assigned a distinct quadrant / heading to strip-mine and extract diamond veins.
-     * - Places torches and vacuums up all drops automatically!
+     * Mines DIRECTLY to diamonds:
+     * - Locks radar onto nearest diamond veins up to 128m in loaded chunks.
+     * - Tunnels directly in a straight bee-line shaft straight to the diamond coordinates!
+     * - If no diamond is currently in loaded surface chunks, carves directly down to Y=-58.
+     * - Senses and extracts all contiguous diamond veins with BFS and vacuums all drops.
      */
     if (!bot?.entity?.position) return false;
     await autoEquipBest(bot);
     await equipBestToolFor(bot, 'deepslate_diamond_ore');
 
-    const nameMatch = bot.username.match(/\d+$/);
-    const botIndex = nameMatch ? (parseInt(nameMatch[0], 10) - 1) : 0;
-    const bestY = getBestDiamondYLevel(bot);
+    log(bot, `[DirectDiamond] 🧭 Locking radar onto diamonds (Goal: ${targetNum} diamonds / ${Math.round(targetNum / 64)} stacks)...`);
 
-    log(bot, `[SquadDiamonds] ${bot.username} starting diamond expedition (Goal: ${targetNum} diamonds / ${Math.round(targetNum / 64)} stacks, Depth: Y=${bestY})...`);
+    let diamondsMined = 0;
+    let cycles = 0;
+    const maxCycles = 120;
 
-    // 1. Check for exposed diamond ore within 64 blocks
-    try {
-        const exposed = world.getNearestBlocksWhere(bot, b => b.name.includes('diamond'), 64, 1);
-        if (exposed.length > 0) {
-            log(bot, `[SquadDiamonds] ${bot.username} found exposed diamond vein at [${exposed[0].position.x}, ${exposed[0].position.y}, ${exposed[0].position.z}]! Mining...`);
-            const mined = await mineFullVein(bot, exposed[0]);
-            targetNum -= mined;
-            if (targetNum <= 0) return true;
+    while (diamondsMined < targetNum && cycles < maxCycles && !bot.interrupt_code) {
+        cycles++;
+
+        // 1. Scan loaded chunks for diamond ores within 128m
+        const diamondOres = findNearbyDiamondOres(bot, 128, 40);
+
+        if (diamondOres.length > 0) {
+            // Sort by 3D distance to bot
+            diamondOres.sort((a, b) => bot.entity.position.distanceTo(a.position) - bot.entity.position.distanceTo(b.position));
+            const nearestDiamond = diamondOres[0];
+            const dist = Math.round(bot.entity.position.distanceTo(nearestDiamond.position));
+            log(bot, `[DirectDiamond] 💎 Locked onto diamond vein at [${nearestDiamond.position.x}, ${nearestDiamond.position.y}, ${nearestDiamond.position.z}] (${dist}m away). Mining directly to diamonds...`);
+
+            const count = await mineDirectlyToTarget(bot, nearestDiamond.position);
+            diamondsMined += (count > 0 ? count : 1);
+            await pickupNearbyItems(bot, 12);
+            continue;
         }
-    } catch {}
 
-    // 2. Headings for squad bots so each bot digs a distinct shaft:
-    const headings = [
-        new Vec3(1, 0, 0),   // Bot 0 (Doombot): East (+X)
-        new Vec3(0, 0, 1),   // Bot 1 (Doombot2): South (+Z)
-        new Vec3(-1, 0, 0),  // Bot 2 (Doombot3): West (-X)
-        new Vec3(0, 0, -1),  // Bot 3 (Doombot4): North (-Z)
-        new Vec3(1, 0, 1)    // Bot 4 (Doombot5): South-East
-    ];
-    const assignedHeading = headings[botIndex % headings.length];
+        // 2. If no diamond ore is in loaded chunks (bot is still high above Y=16):
+        // Descend directly down towards optimal diamond generation level Y=-58
+        const bestY = getBestDiamondYLevel(bot);
+        if (bot.entity.position.y > (bestY + 2)) {
+            log(bot, `[DirectDiamond] Descending directly towards diamond layer Y=${bestY}...`);
+            await safeStaircaseDown(bot, bestY);
+            continue;
+        }
 
-    // 3. Descend to Y=-58 if above diamond layer
-    if (bot.entity.position.y > (bestY + 3)) {
-        log(bot, `[SquadDiamonds] ${bot.username} excavating safe staircase down to Y=${bestY}...`);
-        await safeStaircaseDown(bot, bestY);
+        // 3. At diamond layer Y=-58: tunnel forward with radar
+        log(bot, `[DirectDiamond] At diamond depth Y=${Math.floor(bot.entity.position.y)}. Strip-mining forward...`);
+        const count = await diamondStripMine(bot, targetNum - diamondsMined, 30);
+        diamondsMined += count;
     }
 
-    // 4. Strip mine at Y=-58
-    return (await diamondStripMine(bot, targetNum, 80, assignedHeading)) > 0;
+    await pickupNearbyItems(bot, 16);
+    log(bot, `[DirectDiamond] 🏁 Completed direct diamond mining pass. Total diamonds: ${diamondsMined}.`);
+    return diamondsMined > 0;
 }
 
 export async function squadMineStone(bot, targetNum = 64) {
