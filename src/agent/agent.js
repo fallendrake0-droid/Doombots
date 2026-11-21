@@ -371,7 +371,7 @@ export class Agent {
         // Set up auto-eat with guaranteed uninterrupted eating
         this.bot.autoEat.options = {
             priority: 'foodPoints',
-            startAt: 18, // Maintain >= 18 hunger so natural health regeneration is always active!
+            startAt: 16,
             bannedFood: ["rotten_flesh", "spider_eye", "poisonous_potato", "pufferfish", "chorus_fruit"],
             offhand: false, // Always eat with main hand for 100% server compatibility & shield protection
             checkOnItemPickup: true
@@ -379,9 +379,20 @@ export class Agent {
         try {
             this.bot.autoEat.enable();
             this.bot.autoEat.eat = async () => {
+                if (!skills.hasFood(this.bot)) return false;
                 return await skills.eatUntilFull(this.bot);
             };
         } catch {}
+
+        // Protocol event bridge: resolve eating immediately when server increments food level
+        this.bot._client?.on('update_health', (packet) => {
+            if (this.bot.usingHeldItem && packet.food > this.bot.food) {
+                this.bot._client.emit('entity_status', {
+                    entityId: this.bot.entity?.id,
+                    entityStatus: 9
+                });
+            }
+        });
 
         // Anti-NaN position, rotation, and physics watchdog
         let lastValidPos = null;
@@ -407,7 +418,7 @@ export class Agent {
             };
         }
 
-        this.bot.on('physicTick', () => {
+        this.bot.on('physicsTick', () => {
             if (!this.bot?.entity?.position) return;
             const pos = this.bot.entity.position;
             if (Number.isFinite(pos.x) && Number.isFinite(pos.y) && Number.isFinite(pos.z)) {

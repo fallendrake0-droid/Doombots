@@ -1435,12 +1435,19 @@ const NOURISHING_FOODS = [
     'carrot', 'beetroot', 'sweet_berries', 'glow_berries', 'melon_slice'
 ];
 
+export function hasFood(bot) {
+    if (!bot?.inventory) return false;
+    return bot.inventory.items().some(it => 
+        (NOURISHING_FOODS.includes(it.name) || (bot.registry?.foodsByName?.[it.name])) &&
+        !BANNED_FOODS.includes(it.name)
+    );
+}
+
 export async function safeEat(bot, preferredItem = null) {
     /**
      * Safely consumes a food item from inventory with full completion guarantee:
      * - Pauses movement so eating animation is never aborted prematurely.
-     * - Holds right-click for the full 32 ticks (~1.61s) required by Minecraft protocol.
-     * - Actively confirms food level increase / stack decrease before releasing.
+     * - Uses bot.consume() with protocol event bridging so eating completes reliably.
      * - Restores previous held tool/weapon after eating finishes.
      */
     if (!bot?.inventory) return false;
@@ -1477,56 +1484,29 @@ export async function safeEat(bot, preferredItem = null) {
     const previousHandSlot = bot.getEquipmentDestSlot('hand');
     const previousItem = bot.inventory.slots[previousHandSlot]?.name || null;
 
+    let consumed = false;
+    const startFood = bot.food !== undefined ? bot.food : 0;
+
     try {
         await bot.equip(foodItem, 'hand');
+        await bot.consume();
+        consumed = true;
     } catch {
+        if (bot.food !== undefined && bot.food > startFood) {
+            consumed = true;
+        }
+    } finally {
+        // Restore previous tool or weapon
+        if (previousItem && previousItem !== foodItem.name) {
+            const oldItem = bot.inventory.items().find(it => it.name === previousItem);
+            if (oldItem) {
+                try { await bot.equip(oldItem, 'hand'); } catch {}
+            }
+        }
         bot.isEating = false;
         if (bot.autoEat) bot.autoEat.isEating = false;
-        return false;
     }
 
-    const startFood = bot.food !== undefined ? bot.food : 0;
-    const startCount = foodItem.count;
-
-    // Begin consuming (holding right-click in main hand)
-    bot.deactivateItem();
-    bot.activateItem(false);
-
-    const startTime = Date.now();
-    let consumed = false;
-
-    // Minecraft eating takes 32 ticks (1.61 seconds). Poll up to 2.4s to guarantee completion.
-    while (Date.now() - startTime < 2400) {
-        await new Promise(r => setTimeout(r, 60));
-        const currentHeld = bot.inventory.slots[previousHandSlot];
-        const currentFood = bot.food !== undefined ? bot.food : startFood;
-
-        if (currentFood > startFood || (currentHeld && currentHeld.count < startCount) || !currentHeld) {
-            consumed = true;
-            break;
-        }
-    }
-
-    bot.deactivateItem();
-
-    // If packet timing was delayed, attempt fallback consume
-    if (!consumed && bot.food !== undefined && bot.food <= startFood) {
-        try {
-            await bot.consume();
-            consumed = true;
-        } catch {}
-    }
-
-    // Restore previous tool or weapon
-    if (previousItem && previousItem !== foodItem.name) {
-        const oldItem = bot.inventory.items().find(it => it.name === previousItem);
-        if (oldItem) {
-            try { await bot.equip(oldItem, 'hand'); } catch {}
-        }
-    }
-
-    bot.isEating = false;
-    if (bot.autoEat) bot.autoEat.isEating = false;
     return consumed;
 }
 
@@ -1537,18 +1517,21 @@ export async function eatUntilFull(bot, targetHunger = 19) {
      */
     if (!bot?.inventory) return false;
     if (bot.food !== undefined && bot.food >= targetHunger) return true;
-
-    log(bot, `[Nutrition] 🍗 Hunger at ${bot.food !== undefined ? Math.round(bot.food) : '?'}/20. Eating until satisfied...`);
+    if (!hasFood(bot)) return false;
 
     let attempts = 0;
-    while (bot.food !== undefined && bot.food < targetHunger && attempts < 8 && !bot.interrupt_code) {
+    let anyEaten = false;
+    while (bot.food !== undefined && bot.food < targetHunger && attempts < 6 && !bot.interrupt_code) {
         attempts++;
         const ate = await safeEat(bot);
         if (!ate) break;
-        await new Promise(r => setTimeout(r, 120));
+        anyEaten = true;
+        await new Promise(r => setTimeout(r, 150));
     }
 
-    log(bot, `[Nutrition] 😋 Finished eating. Current hunger: ${bot.food !== undefined ? Math.round(bot.food) : 20}/20.`);
+    if (anyEaten) {
+        log(bot, `[Nutrition] 😋 Finished eating. Current hunger: ${bot.food !== undefined ? Math.round(bot.food) : 20}/20.`);
+    }
     return bot.food !== undefined ? bot.food >= targetHunger : true;
 }
 

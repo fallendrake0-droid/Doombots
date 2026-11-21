@@ -43,22 +43,28 @@ const modes_list = [
                 bot.setControlState('jump', true);
             }
 
-            // Anti-starvation: Safely finish eating when hunger drops below 18 to maintain regeneration
-            if (bot.food !== undefined && bot.food <= 18 && !bot.isEating) {
-                execute(this, agent, async () => {
-                    await skills.eatUntilFull(bot);
-                });
-            }
-
-            // Low-health defense: Raise off-hand shield & auto-eat immediately when taking damage
-            if (bot.health !== undefined && bot.health < 12 && !bot.isEating) {
-                if (bot.inventory?.slots?.[45]?.name === 'shield') {
-                    try { bot.activateItem(true); } catch {}
-                }
-                if (bot.food !== undefined && bot.food <= 18) {
+            // Critical starvation emergency (< 6 hunger) and bot actually has food
+            if (bot.food !== undefined && bot.food < 6 && !bot.isEating && skills.hasFood(bot)) {
+                if (!this.last_eat_attempt || Date.now() - this.last_eat_attempt > 10000) {
+                    this.last_eat_attempt = Date.now();
                     execute(this, agent, async () => {
                         await skills.eatUntilFull(bot);
                     });
+                }
+            }
+
+            // Critical low-health defense (< 8 health)
+            if (bot.health !== undefined && bot.health < 8 && !bot.isEating) {
+                if (bot.inventory?.slots?.[45]?.name === 'shield') {
+                    try { bot.activateItem(true); } catch {}
+                }
+                if (bot.food !== undefined && bot.food <= 18 && skills.hasFood(bot)) {
+                    if (!this.last_eat_attempt || Date.now() - this.last_eat_attempt > 10000) {
+                        this.last_eat_attempt = Date.now();
+                        execute(this, agent, async () => {
+                            await skills.eatUntilFull(bot);
+                        });
+                    }
                 }
             }
 
