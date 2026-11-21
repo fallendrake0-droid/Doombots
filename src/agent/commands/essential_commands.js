@@ -1,6 +1,5 @@
 import * as world from '../library/world.js';
 import * as skills from '../library/skills.js';
-import convoManager from '../conversation.js';
 
 class Vec3Coord {
     constructor(x, y, z) { this.x = Number(x); this.y = Number(y); this.z = Number(z); }
@@ -849,17 +848,14 @@ export const essentialCommandsList = [
         }
     },
     {
-        name: '!plantSaplings',
-        description: 'Replant saplings in deforested areas to maintain timber supply.',
+        name: '!clearFoliage',
+        description: 'Clears tall grass, ferns, vines, and excess foliage in the area.',
         perform: async function(agent) {
             const bot = agent.bot;
-            const sapling = bot.inventory.items().find(i => i.name.includes('sapling'));
-            if (!sapling) return 'No saplings in inventory.';
-            const dirt = world.getNearestBlock(bot, 'dirt', 5) || world.getNearestBlock(bot, 'grass_block', 5);
-            if (!dirt) return 'No dirt spot found for sapling.';
-            await bot.equip(sapling, 'hand');
-            await bot.activateBlock(dirt);
-            return `Planted ${sapling.name.replace(/_/g, ' ')}.`;
+            const foliage = world.getNearestBlockWhere(bot, b => b.name.includes('grass') || b.name.includes('fern') || b.name.includes('vine'), 5);
+            if (!foliage) return 'No excess foliage nearby to clear.';
+            try { await bot.dig(foliage, true); } catch {}
+            return 'Cleared nearby foliage.';
         }
     },
     {
