@@ -64,7 +64,6 @@ const settings = {
     "bot_count": 5, // Number of bots to spawn into Minecraft (default: 5)
     "spawn_delay": 14, // Seconds to stagger multi-bot logins (avoids Aternos/Spigot connection rate limit throttle)
     "skin": {
-        "name": "Zolvd",
         "url": "https://namemc.com/texture/777895bfd4bb9994.png",
         "path": "https://namemc.com/texture/777895bfd4bb9994.png",
         "model": "classic"

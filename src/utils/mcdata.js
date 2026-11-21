@@ -349,6 +349,11 @@ export function isHostile(mob) {
     return  (mob.type === 'mob' || mob.type === 'hostile') && mob.name !== 'iron_golem' && mob.name !== 'snow_golem';
 }
 
+export function isPlayer(mob) {
+    if (!mob) return false;
+    return mob.type === 'player' || mob.name === 'player';
+}
+
 // blocks that don't work with collectBlock, need to be manually collected
 export function mustCollectManually(blockName) {
     // all crops (that aren't normal blocks), torches, buttons, levers, redstone,

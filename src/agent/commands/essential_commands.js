@@ -1298,21 +1298,19 @@ export const essentialCommandsList = [
     },
     {
         name: '!setSkin',
-        description: 'Applies the custom Red Knight skin across all supported server skin plugins (SkinsRestorer, Fabric Tailor).',
+        description: 'Applies the custom Dark Red Knight skin across all supported server skin plugins (SkinsRestorer, Fabric Tailor).',
         params: {
-            'skinName': { type: 'string', description: 'Skin name or URL (default: Zolvd)' }
+            'skinUrl': { type: 'string', description: 'Skin texture URL (default: https://namemc.com/texture/777895bfd4bb9994.png)' }
         },
-        perform: async function(agent, skinName = 'Zolvd') {
+        perform: async function(agent, customUrl = 'https://namemc.com/texture/777895bfd4bb9994.png') {
             if (typeof agent.applySquadSkin === 'function') {
-                agent.applySquadSkin();
+                agent.applySquadSkin(true);
             } else {
                 const bot = agent.bot;
-                const skinUrl = 'https://namemc.com/texture/777895bfd4bb9994.png';
-                bot.chat(`/skin ${skinName}`);
-                bot.chat(`/skin set ${skinName}`);
-                bot.chat(`/skin set URL classic ${skinUrl}`);
+                bot.chat(`/skin url ${customUrl} classic`);
+                bot.chat(`/skin set URL classic ${customUrl}`);
             }
-            return `Applied Red Knight skin (${skinName}) to ${agent.bot.username}.`;
+            return `Applied Dark Red Knight skin to ${agent.bot.username}.`;
         }
     }
 ];

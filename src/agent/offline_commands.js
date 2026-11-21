@@ -53,15 +53,13 @@ export async function handleOfflineCommand(agent, source, raw) {
     // -------------------------------------------------------------
     if (/^(?:skin|set\s+skin|apply\s+skin|change\s+skin|red\s+knight\s+skin|red\s+knight)$/i.test(lower)) {
         if (typeof agent.applySquadSkin === 'function') {
-            agent.applySquadSkin();
+            agent.applySquadSkin(true);
         } else {
-            const skinName = 'Zolvd';
             const skinUrl = 'https://namemc.com/texture/777895bfd4bb9994.png';
-            bot.chat(`/skin ${skinName}`);
-            bot.chat(`/skin set ${skinName}`);
+            bot.chat(`/skin url ${skinUrl} classic`);
             bot.chat(`/skin set URL classic ${skinUrl}`);
         }
-        agent.routeResponse(source, `Applied Red Knight skin (Zolvd) to ${bot.username}.`);
+        agent.routeResponse(source, `Applied Dark Red Knight skin to ${bot.username}.`);
         return true;
     }
 

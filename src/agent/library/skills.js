@@ -936,7 +936,7 @@ export async function pickupNearbyItems(bot, distance = 24, priorityItem = null)
 
     // Do not pick up items during active combat / PVP!
     if (bot.pvp?.target) return false;
-    const nearbyEnemy = world.getNearestEntityWhere(bot, e => (mc.isHostile(e) || (!isAlly(bot, e) && mc.isPlayer(e))), 7);
+    const nearbyEnemy = world.getNearestEntityWhere(bot, e => (mc.isHostile(e) || (!isAlly(bot, e) && (e.type === 'player' || mc.isPlayer(e)))), 7);
     if (nearbyEnemy && bot.modes?.isOn('self_defense')) {
         return false;
     }

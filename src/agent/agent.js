@@ -186,10 +186,7 @@ export class Agent {
                 // Apply Red Knight skin across all supported server skin plugins (SkinsRestorer, Fabric Tailor, ChangeSkin)
                 setTimeout(() => {
                     this.applySquadSkin();
-                }, 2500);
-                setTimeout(() => {
-                    this.applySquadSkin();
-                }, 7500);
+                }, 3000);
 
                 await addBrowserViewer(this.bot, count_id);
                 console.log('Initializing vision intepreter...');
@@ -238,30 +235,25 @@ export class Agent {
         });
     }
 
-    applySquadSkin() {
+    applySquadSkin(force = false) {
+        if (this._skinApplied && !force) return;
+        this._skinApplied = true;
+
         try {
-            const skinConfig = this.prompter?.profile?.skin || settings.skin || {
-                name: 'Zolvd',
-                url: 'https://namemc.com/texture/777895bfd4bb9994.png',
-                model: 'classic'
-            };
+            const skinConfig = this.prompter?.profile?.skin || settings.skin || {};
             const skinUrl = skinConfig.url || skinConfig.path || 'https://namemc.com/texture/777895bfd4bb9994.png';
-            const skinName = skinConfig.name || 'Zolvd';
             const skinModel = skinConfig.model || 'classic';
 
-            console.log(`\x1b[35m[Skin]\x1b[0m 🛡️ Applying Red Knight skin for \x1b[1m\x1b[32m${this.name}\x1b[0m (${skinName})...`);
-            // Primary SkinsRestorer commands on Spigot/Paper/Aternos
-            this.bot.chat(`/skin ${skinName}`);
-            this.bot.chat(`/skin set ${skinName}`);
+            console.log(`\x1b[35m[Skin]\x1b[0m 🛡️ Applying Dark Red Knight skin from texture URL for \x1b[1m\x1b[32m${this.name}\x1b[0m...`);
+            // SkinsRestorer direct URL command (permanent dark red knight texture, not affected by player name skin changes)
+            this.bot.chat(`/skin url ${skinUrl} ${skinModel}`);
             // Fabric Tailor command
             this.bot.chat(`/skin set URL ${skinModel} ${skinUrl}`);
 
-            // Staggered update for server skin cache
+            // Reset cooldown flag after 35s
             setTimeout(() => {
-                try {
-                    this.bot.chat('/skin update');
-                } catch {}
-            }, 3000);
+                this._skinApplied = false;
+            }, 35000);
         } catch (err) {
             console.warn(`[Skin] Error applying skin for ${this.name}:`, err?.message || err);
         }
@@ -777,8 +769,8 @@ export class Agent {
 
         // Direct Offline Skin Command
         if (/^(?:skin|set\s+skin|apply\s+skin|change\s+skin|red\s+knight\s+skin|red\s+knight)$/i.test(lower)) {
-            this.applySquadSkin();
-            this.routeResponse(source, `Applied Red Knight skin (Zolvd) to ${this.name}.`);
+            this.applySquadSkin(true);
+            this.routeResponse(source, `Applied Dark Red Knight skin to ${this.name}.`);
             return true;
         }
 
