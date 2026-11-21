@@ -120,7 +120,7 @@ export async function autoEquipBest(bot) {
     };
 
     // Auto-equip off-hand: Totem of Undying > Shield
-    const offHandCurrent = bot.inventory.slots[45];
+    const offHandCurrent = bot.inventory?.slots?.[45];
     const totem = items.find(i => i.name === 'totem_of_undying');
     const shield = items.find(i => i.name === 'shield');
     if (totem && (!offHandCurrent || offHandCurrent.name !== 'totem_of_undying')) {
@@ -2861,21 +2861,6 @@ export async function squadMutualProtection(bot, enemy = null, radius = 24) {
     return await attackEntity(bot, target, true);
 }
 
-export async function squadMineStone(bot, targetNum = 64) {
-    /**
-     * Teamwork quarrying: miners partition stone blocks by sector offset, place torches to prevent spawns,
-     * and guards watch for creepers/zombies.
-     */
-    return await squadGatherMaterial(bot, 'cobblestone', targetNum);
-}
-
-export async function squadMineOres(bot, oreType = 'iron_ore', targetNum = 16) {
-    /**
-     * Teamwork ore mining: bots scan for ores and partition targets without goal conflicts.
-     */
-    return await squadGatherMaterial(bot, oreType, targetNum);
-}
-
 export function resolveMaterialBlock(raw) {
     const m = String(raw || '').toLowerCase().replace(/[\s-]+/g, '_').replace(/^raw_/, '').trim();
 
@@ -3144,6 +3129,11 @@ export async function squadGatherMaterial(bot, materialName, targetNum = 64) {
     // Check if log/timber collection
     if (lowerMat === 'wood' || lowerMat === 'log' || lowerMat === 'logs' || lowerMat === 'tree' || lowerMat === 'trees') {
         return await squadMineLogs(bot, targetNum);
+    }
+
+    // Check if diamond mining -> special underground diamond expedition to Y=-58 with hazard protection!
+    if (lowerMat.includes('diamond')) {
+        return await squadMineDiamonds(bot, targetNum);
     }
 
     // Resolve material definition (blocks, tool type)
@@ -3415,4 +3405,580 @@ export async function squadDefend(bot, radius = 24) {
 
     return true;
 }
+
+// -------------------------------------------------------------
+// UNDERGROUND DIAMOND MINING, CAVE AVOIDANCE & HAZARD SAFETY
+// -------------------------------------------------------------
+
+export function getBestDiamondYLevel(bot) {
+    /**
+     * Determines optimal diamond mining elevation:
+     * In modern Minecraft (1.18 - 1.21.x / 1.26.x), world floor is Y = -64 and diamond density peaks at Y = -58.
+     * In legacy Minecraft (<1.18), bedrock is at Y = 0 and best diamond layer is Y = 11.
+     */
+    const minY = bot?.game?.minY ?? -64;
+    if (minY < 0 || (bot?.entity?.position && bot.entity.position.y < 0)) {
+        return -58;
+    }
+    return 11;
+}
+
+export function detectLavaNear(bot, pos, radius = 2) {
+    /**
+     * Scans surrounding cubic area for lava or flowing lava.
+     */
+    if (!bot?.blockAt || !pos) return [];
+    const lavaBlocks = [];
+    const minX = Math.floor(pos.x - radius);
+    const maxX = Math.floor(pos.x + radius);
+    const minY = Math.floor(pos.y - radius);
+    const maxY = Math.floor(pos.y + radius);
+    const minZ = Math.floor(pos.z - radius);
+    const maxZ = Math.floor(pos.z + radius);
+
+    for (let x = minX; x <= maxX; x++) {
+        for (let y = minY; y <= maxY; y++) {
+            for (let z = minZ; z <= maxZ; z++) {
+                const b = bot.blockAt(new Vec3(x, y, z));
+                if (b && (b.name === 'lava' || b.name === 'flowing_lava')) {
+                    lavaBlocks.push(b);
+                }
+            }
+        }
+    }
+    return lavaBlocks;
+}
+
+export async function sealLavaBreach(bot, lavaBlock) {
+    /**
+     * Safely plugs or seals an exposed lava block with cobblestone/deepslate to eliminate hazard.
+     */
+    if (!bot?.inventory || !lavaBlock) return false;
+    const solidBlockNames = [
+        'cobblestone', 'cobbled_deepslate', 'deepslate', 'stone', 'dirt',
+        'andesite', 'granite', 'diorite', 'netherrack', 'sandstone'
+    ];
+    let plugItem = bot.inventory.items().find(it => solidBlockNames.includes(it.name));
+    if (!plugItem) {
+        plugItem = bot.inventory.items().find(it => it.name.includes('stone') || it.name.includes('plank'));
+    }
+    if (!plugItem) return false;
+
+    log(bot, `[HazardControl] ⚠️ Lava detected at [${lavaBlock.position.x}, ${lavaBlock.position.y}, ${lavaBlock.position.z}]. Sealing breach with ${plugItem.name}...`);
+    try {
+        await placeBlock(bot, plugItem.name, lavaBlock.position.x, lavaBlock.position.y, lavaBlock.position.z, 'bottom', true);
+        return true;
+    } catch {
+        const neighbors = [
+            lavaBlock.position.offset(0, 1, 0),
+            lavaBlock.position.offset(1, 0, 0),
+            lavaBlock.position.offset(-1, 0, 0),
+            lavaBlock.position.offset(0, 0, 1),
+            lavaBlock.position.offset(0, 0, -1)
+        ];
+        for (const n of neighbors) {
+            try {
+                await placeBlock(bot, plugItem.name, n.x, n.y, n.z, 'bottom', true);
+                return true;
+            } catch {}
+        }
+    }
+    return false;
+}
+
+export function isCaveAhead(bot, fromPos, forwardVec) {
+    /**
+     * Inspects 2-4 blocks ahead in mining direction for open cave cavities or deep pitfall drops.
+     * Returns true if open cave air or dangerous void is detected.
+     */
+    if (!bot?.blockAt || !fromPos || !forwardVec) return false;
+    let airCount = 0;
+    for (let step = 1; step <= 4; step++) {
+        const checkEye = fromPos.offset(forwardVec.x * step, 1, forwardVec.z * step).floored();
+        const checkFeet = fromPos.offset(forwardVec.x * step, 0, forwardVec.z * step).floored();
+        const checkFloor = fromPos.offset(forwardVec.x * step, -1, forwardVec.z * step).floored();
+
+        const eyeBlock = bot.blockAt(checkEye);
+        const feetBlock = bot.blockAt(checkFeet);
+        const floorBlock = bot.blockAt(checkFloor);
+
+        if (eyeBlock && (eyeBlock.name === 'air' || eyeBlock.name === 'cave_air')) airCount++;
+        if (feetBlock && (feetBlock.name === 'air' || feetBlock.name === 'cave_air')) airCount++;
+        if (floorBlock && (floorBlock.name === 'air' || floorBlock.name === 'cave_air' || floorBlock.name.includes('lava') || floorBlock.name.includes('water'))) {
+            return true; // Pitfall drop or liquid pit
+        }
+    }
+    return airCount >= 3;
+}
+
+export async function sealCaveOpening(bot, pos, forwardVec) {
+    /**
+     * Walls off a cave opening with solid blocks to keep our mining corridor completely sealed and safe.
+     */
+    log(bot, `[HazardControl] 🛡️ Cave cavity detected ahead. Sealing opening to avoid cave mobs and hazards...`);
+    const solidBlockNames = ['cobblestone', 'cobbled_deepslate', 'deepslate', 'stone', 'dirt'];
+    const plugItem = bot.inventory.items().find(it => solidBlockNames.includes(it.name));
+    if (!plugItem) return false;
+
+    const wallPos1 = pos.offset(forwardVec.x, 0, forwardVec.z).floored();
+    const wallPos2 = pos.offset(forwardVec.x, 1, forwardVec.z).floored();
+
+    try { await placeBlock(bot, plugItem.name, wallPos1.x, wallPos1.y, wallPos1.z, 'bottom', true); } catch {}
+    try { await placeBlock(bot, plugItem.name, wallPos2.x, wallPos2.y, wallPos2.z, 'bottom', true); } catch {}
+    return true;
+}
+
+export async function handleGravelAbove(bot, targetPos) {
+    /**
+     * Checks for falling blocks (gravel, sand) above the target digging position.
+     * Places a torch beneath or clears with shovel to eliminate suffocation danger.
+     */
+    if (!bot?.blockAt || !targetPos) return false;
+    for (let dy = 1; dy <= 4; dy++) {
+        const above = bot.blockAt(targetPos.offset(0, dy, 0));
+        if (above && (above.name === 'gravel' || above.name === 'sand' || above.name.includes('gravel') || above.name.includes('sand'))) {
+            log(bot, `[HazardControl] ⚠️ Falling block (${above.name}) detected above at Y=${above.position.y}. Clearing safely...`);
+            const torchItem = bot.inventory.items().find(it => it.name === 'torch');
+            if (torchItem) {
+                try {
+                    await placeBlock(bot, 'torch', targetPos.x, targetPos.y, targetPos.z, 'bottom', true);
+                    await new Promise(r => setTimeout(r, 600));
+                    await pickupNearbyItems(bot, 6);
+                    return true;
+                } catch {}
+            }
+            await equipBestToolFor(bot, above.name);
+            try {
+                await bot.dig(above, true);
+                await pickupNearbyItems(bot, 6);
+            } catch {}
+        }
+    }
+    return false;
+}
+
+export function maxOreScan(bot, maxRadius = 64) {
+    /**
+     * Max-range ore scanner: inspects full 64-block radius for diamond and rare ores.
+     */
+    if (!bot?.entity?.position) return [];
+    const valuableOres = [
+        'diamond_ore', 'deepslate_diamond_ore',
+        'ancient_debris',
+        'iron_ore', 'deepslate_iron_ore',
+        'gold_ore', 'deepslate_gold_ore',
+        'copper_ore', 'deepslate_copper_ore',
+        'coal_ore', 'deepslate_coal_ore',
+        'redstone_ore', 'deepslate_redstone_ore',
+        'lapis_ore', 'deepslate_lapis_ore',
+        'emerald_ore', 'deepslate_emerald_ore',
+        'nether_quartz_ore'
+    ];
+
+    const found = world.getNearestBlocksWhere(
+        bot,
+        b => valuableOres.includes(b.name),
+        maxRadius,
+        50
+    );
+
+    return found.map(b => ({
+        name: b.name,
+        position: b.position,
+        distance: Math.round(bot.entity.position.distanceTo(b.position))
+    }));
+}
+
+export async function mineFullVein(bot, startBlock, maxBlocks = 16) {
+    /**
+     * Mines entire contiguous vein of ores using Breadth-First Search (BFS).
+     */
+    if (!bot?.blockAt || !startBlock) return 0;
+    const targetName = startBlock.name;
+    const isDeepslate = targetName.startsWith('deepslate_');
+    const baseName = targetName.replace('deepslate_', '');
+    const validNames = [targetName, isDeepslate ? baseName : `deepslate_${baseName}`];
+
+    log(bot, `[VeinMiner] 💎 Extracting contiguous ${validNames[0].replace(/_/g, ' ')} vein...`);
+    await equipBestToolFor(bot, targetName);
+
+    const queue = [startBlock.position.clone()];
+    const visited = new Set();
+    visited.add(`${startBlock.position.x},${startBlock.position.y},${startBlock.position.z}`);
+    let minedCount = 0;
+
+    while (queue.length > 0 && minedCount < maxBlocks && !bot.interrupt_code) {
+        const curPos = queue.shift();
+        const block = bot.blockAt(curPos);
+        if (!block || !validNames.includes(block.name)) continue;
+
+        try {
+            const dist = bot.entity.position.distanceTo(block.position);
+            if (dist > 4.2) {
+                await goToPosition(bot, block.position.x, block.position.y, block.position.z, 2.5);
+            }
+            await equipBestToolFor(bot, block.name);
+            await bot.dig(block, true);
+            minedCount++;
+            await pickupNearbyItems(bot, 6);
+
+            const neighbors = [
+                curPos.offset(1, 0, 0), curPos.offset(-1, 0, 0),
+                curPos.offset(0, 1, 0), curPos.offset(0, -1, 0),
+                curPos.offset(0, 0, 1), curPos.offset(0, 0, -1)
+            ];
+            for (const n of neighbors) {
+                const key = `${n.x},${n.y},${n.z}`;
+                if (!visited.has(key)) {
+                    visited.add(key);
+                    const nBlock = bot.blockAt(n);
+                    if (nBlock && validNames.includes(nBlock.name)) {
+                        queue.push(n);
+                    }
+                }
+            }
+        } catch (err) {
+            if (err?.message?.includes('Digging aborted')) break;
+        }
+    }
+    await pickupNearbyItems(bot, 10);
+    return minedCount;
+}
+
+export async function safeStaircaseDown(bot, targetY = -58) {
+    /**
+     * Safely carves a walkable descending staircase to target Y level:
+     * - Never digs straight down or straight up.
+     * - Checks for lava ahead/below and caps breaches with cobblestone.
+     * - Detects caves ahead and branches 90 degrees away to keep tunnel sealed.
+     * - Handles falling gravel/sand with torch placement.
+     * - Places torches every 6 steps for full illumination.
+     */
+    if (!bot?.entity?.position) return false;
+    await autoEquipBest(bot);
+    await equipBestToolFor(bot, 'deepslate');
+
+    const destY = targetY;
+    log(bot, `[Staircase] ⛏️ Starting safe descent from Y=${Math.floor(bot.entity.position.y)} to optimal diamond level Y=${destY}...`);
+
+    let currentHeading = new Vec3(1, 0, 0); // Start digging +X
+    let steps = 0;
+    const maxSteps = 160;
+
+    while (bot.entity.position.y > destY && steps < maxSteps && !bot.interrupt_code) {
+        steps++;
+
+        // Mutual defense: defend against nearby hostiles
+        const hostile = world.getNearestEntityWhere(bot, e => mc.isHostile(e) && !isAlly(bot, e), 12);
+        if (hostile) {
+            log(bot, `[Staircase] Pausing to defend against ${hostile.name}...`);
+            await squadMutualProtection(bot, hostile, 16);
+            await autoEquipBest(bot);
+            await equipBestToolFor(bot, 'deepslate');
+        }
+
+        // Eat if hungry
+        if (bot.food !== undefined && bot.food < 16 && bot.autoEat && typeof bot.autoEat.eat === 'function') {
+            try { await bot.autoEat.eat(true); } catch {}
+        }
+
+        const currentPos = bot.entity.position.floored();
+
+        // 1. Cave avoidance: check if cave opens ahead
+        if (isCaveAhead(bot, currentPos, currentHeading)) {
+            log(bot, `[Staircase] ⚠️ Cave detected ahead in heading (${currentHeading.x}, ${currentHeading.z}). Turning 90 degrees to bypass cave...`);
+            await sealCaveOpening(bot, currentPos, currentHeading);
+            // Rotate heading 90 degrees (X -> Z -> -X -> -Z)
+            currentHeading = new Vec3(-currentHeading.z, 0, currentHeading.x);
+            continue;
+        }
+
+        // 2. Lava hazard detection
+        const targetStep = currentPos.offset(currentHeading.x, -1, currentHeading.z);
+        const lavas = detectLavaNear(bot, targetStep, 2);
+        if (lavas.length > 0) {
+            log(bot, `[Staircase] ⚠️ Lava detected near step. Sealing breach and turning...`);
+            for (const lava of lavas) {
+                await sealLavaBreach(bot, lava);
+            }
+            currentHeading = new Vec3(-currentHeading.z, 0, currentHeading.x);
+            continue;
+        }
+
+        // 3. Falling gravel check above target
+        const eyeStep = currentPos.offset(currentHeading.x, 1, currentHeading.z);
+        await handleGravelAbove(bot, eyeStep);
+
+        // 4. Dig 3 blocks for safe step: eye level, foot level, and next floor step
+        const footStep = currentPos.offset(currentHeading.x, 0, currentHeading.z);
+        const floorStep = currentPos.offset(currentHeading.x, -1, currentHeading.z);
+
+        try {
+            await breakBlockAt(bot, eyeStep.x, eyeStep.y, eyeStep.z);
+            await breakBlockAt(bot, footStep.x, footStep.y, footStep.z);
+            // Verify step floor is solid: if air/liquid, place solid block to walk on
+            const floorBlock = bot.blockAt(floorStep);
+            if (floorBlock && (floorBlock.name === 'air' || floorBlock.name === 'cave_air' || floorBlock.name.includes('lava') || floorBlock.name.includes('water'))) {
+                const plugItem = bot.inventory.items().find(it => ['cobblestone', 'deepslate', 'dirt', 'stone'].includes(it.name));
+                if (plugItem) {
+                    await placeBlock(bot, plugItem.name, floorStep.x, floorStep.y, floorStep.z, 'bottom', true);
+                }
+            } else {
+                await breakBlockAt(bot, floorStep.x, floorStep.y, floorStep.z);
+            }
+
+            // Move onto the new step
+            await goToPosition(bot, footStep.x + 0.5, footStep.y, footStep.z + 0.5, 1);
+
+            // Light with torches every 6 steps
+            if (steps % 6 === 0) {
+                await autoLight(bot);
+            }
+
+            // Vacuum items every 4 steps
+            if (steps % 4 === 0) {
+                await pickupNearbyItems(bot, 6);
+            }
+        } catch (stepErr) {
+            log(bot, `[Staircase] Obstacle at step, adjusting heading: ${stepErr?.message || stepErr}`);
+            currentHeading = new Vec3(-currentHeading.z, 0, currentHeading.x);
+        }
+    }
+
+    await pickupNearbyItems(bot, 12);
+    log(bot, `[Staircase] 🏁 Reached destination Y=${Math.floor(bot.entity.position.y)} (target diamond level).`);
+    return bot.entity.position.y <= (destY + 2);
+}
+
+export async function diamondStripMine(bot, maxDiamonds = 64, tunnelLength = 60) {
+    /**
+     * Diamond strip-mining operation at optimal diamond Y level:
+     * - First safely descends to Y = -58 if not already at diamond level.
+     * - Mines efficient 1x2 tunnel forward.
+     * - Scans 64-block range for diamonds and rare ores; extracts full veins when discovered.
+     * - Avoids caves: seals opening and branches into solid deepslate.
+     * - Places torches every 6 blocks to prevent mob spawns.
+     */
+    if (!bot?.entity?.position) return 0;
+    const bestY = getBestDiamondYLevel(bot);
+
+    // If above diamond layer, descend first
+    if (bot.entity.position.y > (bestY + 3)) {
+        log(bot, `[DiamondMine] Current Y=${Math.floor(bot.entity.position.y)}. Excavating safe staircase down to Y=${bestY}...`);
+        await safeStaircaseDown(bot, bestY);
+    }
+
+    log(bot, `[DiamondMine] 💎 Commencing diamond strip mining at Y=${Math.floor(bot.entity.position.y)} (Goal: ${maxDiamonds} diamonds)...`);
+    await autoEquipBest(bot);
+    await equipBestToolFor(bot, 'deepslate_diamond_ore');
+
+    let heading = new Vec3(1, 0, 0); // Mining direction
+    let diamondsMined = 0;
+    let distanceMined = 0;
+
+    while (diamondsMined < maxDiamonds && distanceMined < tunnelLength && !bot.interrupt_code) {
+        distanceMined++;
+
+        // Mutual defense: defend if hostile mob approaches
+        const hostile = world.getNearestEntityWhere(bot, e => mc.isHostile(e) && !isAlly(bot, e), 14);
+        if (hostile) {
+            log(bot, `[DiamondMine] Pausing mining to defend against ${hostile.name}...`);
+            await squadMutualProtection(bot, hostile, 18);
+            await autoEquipBest(bot);
+            await equipBestToolFor(bot, 'deepslate_diamond_ore');
+        }
+
+        // Survival check: Eat if hungry
+        if (bot.food !== undefined && bot.food < 16 && bot.autoEat && typeof bot.autoEat.eat === 'function') {
+            try { await bot.autoEat.eat(true); } catch {}
+        }
+
+        const curPos = bot.entity.position.floored();
+
+        // 1. Cave avoidance: check if open cave ahead
+        if (isCaveAhead(bot, curPos, heading)) {
+            log(bot, `[DiamondMine] 🛡️ Cave ahead! Sealing opening and branching 90 degrees into solid rock...`);
+            await sealCaveOpening(bot, curPos, heading);
+            heading = new Vec3(-heading.z, 0, heading.x);
+            continue;
+        }
+
+        // 2. Lava hazard check
+        const stepPos = curPos.offset(heading.x, 0, heading.z);
+        const lavas = detectLavaNear(bot, stepPos, 2);
+        if (lavas.length > 0) {
+            log(bot, `[DiamondMine] ⚠️ Lava pocket encountered. Sealing and branching...`);
+            for (const l of lavas) {
+                await sealLavaBreach(bot, l);
+            }
+            heading = new Vec3(-heading.z, 0, heading.x);
+            continue;
+        }
+
+        // 3. Falling gravel check above
+        const eyePos = curPos.offset(heading.x, 1, heading.z);
+        await handleGravelAbove(bot, eyePos);
+
+        // 4. Dig 1x2 tunnel forward
+        try {
+            await breakBlockAt(bot, eyePos.x, eyePos.y, eyePos.z);
+            await breakBlockAt(bot, stepPos.x, stepPos.y, stepPos.z);
+
+            // Step forward into mined tunnel
+            await goToPosition(bot, stepPos.x + 0.5, stepPos.y, stepPos.z + 0.5, 1);
+
+            // Light tunnel with torches every 6 blocks
+            if (distanceMined % 6 === 0) {
+                await autoLight(bot);
+            }
+
+            // Max-range 64-block ore scan every 3 blocks
+            if (distanceMined % 3 === 0) {
+                const oresFound = maxOreScan(bot, 64);
+                const nearbyDiamonds = oresFound.filter(o => o.name.includes('diamond'));
+                if (nearbyDiamonds.length > 0) {
+                    const closest = nearbyDiamonds[0];
+                    log(bot, `[DiamondMine] 💎 Diamond vein located ${closest.distance} blocks away at [${closest.position.x}, ${closest.position.y}, ${closest.position.z}]! Extracting...`);
+                    const block = bot.blockAt(closest.position);
+                    if (block) {
+                        const count = await mineFullVein(bot, block);
+                        diamondsMined += count;
+                    }
+                }
+            }
+
+            // Check adjacent wall/floor/ceiling blocks directly bordering tunnel
+            const adjacentOffsets = [
+                new Vec3(0, 2, 0), new Vec3(0, -1, 0),
+                new Vec3(-heading.z, 0, heading.x), new Vec3(heading.z, 0, -heading.x),
+                new Vec3(-heading.z, 1, heading.x), new Vec3(heading.z, 1, -heading.x)
+            ];
+            for (const off of adjacentOffsets) {
+                const adjBlock = bot.blockAt(curPos.offset(off.x, off.y, off.z));
+                if (adjBlock && (adjBlock.name.includes('diamond') || adjBlock.name.includes('iron') || adjBlock.name.includes('gold'))) {
+                    const count = await mineFullVein(bot, adjBlock);
+                    if (adjBlock.name.includes('diamond')) diamondsMined += count;
+                }
+            }
+
+            // Vacuum items periodically
+            if (distanceMined % 4 === 0) {
+                await pickupNearbyItems(bot, 8);
+            }
+        } catch (digErr) {
+            log(bot, `[DiamondMine] Obstacle encountered: ${digErr?.message || digErr}. Adjusting heading.`);
+            heading = new Vec3(-heading.z, 0, heading.x);
+        }
+    }
+
+    await pickupNearbyItems(bot, 16);
+    log(bot, `[DiamondMine] 🏁 Completed diamond expedition. Total diamonds collected: ${diamondsMined}.`);
+    return diamondsMined;
+}
+
+export async function squadMineDiamonds(bot, targetNum = 64) {
+    /**
+     * Master collaborative squad diamond mining:
+     * - Multi-bot specialized teamwork:
+     *   - Bot 0 (Lead Miner): Digs safe staircase to Y=-58, tunnels forward, extracts diamond veins.
+     *   - Bot 1 (Branch Miner): Digs parallel branch tunnels 3 blocks apart to maximize vein discovery.
+     *   - Bot 2 (Torch Bearer): Stays 3 blocks behind miners, monitors light level, places wall torches.
+     *   - Bot 3 (Sentry Guard): Equips shield & sword, watches rear/flanks, slays zombies/skeletons/creepers.
+     *   - Bot 4 (Logistics Hauler): Vacuums all drops, monitors teammates' food/durability, passes supplies.
+     * - If solo (1 bot): Automatically executes all duties safely!
+     */
+    if (!bot?.entity?.position) return false;
+    await autoEquipBest(bot);
+
+    const nameMatch = bot.username.match(/\d+$/);
+    const botIndex = nameMatch ? (parseInt(nameMatch[0], 10) - 1) : 0;
+    const bestY = getBestDiamondYLevel(bot);
+
+    const roles = [
+        '⛏️ Lead Diamond Miner',
+        '⛏️ Branch Shaft Miner',
+        '🕯️ Torch Bearer & Illuminator',
+        '🛡️ Sentry Combat Guard',
+        '🎒 Logistics Hauler & Collector'
+    ];
+    const role = roles[botIndex % roles.length];
+    log(bot, `[SquadDiamonds] ${bot.username} joining diamond expedition (Role: ${role}, Goal: ${targetNum} diamonds / ${Math.round(targetNum / 64)} stacks, Depth: Y=${bestY})...`);
+
+    // Guard Role (Bot 3): Station at mine entrance/rear and defend miners from hostiles
+    if (botIndex === 3) {
+        log(bot, `[SquadTeamwork] ${bot.username} active as Underground Sentry Guard: watching flanks with shield and sword.`);
+        await equipHighestAttack(bot);
+        let guardCycles = 0;
+        while (guardCycles < 50 && !bot.interrupt_code) {
+            const threat = world.getNearestEntityWhere(bot, e => mc.isHostile(e) && !isAlly(bot, e), 18);
+            if (threat) {
+                await squadMutualProtection(bot, threat, 22);
+            }
+            await new Promise(r => setTimeout(r, 1000));
+            guardCycles++;
+        }
+        return true;
+    }
+
+    // Torch Bearer Role (Bot 2): Follows miners, checks light level, places torches
+    if (botIndex === 2) {
+        log(bot, `[SquadTeamwork] ${bot.username} active as Torch Bearer: illuminating corridors so mobs cannot spawn.`);
+        let lightCycles = 0;
+        while (lightCycles < 40 && !bot.interrupt_code) {
+            await autoLight(bot);
+            await pickupNearbyItems(bot, 16);
+            await new Promise(r => setTimeout(r, 1500));
+            lightCycles++;
+        }
+        return true;
+    }
+
+    // Logistics Hauler Role (Bot 4): Follows and vacuums drops
+    if (botIndex === 4) {
+        log(bot, `[SquadTeamwork] ${bot.username} active as Logistics Hauler: vacuuming dropped ores and blocks.`);
+        let haulCycles = 0;
+        while (haulCycles < 40 && !bot.interrupt_code) {
+            await pickupNearbyItems(bot, 24);
+            await new Promise(r => setTimeout(r, 1200));
+            haulCycles++;
+        }
+        return true;
+    }
+
+    // Miners (Bot 0 & 1):
+    return (await diamondStripMine(bot, targetNum, 80)) > 0;
+}
+
+export async function squadMineStone(bot, targetNum = 64) {
+    /**
+     * Teamwork quarrying and stone mining:
+     * - Miners excavate cobblestone/deepslate.
+     * - Torch Bearer keeps quarry lit.
+     * - Guard protects against monsters.
+     */
+    if (!bot?.entity?.position) return false;
+    return await squadGatherMaterial(bot, 'cobblestone', targetNum);
+}
+
+export async function squadMineWood(bot, targetNum = 64) {
+    /**
+     * Teamwork forestry: chops trees, gathers logs, collects dropped apples.
+     * Per standing instructions, strictly avoids replanting saplings!
+     */
+    if (!bot?.entity?.position) return false;
+    return await squadMineLogs(bot, targetNum);
+}
+
+export async function squadMineOres(bot, oreType = 'iron_ore', targetNum = 64) {
+    /**
+     * Teamwork ore mining with max 64-block ore scanning and full vein extraction.
+     */
+    if (!bot?.entity?.position) return false;
+    const lower = String(oreType || '').toLowerCase();
+    if (lower.includes('diamond')) {
+        return await squadMineDiamonds(bot, targetNum);
+    }
+    return await squadGatherMaterial(bot, oreType, targetNum);
+}
+
 

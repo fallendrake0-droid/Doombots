@@ -250,6 +250,47 @@ export async function handleOfflineCommand(agent, source, raw) {
     // -------------------------------------------------------------
     // 8. MINING & EXCAVATION
     // -------------------------------------------------------------
+    if (/^(?:mine\s+diamonds?|diamond\s+mine|dig\s+diamonds?|squad\s+mine\s+diamonds?)$/i.test(lower)) {
+        agent.routeResponse(source, '💎 Commencing diamond expedition: descending to Y=-58 with hazard protection and squad roles...');
+        const res = await executeCommand(agent, '!mineDiamonds(64)');
+        agent.routeResponse(source, res || 'Completed diamond mining pass.');
+        return true;
+    }
+
+    if (/^(?:dig\s+(?:down\s+)?to\s+diamond(?:\s+level|\s+y\s+level)?|descend\s+to\s+diamonds?)$/i.test(lower)) {
+        agent.routeResponse(source, '⛏️ Carving safe staircase down to optimal diamond Y level (-58)...');
+        const res = await executeCommand(agent, '!digToDiamondLevel');
+        agent.routeResponse(source, res || 'Arrived at diamond level.');
+        return true;
+    }
+
+    if (/^(?:max\s+ore\s+scan|scan\s+ores\s+64|deep\s+ore\s+scan|scan\s+for\s+diamonds)$/i.test(lower)) {
+        const res = await executeCommand(agent, '!maxOreScan(64)');
+        agent.routeResponse(source, res || 'Max ore scan completed.');
+        return true;
+    }
+
+    if (/^(?:squad\s+mine\s+stone|team\s+mine\s+stone)$/i.test(lower)) {
+        agent.routeResponse(source, '⛏️ Squad quarrying stone with guard & torch teamwork...');
+        const res = await executeCommand(agent, '!squadMineStone(64)');
+        agent.routeResponse(source, res || 'Squad stone quarrying completed.');
+        return true;
+    }
+
+    if (/^(?:squad\s+mine\s+wood|team\s+mine\s+wood|squad\s+gather\s+wood)$/i.test(lower)) {
+        agent.routeResponse(source, '🪵 Squad logging timber and collecting apples (no sapling replanting)...');
+        const res = await executeCommand(agent, '!squadMineWood(64)');
+        agent.routeResponse(source, res || 'Squad timber logging completed.');
+        return true;
+    }
+
+    if (/^(?:squad\s+mine\s+ores?|team\s+mine\s+ores?)$/i.test(lower)) {
+        agent.routeResponse(source, '⛏️ Squad extracting ore veins with max 64m scanning...');
+        const res = await executeCommand(agent, '!squadMineOres("iron_ore", 64)');
+        agent.routeResponse(source, res || 'Squad ore mining completed.');
+        return true;
+    }
+
     if (/^(?:strip\s+mine|dig\s+tunnel|tunnel\s+forward|mine\s+tunnel)$/i.test(lower)) {
         agent.routeResponse(source, 'Digging 1x2 strip mine tunnel with torches...');
         const res = await executeCommand(agent, '!stripMine(12)');

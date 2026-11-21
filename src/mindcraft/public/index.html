@@ -931,9 +931,12 @@
         <div class="quick-chips">
             <span class="chip-label">⚡ Instant Actions:</span>
             <button class="chip-btn" onclick="sendSquadCommand('/tpa orbryx')">📍 /tpa orbryx</button>
-            <button class="chip-btn" onclick="sendSquadCommand('mine logs')">🌲 Mine Logs (6 Stacks)</button>
+            <button class="chip-btn" onclick="sendSquadCommand('mine diamonds')">💎 Mine Diamonds (Y=-58)</button>
+            <button class="chip-btn" onclick="sendSquadCommand('max ore scan')">🔍 Max Ore Scan (64m)</button>
+            <button class="chip-btn" onclick="sendSquadCommand('mine 3 stacks of stone')">⛏️ Mine 3 Stacks Stone</button>
+            <button class="chip-btn" onclick="sendSquadCommand('mine logs')">🌲 Mine Logs (No Saplings)</button>
+            <button class="chip-btn" onclick="sendSquadCommand('collect apples')">🍎 Collect Apples</button>
             <button class="chip-btn" onclick="sendSquadCommand('auto equip')">🛡️ Auto Best Gear</button>
-            <button class="chip-btn" onclick="sendSquadCommand('craft wooden_pickaxe')">⛏️ Craft Pickaxe</button>
             <button class="chip-btn" onclick="sendSquadCommand('follow orbryx')">🏃 Follow orbryx</button>
             <button class="chip-btn" onclick="sendSquadCommand('defend the area')">⚔️ Defend Area</button>
             <button class="chip-btn" onclick="sendSquadCommand('build dirt shelter')">🏠 Build Shelter</button>
@@ -2443,12 +2446,12 @@
             { id: 34, cat: 'movement', name: '!stopMovement', desc: 'Immediately halts pathfinding and clears navigation goals.' },
 
             // Mining (10)
-            { id: 35, cat: 'mining', name: '!stripMine', desc: 'Digs an efficient 1x2 tunnel forward and places torches.' },
-            { id: 36, cat: 'mining', name: '!quarry', desc: 'Excavates a clean 3x3 quarry pit downward.' },
-            { id: 37, cat: 'mining', name: '!mineVein', desc: 'Extracts entire connected cluster/vein of target ore.' },
-            { id: 38, cat: 'mining', name: '!findOres', desc: 'Scans surroundings for diamonds, iron, gold, and redstone.' },
-            { id: 39, cat: 'mining', name: '!staircaseDown', desc: 'Digs a safe walkable 3-step staircase downward.' },
-            { id: 40, cat: 'mining', name: '!mineTree', desc: 'Cuts down entire tree from trunk base to top canopy.' },
+            { id: 35, cat: 'mining', name: '!mineDiamonds', desc: 'Digs down to best diamond level (-58) and mines diamonds with cave avoidance, lava sealing, and torch illumination.' },
+            { id: 36, cat: 'mining', name: '!digToDiamondLevel', desc: 'Safely carves a walkable staircase down to Y=-58 avoiding caves, lava, and falling gravel.' },
+            { id: 37, cat: 'mining', name: '!maxOreScan', desc: 'Scans up to 64 blocks around bot for diamonds, ancient debris, gold, and iron with coordinates.' },
+            { id: 38, cat: 'mining', name: '!stripMine', desc: 'Digs an efficient 1x2 tunnel forward with torches and hazard checks.' },
+            { id: 39, cat: 'mining', name: '!quarry', desc: 'Excavates a clean 3x3 quarry pit downward.' },
+            { id: 40, cat: 'mining', name: '!mineVein', desc: 'Extracts entire contiguous cluster/vein of target ore via BFS.' },
             { id: 41, cat: 'mining', name: '!clearObstacle', desc: 'Breaks blocks directly obstructing doorway or passage.' },
             { id: 42, cat: 'mining', name: '!digPillar', desc: 'Pillars straight up with blocks to reach elevation.' },
             { id: 43, cat: 'mining', name: '!mineSpelunking', desc: 'Explores nearest open cave entrance while placing torches.' },

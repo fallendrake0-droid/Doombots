@@ -241,17 +241,23 @@ Every offline command runs with **0ms latency, zero tokens, and zero AI overhead
 | `lead animal` | Holds feed to lure animals into pens or enclosures |
 | `harvest honey` | Safely harvests honey bottle or comb from beehive |
 
-### ⛏️ Mining & Excavation
+### ⛏️ Mining & Excavation (Diamond Layer Y=-58 & Hazard Protection)
 | Plain English Command | Fast Action |
 | :--- | :--- |
-| `mine [count] [block]` | Mines specified count or stacks of any block (e.g. `mine 3 stacks of iron ore`, `mine stone`, `mine andesite`) |
+| `mine diamonds` / `mine [N] stacks of diamonds` | Descends safely to optimal diamond depth (Y=-58), avoids caves, caps lava, and strip-mines diamonds |
+| `dig to diamond level` / `diamond mine` | Carves walkable staircase down to Y=-58 with torch lighting and cave bypass |
+| `max ore scan` / `scan ores` | Scans up to 64m around bot for diamonds, ancient debris, gold, and iron with coordinates |
+| `mine [count/stacks] [material]` | Mines specified count or stacks of any block (e.g. `mine 3 stacks of iron`, `mine stack of diamond`, `mine 4 stacks of stone`, `mine 2 stacks of dirt`, `mine stack of andesite`, `mine stack of gravel`) |
 | `collect apples` | Gathers dropped apples and shears leaves |
 | `chop tree` / `mine tree` | Cuts down entire tree from base to top canopy (never replants saplings) |
-| `strip mine` / `tunnel forward` | Excavates efficient 1x2 tunnel forward with torch illumination |
+| `squad mine diamonds` | Collaborative diamond expedition: lead miner digs, torch bearer illuminates, guard protects rear from mobs |
+| `squad mine stone` | Collaborative quarrying of cobblestone and deepslate with perimeter security |
+| `squad mine ores` | Collaborative ore extraction with max 64m scanning across deepslate layers |
+| `strip mine` / `tunnel forward` | Excavates efficient 1x2 tunnel forward with torch illumination and cave avoidance |
 | `quarry` / `dig quarry` | Excavates clean 3x3 quarry pit downward |
 | `staircase down` | Carves safe walkable 3-step descending staircase |
 | `find ores` / `locate ores` | Scans surroundings for diamonds, iron, gold, and redstone |
-| `mine vein` | Extracts entire connected ore cluster |
+| `mine vein` | Extracts entire contiguous ore cluster via BFS |
 | `mine obsidian` | Mines obsidian blocks with diamond pickaxe |
 | `spelunking` / `explore cave` | Safely navigates cave system placing illumination torches |
 

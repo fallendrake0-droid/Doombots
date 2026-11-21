@@ -1222,5 +1222,79 @@ export const essentialCommandsList = [
             await skills.autoEquipBest(bot);
             return 'Executed /back and collected nearby items.';
         }
+    },
+    {
+        name: '!mineDiamonds',
+        description: 'Dig down to best diamond Y level (-58) and mine diamonds with cave avoidance, lava sealing, and torch illumination.',
+        params: {
+            'count': { type: 'int', description: 'Number of diamonds or blocks to mine (default: 64)' }
+        },
+        perform: async function(agent, count = 64) {
+            const bot = agent.bot;
+            const res = await skills.squadMineDiamonds(bot, count);
+            return res ? `Completed diamond mining operation. Extracted diamonds at deepslate level.` : `Finished diamond excavation pass.`;
+        }
+    },
+    {
+        name: '!digToDiamondLevel',
+        description: 'Safely excavate a staircase down to optimal diamond Y level (-58) with full hazard protection.',
+        perform: async function(agent) {
+            const bot = agent.bot;
+            const bestY = skills.getBestDiamondYLevel(bot);
+            const reached = await skills.safeStaircaseDown(bot, bestY);
+            return reached ? `Successfully reached diamond layer at Y=${bestY}.` : `Descended towards diamond level (Y=${Math.floor(bot.entity.position.y)}).`;
+        }
+    },
+    {
+        name: '!maxOreScan',
+        description: 'Scan up to 64 blocks around the bot for diamonds, ancient debris, gold, iron, and rare ores.',
+        params: {
+            'radius': { type: 'int', description: 'Scan radius in blocks (max: 64, default: 64)' }
+        },
+        perform: async function(agent, radius = 64) {
+            const bot = agent.bot;
+            const ores = skills.maxOreScan(bot, Math.min(radius, 64));
+            if (!ores || ores.length === 0) {
+                return `Scanned ${radius}-block radius: no rare ores detected nearby.`;
+            }
+            const diamondList = ores.filter(o => o.name.includes('diamond'));
+            const summary = ores.slice(0, 8).map(o => `${o.name.replace(/_/g, ' ')} (${o.distance}m away at [${o.position.x}, ${o.position.y}, ${o.position.z}])`).join('\n- ');
+            return `Max Ore Scan (${ores.length} ores within ${radius}m):\n- ${summary}${diamondList.length > 0 ? `\n💎 ${diamondList.length} DIAMOND veins found!` : ''}`;
+        }
+    },
+    {
+        name: '!squadMineStone',
+        description: 'Coordinated squad quarrying and cobblestone/stone excavation.',
+        params: {
+            'count': { type: 'int', description: 'Target stone count (default: 64)' }
+        },
+        perform: async function(agent, count = 64) {
+            await skills.squadMineStone(agent.bot, count);
+            return `Squad quarrying completed for ${count} stone.`;
+        }
+    },
+    {
+        name: '!squadMineWood',
+        description: 'Coordinated squad logging, timber extraction, and apple gathering (never replants saplings).',
+        params: {
+            'count': { type: 'int', description: 'Target log count (default: 64)' }
+        },
+        perform: async function(agent, count = 64) {
+            await skills.squadMineWood(agent.bot, count);
+            return `Squad logging completed for ${count} logs.`;
+        }
+    },
+    {
+        name: '!squadMineOres',
+        description: 'Coordinated squad ore extraction with 64m max scan range.',
+        params: {
+            'oreType': { type: 'string', description: 'Type of ore (default: iron_ore)' },
+            'count': { type: 'int', description: 'Target ore count (default: 64)' }
+        },
+        perform: async function(agent, oreType = 'iron_ore', count = 64) {
+            await skills.squadMineOres(agent.bot, oreType, count);
+            return `Squad ore mining completed for ${oreType} (goal: ${count}).`;
+        }
     }
 ];
+

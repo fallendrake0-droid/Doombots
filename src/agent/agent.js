@@ -541,10 +541,10 @@ export class Agent {
         if (!raw || typeof raw !== 'string') return null;
         const lower = raw.toLowerCase().trim();
 
-        // Check direct pattern: "[material] X stacks" e.g. "stone 3 stacks", "dirt 2 stacks"
-        const directStacks = lower.match(/^([a-zA-Z0-9_\s]+?)\s+(\d+)\s+stacks?$/i);
+        // Check direct pattern: "[material] X stacks" e.g. "stone 3 stacks", "dirt 2 stacks", "diamond stack"
+        const directStacks = lower.match(/^([a-zA-Z0-9_\s]+?)\s+(?:(\d+)|a)?\s*stacks?$/i);
         if (directStacks && !/^(stay|follow|defend|guard|bridge)/i.test(directStacks[1])) {
-            const stacks = parseInt(directStacks[2], 10);
+            const stacks = directStacks[2] ? parseInt(directStacks[2], 10) : 1;
             return { rawMat: directStacks[1].trim(), count: stacks * 64, stacks };
         }
 
@@ -552,18 +552,18 @@ export class Agent {
         const gatherAction = /^(?:mine|get|gather|collect|dig|harvest|chop)\b/i.test(lower);
         if (!gatherAction) return null;
 
-        // Check for stacks: "mine 3 stacks of stone", "get 2 stacks sand", "collect 1 stack of apples"
-        const stacksMatch = lower.match(/(\d+)\s+stacks?(?:\s+of)?\s+([a-zA-Z0-9_\s]+)/i);
+        // Check for stacks: "mine 3 stacks of stone", "get 2 stacks sand", "mine stack of diamond", "mine a stack of iron"
+        const stacksMatch = lower.match(/(?:mine|get|gather|collect|dig|harvest|chop)\s+(?:(\d+)|a)?\s*stacks?(?:\s+of)?\s+([a-zA-Z0-9_\s]+)/i);
         // Check for count: "mine 128 stone", "get 50 dirt", "mine 20 iron"
         const countMatch = lower.match(/^(?:mine|get|gather|collect|dig|harvest|chop)\s+(\d+)\s+([a-zA-Z0-9_\s]+)/i);
-        // General: "mine stone", "collect apples", "mine andesite", "gather sand"
+        // General: "mine stone", "collect apples", "mine andesite", "gather sand", "mine diamonds"
         const generalMatch = lower.match(/^(?:mine|get|gather|collect|dig|harvest|chop)\s+([a-zA-Z0-9_\s]+)/i);
 
         let count = 64; // default 1 stack
         let rawMat = '';
 
         if (stacksMatch) {
-            const stacks = parseInt(stacksMatch[1], 10);
+            const stacks = stacksMatch[1] ? parseInt(stacksMatch[1], 10) : 1;
             count = stacks * 64;
             rawMat = stacksMatch[2].trim();
         } else if (countMatch) {
@@ -571,10 +571,11 @@ export class Agent {
             rawMat = countMatch[2].trim();
         } else if (generalMatch) {
             rawMat = generalMatch[1].trim();
-            const endStacks = rawMat.match(/^([a-zA-Z0-9_\s]+?)\s+(\d+)\s+stacks?$/i);
+            const endStacks = rawMat.match(/^([a-zA-Z0-9_\s]+?)\s+(?:(\d+)|a)?\s*stacks?$/i);
             if (endStacks) {
                 rawMat = endStacks[1].trim();
-                count = parseInt(endStacks[2], 10) * 64;
+                const s = endStacks[2] ? parseInt(endStacks[2], 10) : 1;
+                count = s * 64;
             }
         } else {
             return null;
@@ -898,9 +899,44 @@ export class Agent {
                 return true;
             }
 
+            if (resolved.target === 'diamond_ore' || /diamond/i.test(resolved.target)) {
+                console.log(`[FastCommand] ${this.name} executing squadMineDiamonds(${count})`);
+                await executeCommand(this, `!mineDiamonds(${count})`);
+                this.routeResponse(source, `💎 Descending to diamond level Y=-58 with hazard protection to mine diamonds (${count} diamonds / ${stacks} stacks).`);
+                return true;
+            }
+
+            if (resolved.target === 'cobblestone' || resolved.target === 'stone') {
+                console.log(`[FastCommand] ${this.name} executing squadMineStone(${count})`);
+                await executeCommand(this, `!squadMineStone(${count})`);
+                this.routeResponse(source, `Excavating stone/cobblestone in coordinated squad formation (${count} blocks / ${stacks} stacks).`);
+                return true;
+            }
+
+            if (resolved.target.endsWith('_ore')) {
+                console.log(`[FastCommand] ${this.name} executing squadMineOres("${resolved.target}", ${count})`);
+                await executeCommand(this, `!squadMineOres("${resolved.target}", ${count})`);
+                this.routeResponse(source, `Mining ${resolved.target.replace(/_/g, ' ')} with max 64m ore scanning and squad teamwork (${count} ores / ${stacks} stacks).`);
+                return true;
+            }
+
             console.log(`[FastCommand] ${this.name} executing squadGather("${resolved.target}", ${count})`);
             await executeCommand(this, `!squadGather("${resolved.target}", ${count})`);
             this.routeResponse(source, `Executing squad teamwork mining for ${resolved.target} (${count} blocks / ${stacks} stacks).`);
+            return true;
+        }
+
+        if (/^(?:dig\s+down\s+to\s+diamond|dig\s+to\s+diamond|descend\s+to\s+diamond)/i.test(lower)) {
+            console.log(`[FastCommand] ${this.name} executing digToDiamondLevel`);
+            await executeCommand(this, '!digToDiamondLevel');
+            this.routeResponse(source, 'Carving safe staircase down to diamond level (Y=-58) with hazard protection.');
+            return true;
+        }
+
+        if (/^(?:max\s+ore\s+scan|scan\s+(?:for\s+)?ores?|find\s+diamonds?)/i.test(lower)) {
+            console.log(`[FastCommand] ${this.name} executing maxOreScan(64)`);
+            const res = await executeCommand(this, '!maxOreScan(64)');
+            if (res) this.routeResponse(source, res);
             return true;
         }
 
