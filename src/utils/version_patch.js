@@ -101,7 +101,10 @@ try {
 
     // Also populate testedVersions in mineflayer
     if (versionMod?.testedVersions) {
-        const extraVersions = ['1.21.11', '1.21.10', '1.21.9', '1.21.8', '1.21.7', '1.21.6', '1.21.5', '1.21.20', '1.21.30', '1.21.40', '1.21.50'];
+        const extraVersions = [
+            '26.3', '26.2', '26.1', '26.0', '1.26.3', '1.26.0', '1.26', '1.25', '1.24', '1.23', '1.22',
+            '1.21.11', '1.21.10', '1.21.9', '1.21.8', '1.21.7', '1.21.6', '1.21.5', '1.21.20', '1.21.30', '1.21.40', '1.21.50'
+        ];
         for (const v of extraVersions) {
             if (!versionMod.testedVersions.includes(v)) {
                 versionMod.testedVersions.push(v);
@@ -168,10 +171,19 @@ export function resolveJavaVersion(ver) {
         return '1.21.4';
     }
 
-    // Extract numeric version if surrounded by modded server prefix like "Paper 1.21.11", "Geyser v1.21.11"
+    // Extract numeric version if surrounded by modded server prefix like "Paper 1.21.11", "Geyser v1.21.11", "Spigot 26.3"
     const match = s.match(/\d+\.\d+(?:\.\d+)?/);
     if (match) {
         s = match[0];
+    }
+
+    // Support all versions up to 26.3 (e.g. Spigot 26.3, ViaVersion 26.3, 1.26.3, 1.25.x, 1.24.x, 1.23.x, 1.22.x)
+    const num = parseFloat(s);
+    if (!isNaN(num) && ((num >= 22 && num <= 27) || (num >= 1.22 && num <= 1.27))) {
+        return '1.21.4';
+    }
+    if (s.startsWith('26.') || s.startsWith('1.26') || s.startsWith('1.25') || s.startsWith('1.24') || s.startsWith('1.23') || s.startsWith('1.22')) {
+        return '1.21.4';
     }
 
     // Bedrock / Geyser / ViaVersion client versions in 1.21 family bridge to 1.21.4

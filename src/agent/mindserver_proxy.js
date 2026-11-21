@@ -148,10 +148,10 @@ export const serverProxy = new MindServerProxy();
 
 // for chatting with other bots
 export function sendBotChatToServer(agentName, json) {
-    serverProxy.getSocket().emit('chat-message', agentName, json);
+    serverProxy.getSocket()?.emit('chat-message', agentName, json);
 }
 
 // for sending general output to server for display
 export function sendOutputToServer(agentName, message) {
-    serverProxy.getSocket().emit('bot-output', agentName, message);
+    serverProxy.getSocket()?.emit('bot-output', agentName, message);
 }

@@ -1,6 +1,14 @@
 import * as skills from '../library/skills.js';
 import settings from '../settings.js';
-import convoManager from '../conversation.js';
+
+let _convoManager = null;
+async function getConvoManager() {
+    if (!_convoManager) {
+        const mod = await import('../conversation.js');
+        _convoManager = mod.default || mod;
+    }
+    return _convoManager;
+}
 
 
 function runAsAction (actionFn, resume = false, timeout = -1) {
@@ -293,6 +301,55 @@ export const actionsList = [
         }, false, 30)
     },
     {
+        name: '!squadMineStone',
+        description: 'Coordinate with squadmates in teamwork quarrying to mine stone/cobblestone without conflicts.',
+        params: {
+            'targetNum': { type: 'int', description: 'Number of stone blocks to mine (default: 64).', optional: true }
+        },
+        perform: runAsAction(async (agent, targetNum = 64) => {
+            await skills.squadMineStone(agent.bot, targetNum || 64);
+        }, false, 20)
+    },
+    {
+        name: '!squadMineOres',
+        description: 'Coordinate with squad to locate and mine ore veins without duplicate targeting.',
+        params: {
+            'oreType': { type: 'string', description: 'Type of ore (default: iron_ore).' },
+            'targetNum': { type: 'int', description: 'Number of ores to mine (default: 16).', optional: true }
+        },
+        perform: runAsAction(async (agent, oreType = 'iron_ore', targetNum = 16) => {
+            await skills.squadMineOres(agent.bot, oreType || 'iron_ore', targetNum || 16);
+        }, false, 20)
+    },
+    {
+        name: '!squadFarmCrops',
+        description: 'Coordinate with squad to harvest mature crops and replant seeds across farm sectors.',
+        params: {},
+        perform: runAsAction(async (agent) => {
+            await skills.squadFarmCrops(agent.bot);
+        }, false, 15)
+    },
+    {
+        name: '!squadFollow',
+        description: 'Hold a tactical escort formation (vanguard, flankers, rearguard, scout) around target player.',
+        params: {
+            'player_name': { type: 'string', description: 'Name of the player to escort (default: orbryx).' }
+        },
+        perform: runAsAction(async (agent, player_name = 'orbryx') => {
+            await skills.squadFollowPlayer(agent.bot, player_name || 'orbryx');
+        })
+    },
+    {
+        name: '!squadDefend',
+        description: 'Form a 360-degree security perimeter and assist squadmates with focus fire against hostiles.',
+        params: {
+            'radius': { type: 'int', description: 'Defense radius (default: 24).', optional: true }
+        },
+        perform: runAsAction(async (agent, radius = 24) => {
+            await skills.squadDefend(agent.bot, radius || 24);
+        }, false, 20)
+    },
+    {
         name: '!boatTo',
         description: 'Navigate across water using a boat to reach target coordinates.',
         params: {
@@ -468,7 +525,8 @@ export const actionsList = [
             'selfPrompt': { type: 'string', description: 'The goal prompt.' },
         },
         perform: async function (agent, prompt) {
-            if (convoManager.inConversation()) {
+            const convo = await getConvoManager();
+            if (convo.inConversation()) {
                 agent.self_prompter.setPromptPaused(prompt);
             }
             else {
@@ -512,13 +570,14 @@ export const actionsList = [
             'message': { type: 'string', description: 'The message to send.' },
         },
         perform: async function (agent, player_name, message) {
-            if (!convoManager.isOtherAgent(player_name))
+            const convo = await getConvoManager();
+            if (!convo.isOtherAgent(player_name))
                 return player_name + ' is not a bot, cannot start conversation.';
-            if (convoManager.inConversation() && !convoManager.inConversation(player_name)) 
-                convoManager.forceEndCurrentConversation();
-            else if (convoManager.inConversation(player_name))
+            if (convo.inConversation() && !convo.inConversation(player_name)) 
+                convo.forceEndCurrentConversation();
+            else if (convo.inConversation(player_name))
                 agent.history.add('system', 'You are already in conversation with ' + player_name + '. Don\'t use this command to talk to them.');
-            convoManager.startConversation(player_name, message);
+            convo.startConversation(player_name, message);
         }
     },
     {
@@ -528,9 +587,10 @@ export const actionsList = [
             'player_name': { type: 'string', description: 'The name of the player to end the conversation with.' }
         },
         perform: async function (agent, player_name) {
-            if (!convoManager.inConversation(player_name))
+            const convo = await getConvoManager();
+            if (!convo.inConversation(player_name))
                 return `Not in conversation with ${player_name}.`;
-            convoManager.endConversation(player_name);
+            convo.endConversation(player_name);
             return `Converstaion with ${player_name} ended.`;
         }
     },

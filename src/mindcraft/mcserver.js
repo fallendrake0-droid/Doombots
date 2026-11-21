@@ -46,6 +46,8 @@ export async function serverInfo(ip, port, timeout = 3500, verbose = false) {
                 versionLower.includes('geyser') ||
                 versionLower.includes('bedrock') ||
                 versionLower.includes('1.21.11') ||
+                versionLower.includes('26.') ||
+                versionLower.includes('1.26') ||
                 hostLower.includes('zcclanontop.aternos.me')
             ) {
                 numericVersion = '1.21.4';

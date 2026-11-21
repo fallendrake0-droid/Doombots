@@ -75,9 +75,12 @@ process.on('unhandledRejection', (reason) => {
         'Took to long to decide path to goal',
         'Path was stopped before it could be completed',
         'No path to the goal',
-        'GoalChanged'
+        'GoalChanged',
+        'The goal was changed before it could be completed',
+        'Goal was changed',
+        'Collect block timed out'
     ];
-    if (transientErrors.some(t => msg.includes(t))) {
+    if (transientErrors.some(t => msg.includes(t)) || reason?.name === 'GoalChanged' || reason?.name === 'PathStopped') {
         return;
     }
     formatDiagnostic(reason, 'Unhandled Rejection');

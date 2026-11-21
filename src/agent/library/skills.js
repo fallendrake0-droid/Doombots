@@ -2539,6 +2539,21 @@ export async function squadMineLogs(bot, targetNum = 384) {
         await goToPosition(bot, sectorAnchor.x, sectorAnchor.y, sectorAnchor.z, 4);
     } catch {}
 
+    // Sentinel Guard Role (Bot 5): Actively patrols perimeter and protects lumberjacks from hostiles
+    if (botIndex === 4) {
+        log(bot, `[SquadTeamwork] ${bot.username} taking position as Combat Sentinel: guarding lumberjacks against hostiles.`);
+        let guardCycles = 0;
+        while (guardCycles < 40 && !bot.interrupt_code) {
+            const threat = world.getNearestEntityWhere(bot, e => mc.isHostile(e) && !isAlly(bot, e), 22);
+            if (threat) {
+                await squadMutualProtection(bot, threat, 24);
+            }
+            await new Promise(r => setTimeout(r, 1000));
+            guardCycles++;
+        }
+        return true;
+    }
+
     const ALL_LOG_TYPES = [
         'oak_log', 'birch_log', 'spruce_log', 'jungle_log', 'acacia_log',
         'dark_oak_log', 'mangrove_log', 'cherry_log', 'pale_oak_log',
@@ -2563,11 +2578,11 @@ export async function squadMineLogs(bot, targetNum = 384) {
             try { await bot.autoEat.eat(true); } catch {}
         }
 
-        // Survival check: Defend if hostiles nearby
-        const hostile = world.getNearestEntityWhere(bot, e => mc.isHostile(e), 10);
+        // Squad Mutual Protection check: Defend if hostiles nearby
+        const hostile = world.getNearestEntityWhere(bot, e => mc.isHostile(e) && !isAlly(bot, e), 16);
         if (hostile) {
             log(bot, `Defending against ${hostile.name} while logging.`);
-            await defendSelf(bot, 10);
+            await squadMutualProtection(bot, hostile, 20);
             await autoEquipBest(bot);
             await equipBestToolFor(bot, 'oak_log');
         }
@@ -2745,3 +2760,249 @@ export async function boatTo(bot, x, y, z) {
     // Final leg: walk right up to destination coordinates safely
     return await goToPosition(bot, x, y, z, 2);
 }
+
+export async function squadMutualProtection(bot, enemy = null, radius = 24) {
+    /**
+     * Coordinated squad mutual defense:
+     * - Auto-equips best armor, off-hand shield, and top weapon.
+     * - Rallies on the nearest threat targeting any squadmate or ally.
+     * - Shields low-health allies.
+     */
+    if (!bot?.entity?.position) return false;
+    await autoEquipBest(bot);
+    await equipHighestAttack(bot);
+
+    const isAlive = (e) => e && e.isValid && (e.health == null || e.health > 0);
+    let target = enemy && isAlive(enemy) ? enemy : null;
+
+    if (!target) {
+        target = world.getNearestEntityWhere(bot, e => mc.isHostile(e) && isAlive(e) && !isAlly(bot, e), radius);
+    }
+
+    if (!target) return true;
+
+    log(bot, `[SquadCombat] Rallying with squad to eliminate ${target.name || 'hostile'}!`);
+    return await attackEntity(bot, target, true);
+}
+
+export async function squadMineStone(bot, targetNum = 64) {
+    /**
+     * Teamwork quarrying: miners partition stone blocks by sector offset, place torches to prevent spawns,
+     * and guards watch for creepers/zombies.
+     */
+    if (!bot?.entity?.position) return false;
+    await autoEquipBest(bot);
+    await equipBestToolFor(bot, 'cobblestone');
+
+    const nameMatch = bot.username.match(/\d+$/);
+    const botIndex = nameMatch ? (parseInt(nameMatch[0], 10) - 1) : 0;
+
+    log(bot, `[SquadMining] Bot ${bot.username} starting coordinated stone mining (Role: ${botIndex === 4 ? 'Sentinel Guard' : (botIndex === 3 ? 'Torcher & Logistics' : 'Vein Miner')})...`);
+
+    // If sentinel guard role, patrol and eliminate threats
+    if (botIndex === 4) {
+        let elapsed = 0;
+        while (elapsed < 30000 && !bot.interrupt_code) {
+            const hostile = world.getNearestEntityWhere(bot, e => mc.isHostile(e), 18);
+            if (hostile) {
+                await attackEntity(bot, hostile, true);
+            }
+            await new Promise(r => setTimeout(r, 1000));
+            elapsed += 1000;
+        }
+        return true;
+    }
+
+    const stoneBlocks = world.getNearestBlocksWhere(bot, b => {
+        return (b.name === 'stone' || b.name === 'cobblestone' || b.name === 'deepslate' || b.name === 'andesite' || b.name === 'diorite' || b.name === 'granite');
+    }, 24, 30);
+
+    let mined = 0;
+    for (let i = 0; i < stoneBlocks.length && mined < targetNum && !bot.interrupt_code; i++) {
+        // Partition blocks modulo 3 across the miners
+        if ((i % 3) !== (botIndex % 3)) continue;
+
+        const block = stoneBlocks[i];
+        try {
+            await equipBestToolFor(bot, block.name);
+            await bot.dig(block, true);
+            mined++;
+            if (mined % 5 === 0) {
+                await autoLight(bot);
+                await pickupNearbyItems(bot);
+            }
+        } catch {}
+    }
+
+    await pickupNearbyItems(bot);
+    log(bot, `[SquadMining] Finished mining ${mined} stone.`);
+    return mined > 0;
+}
+
+export async function squadMineOres(bot, oreType = 'iron_ore', targetNum = 16) {
+    /**
+     * Teamwork ore mining: bots scan for ores and partition targets without goal conflicts.
+     */
+    if (!bot?.entity?.position) return false;
+    await autoEquipBest(bot);
+    await equipBestToolFor(bot, oreType);
+
+    const nameMatch = bot.username.match(/\d+$/);
+    const botIndex = nameMatch ? (parseInt(nameMatch[0], 10) - 1) : 0;
+
+    const ores = world.getNearestBlocksWhere(bot, b => b.name.includes(oreType.replace(/deepslate_/, '')), 32, 20);
+    if (!ores || ores.length === 0) {
+        log(bot, `[SquadMining] No ${oreType} veins found nearby.`);
+        return false;
+    }
+
+    let mined = 0;
+    for (let i = 0; i < ores.length && mined < targetNum && !bot.interrupt_code; i++) {
+        if ((i % 5) !== botIndex) continue; // Each bot gets unique ore block
+        const oreBlock = ores[i];
+        try {
+            await goToPosition(bot, oreBlock.position.x, oreBlock.position.y, oreBlock.position.z, 2);
+            await equipBestToolFor(bot, oreBlock.name);
+            await bot.dig(oreBlock, true);
+            mined++;
+        } catch {}
+    }
+    await pickupNearbyItems(bot);
+    return mined > 0;
+}
+
+export async function squadFarmCrops(bot) {
+    /**
+     * Teamwork farming: bots partition crop plots by coordinate parity so they don't crowd or re-dig the same plants.
+     */
+    if (!bot?.entity?.position) return false;
+    await autoEquipBest(bot);
+
+    const nameMatch = bot.username.match(/\d+$/);
+    const botIndex = nameMatch ? (parseInt(nameMatch[0], 10) - 1) : 0;
+
+    const matureCrops = world.getNearestBlocksWhere(bot, block => {
+        const name = block.name;
+        if (name === 'wheat' && block.metadata === 7) return true;
+        if (name === 'carrots' && block.metadata === 7) return true;
+        if (name === 'potatoes' && block.metadata === 7) return true;
+        if (name === 'beetroots' && block.metadata === 3) return true;
+        return false;
+    }, 24, 25);
+
+    if (!matureCrops || matureCrops.length === 0) {
+        log(bot, '[SquadFarm] No fully mature crops found nearby.');
+        return false;
+    }
+
+    let harvested = 0;
+    for (let i = 0; i < matureCrops.length && !bot.interrupt_code; i++) {
+        const crop = matureCrops[i];
+        // Coordinate hash modulo squad size: distinct plot for each bot
+        const plotHash = Math.abs(crop.position.x + crop.position.z);
+        if ((plotHash % 5) !== botIndex) continue;
+
+        try {
+            await goToPosition(bot, crop.position.x, crop.position.y, crop.position.z, 2);
+            await bot.dig(crop, true);
+            harvested++;
+            await pickupNearbyItems(bot);
+
+            // Replant crop seed on farmland
+            const seedMap = {
+                wheat: 'wheat_seeds',
+                carrots: 'carrot',
+                potatoes: 'potato',
+                beetroots: 'beetroot_seeds'
+            };
+            const seedName = seedMap[crop.name];
+            if (seedName) {
+                const seedItem = bot.inventory.items().find(it => it.name === seedName);
+                if (seedItem) {
+                    await bot.equip(seedItem, 'hand');
+                    const farmland = bot.blockAt(crop.position.offset(0, -1, 0));
+                    if (farmland && farmland.name === 'farmland') {
+                        await bot.placeBlock(farmland, new Vec3(0, 1, 0));
+                    }
+                }
+            }
+        } catch {}
+    }
+
+    await pickupNearbyItems(bot);
+    log(bot, `[SquadFarm] Harvested and replanted ${harvested} mature crops.`);
+    return harvested > 0;
+}
+
+export async function squadFollowPlayer(bot, targetName = 'orbryx') {
+    /**
+     * Teamwork tactical formation escort: bots surround target player in a protective perimeter
+     * (vanguard, flankers, rearguard, scout) without colliding or pushing.
+     */
+    if (!bot?.entity?.position) return false;
+    await autoEquipBest(bot);
+
+    const nameMatch = bot.username.match(/\d+$/);
+    const botIndex = nameMatch ? (parseInt(nameMatch[0], 10) - 1) : 0;
+
+    const target = bot.players[targetName]?.entity;
+    if (!target) {
+        log(bot, `Cannot find player ${targetName} nearby to escort.`);
+        return false;
+    }
+
+    // Tactical formation offsets:
+    // 0: Vanguard Right (+2.5, +2.5)
+    // 1: Rearguard Left (-2.5, -2.5)
+    // 2: Flank Left (-3.0, +1.0)
+    // 3: Flank Right (+3.0, -1.0)
+    // 4: Scout (+1.0, +4.0)
+    const offsets = [
+        { dx: 2.5, dz: 2.5, role: 'Vanguard Right' },
+        { dx: -2.5, dz: -2.5, role: 'Rearguard Left' },
+        { dx: -3.0, dz: 1.0, role: 'Flank Left' },
+        { dx: 3.0, dz: -1.0, role: 'Flank Right' },
+        { dx: 1.0, dz: 4.0, role: 'Point Scout' }
+    ];
+
+    const slot = offsets[botIndex % offsets.length];
+    const dest = target.position.offset(slot.dx, 0, slot.dz);
+
+    log(bot, `[SquadEscort] Holding formation as ${slot.role} protecting ${targetName}...`);
+    return await goToPosition(bot, dest.x, dest.y, dest.z, 2);
+}
+
+export async function squadDefend(bot, radius = 24) {
+    /**
+     * Teamwork area defense: bots form a 360-degree security perimeter and assist each other against hostiles.
+     */
+    if (!bot?.entity?.position) return false;
+    await autoEquipBest(bot);
+    await equipHighestAttack(bot);
+
+    const nameMatch = bot.username.match(/\d+$/);
+    const botIndex = nameMatch ? (parseInt(nameMatch[0], 10) - 1) : 0;
+
+    // Disperse into perimeter patrol sector
+    const angle = (botIndex * 2 * Math.PI) / 5;
+    const patrolOffset = new Vec3(Math.cos(angle) * (radius * 0.6), 0, Math.sin(angle) * (radius * 0.6));
+    const patrolSpot = bot.entity.position.plus(patrolOffset);
+
+    try {
+        await goToPosition(bot, patrolSpot.x, patrolSpot.y, patrolSpot.z, 2);
+    } catch {}
+
+    // Patrol loop
+    let cycles = 0;
+    while (cycles < 15 && !bot.interrupt_code) {
+        const hostile = world.getNearestEntityWhere(bot, e => mc.isHostile(e) && !isAlly(bot, e), radius);
+        if (hostile) {
+            await squadMutualProtection(bot, hostile, radius);
+        }
+        await new Promise(r => setTimeout(r, 1200));
+        cycles++;
+    }
+
+    return true;
+}
+

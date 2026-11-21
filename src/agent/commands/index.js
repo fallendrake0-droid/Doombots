@@ -5,17 +5,27 @@ import { essentialCommandsList } from './essential_commands.js';
 
 let suppressNoDomainWarning = true;
 
-const commandList = queryList.concat(actionsList).concat(essentialCommandsList);
-const commandMap = {};
-for (let command of commandList) {
-    commandMap[command.name] = command;
+let commandList = null;
+let commandMap = null;
+
+function ensureCommandMap() {
+    if (!commandList) {
+        commandList = (queryList || []).concat(actionsList || []).concat(essentialCommandsList || []);
+        commandMap = {};
+        for (let command of commandList) {
+            commandMap[command.name] = command;
+        }
+    }
+    return { commandList, commandMap };
 }
 
 export function getCommand(name) {
+    const { commandMap } = ensureCommandMap();
     return commandMap[name];
 }
 
 export function blacklistCommands(commands) {
+    const { commandList, commandMap } = ensureCommandMap();
     const unblockable = ['!stop', '!stats', '!inventory', '!goal'];
     for (let command_name of commands) {
         if (unblockable.includes(command_name)){
@@ -23,7 +33,8 @@ export function blacklistCommands(commands) {
             continue;
         }
         delete commandMap[command_name];
-        delete commandList.find(command => command.name === command_name);
+        const idx = commandList.findIndex(command => command.name === command_name);
+        if (idx !== -1) commandList.splice(idx, 1);
     }
 }
 
@@ -40,6 +51,7 @@ export function containsCommand(message) {
 export function commandExists(commandName) {
     if (!commandName.startsWith("!"))
         commandName = "!" + commandName;
+    const { commandMap } = ensureCommandMap();
     return commandMap[commandName] !== undefined;
 }
 
@@ -243,6 +255,7 @@ export function getCommandDocs(agent, compact = false) {
         'boolean':           'bool'
     };
 
+    const { commandList } = ensureCommandMap();
     if (compact) {
         let docs = '\n*COMMANDS (syntax: !cmd or !cmd("arg1", 2)):\n';
         for (let command of commandList) {

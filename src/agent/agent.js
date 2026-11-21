@@ -213,6 +213,18 @@ export class Agent {
                     }
                 }
 
+                // Anti-Idle Keepalive: Periodically sends subtle micro-look packet to prevent Aternos "you have been idle for too long!" kick
+                if (this._antiIdleTimer) clearInterval(this._antiIdleTimer);
+                this._antiIdleTimer = setInterval(() => {
+                    if (this.bot?.entity && !this.bot.interrupt_code) {
+                        try {
+                            const curYaw = this.bot.entity.yaw || 0;
+                            const curPitch = this.bot.entity.pitch || 0;
+                            this.bot.look(curYaw + (Math.random() * 0.002 - 0.001), curPitch, true).catch(() => {});
+                        } catch {}
+                    }
+                }, 25000);
+
                 await new Promise((resolve) => setTimeout(resolve, 10000));
                 this.checkAllPlayersPresent();
 
@@ -263,6 +275,13 @@ export class Agent {
         this.bot.on('chat', (username, message) => {
             // Never respond to messages originating from other bots to avoid infinite chat loops
             if (convoManager.isOtherAgent(username) || username === this.name) return;
+
+            // Filter out automated server plugins and system announcements (SimpleTpa, Server, Console, etc.) to prevent LLM rate limits
+            const uLower = String(username || '').toLowerCase();
+            const automatedSenders = ['simpletpa', 'server', 'console', 'announcer', 'broadcast', 'automessage', 'system'];
+            if (automatedSenders.includes(uLower)) {
+                return;
+            }
 
             // Check if message is specifically directed to another bot (e.g. "Doombot2: mine wood")
             const rawAgents = serverProxy.getAgents() || [];
@@ -500,8 +519,8 @@ export class Agent {
         if (/^(follow me|follow\s+([a-zA-Z0-9_]+))$/i.test(lower)) {
             const targetMatch = lower.match(/^follow\s+([a-zA-Z0-9_]+)$/i);
             const target = (targetMatch && targetMatch[1] !== 'me') ? targetMatch[1] : (source === 'ADMIN' ? 'orbryx' : source);
-            await executeCommand(this, `!followPlayer("${target}", 3)`);
-            this.routeResponse(source, `Following ${target}.`);
+            await executeCommand(this, `!squadFollow("${target}")`);
+            this.routeResponse(source, `Holding squad escort formation around ${target}.`);
             return true;
         }
         if (/^(mine|chop|gather)\s+(logs?|wood|trees?)/i.test(lower)) {
@@ -515,7 +534,7 @@ export class Agent {
             }
             console.log(`[FastCommand] ${this.name} executing squadMineLogs(${count})`);
             await executeCommand(this, `!squadMineLogs(${count})`);
-            this.routeResponse(source, `Splitting up to mine logs (${count} logs / ${Math.round(count / 64)} stacks).`);
+            this.routeResponse(source, `Splitting up in squad teamwork to mine logs (${count} logs / ${Math.round(count / 64)} stacks).`);
             return true;
         }
         if (/^(boat\s+to|sail\s+to)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/i.test(lower)) {
@@ -533,33 +552,34 @@ export class Agent {
             return true;
         }
         if (/^mine\s+(stone|cobblestone|rocks?)/i.test(lower)) {
-            await executeCommand(this, '!collectBlocks("cobblestone", 20)');
-            this.routeResponse(source, 'Mining stone.');
+            await executeCommand(this, '!squadMineStone(64)');
+            this.routeResponse(source, 'Executing squad teamwork quarrying for stone.');
             return true;
         }
         if (/^mine\s+(coal)/i.test(lower)) {
-            await executeCommand(this, '!collectBlocks("coal_ore", 10)');
-            this.routeResponse(source, 'Mining coal.');
+            await executeCommand(this, '!squadMineOres("coal_ore", 20)');
+            this.routeResponse(source, 'Mining coal in squad formation.');
             return true;
         }
         if (/^mine\s+(iron)/i.test(lower)) {
-            await executeCommand(this, '!collectBlocks("iron_ore", 10)');
-            this.routeResponse(source, 'Mining iron.');
+            await executeCommand(this, '!squadMineOres("iron_ore", 20)');
+            this.routeResponse(source, 'Mining iron ore in squad formation.');
             return true;
         }
         if (/^defend\s+orbryx/i.test(lower)) {
-            await executeCommand(this, '!defendPlayer("orbryx")');
+            await executeCommand(this, '!squadFollow("orbryx")');
+            await executeCommand(this, '!squadDefend(24)');
             this.routeResponse(source, 'Forming defensive perimeter to protect ally orbryx.');
             return true;
         }
         if (/^(farm\s+crops?|harvest\s+crops?|farm)/i.test(lower)) {
-            await executeCommand(this, '!farmCrops');
-            this.routeResponse(source, 'Harvesting mature crops and replanting seeds.');
+            await executeCommand(this, '!squadFarmCrops');
+            this.routeResponse(source, 'Harvesting and replanting farm crops in squad sectors.');
             return true;
         }
-        if (/^(guard(\s+area|\s+perimeter)?|defend\s+area)/i.test(lower)) {
-            await executeCommand(this, '!guardArea(16, 30)');
-            this.routeResponse(source, 'Patrolling and defending area perimeter.');
+        if (/^(guard(\s+area|\s+perimeter)?|defend(\s+(the\s+area|us|me))?)/i.test(lower)) {
+            await executeCommand(this, '!squadDefend(24)');
+            this.routeResponse(source, 'Forming 360-degree squad defense perimeter.');
             return true;
         }
         if (/^bridge(\s+(north|south|east|west))?(\s+(\d+))?/i.test(lower)) {
@@ -832,7 +852,7 @@ export class Agent {
         }
         this._lastChatTime = Date.now();
 
-        if (settings.only_chat_with.length > 0) {
+        if (settings.only_chat_with && settings.only_chat_with.length > 0) {
             for (let username of settings.only_chat_with) {
                 this.bot.whisper(username, message);
             }
@@ -908,6 +928,8 @@ export class Agent {
         this.bot.on('death', () => {
             this.actions.cancelResume();
             this.actions.stop();
+            try { this.bot.clearControlStates(); } catch {}
+            try { this.bot.pathfinder?.stop(); } catch {}
         });
         this.bot.on('kicked', (reason) => {
             if (!this._disconnectHandled) {
@@ -916,16 +938,26 @@ export class Agent {
             }
         });
         this.bot.on('messagestr', async (message, _, jsonMsg) => {
-            if (jsonMsg.translate && jsonMsg.translate.startsWith('death') && message.startsWith(this.name)) {
-                console.log('Agent died: ', message);
-                let death_pos = this.bot.entity.position;
-                this.memory_bank.rememberPlace('last_death_position', death_pos.x, death_pos.y, death_pos.z);
-                let death_pos_text = null;
-                if (death_pos) {
-                    death_pos_text = `x: ${death_pos.x.toFixed(2)}, y: ${death_pos.y.toFixed(2)}, z: ${death_pos.z.toFixed(2)}`;
-                }
-                let dimention = this.bot.game.dimension;
-                this.handleMessage('system', `You died at position ${death_pos_text || "unknown"} in the ${dimention} dimension with the final message: '${message}'. Your place of death is saved as 'last_death_position' if you want to return. Previous actions were stopped and you have respawned.`);
+            const firstWord = String(message || '').split(/\s+/)[0];
+            if (jsonMsg?.translate?.startsWith('death') && firstWord === this.name) {
+                console.log(`[DeathRecovery] ${this.name} died: ${message}`);
+                try {
+                    const death_pos = this.bot.entity?.position;
+                    if (death_pos) {
+                        this.memory_bank.rememberPlace('last_death_position', death_pos.x, death_pos.y, death_pos.z);
+                    }
+                } catch {}
+                this.actions.stop();
+                try { this.bot.clearControlStates(); } catch {}
+                try { this.bot.pathfinder?.stop(); } catch {}
+                // Auto equip best available gear upon respawn without burning LLM rate limits
+                this.bot.once('spawn', async () => {
+                    await new Promise(r => setTimeout(r, 1200));
+                    try {
+                        const { autoEquipBest } = await import('./library/skills.js');
+                        await autoEquipBest(this.bot);
+                    } catch {}
+                });
             }
         });
         this.bot.on('idle', () => {
@@ -972,6 +1004,10 @@ export class Agent {
     
 
     cleanKill(msg='Killing agent process...', code=1) {
+        if (this._antiIdleTimer) {
+            clearInterval(this._antiIdleTimer);
+            this._antiIdleTimer = null;
+        }
         try { this.history.add('system', msg); } catch {}
         try {
             if (this.bot && this.bot._client && this.bot._client.socket && !this.bot._client.socket.destroyed) {
