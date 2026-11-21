@@ -6,6 +6,12 @@
     "low_memory_mode": true,
     "max_messages": 6,
     "num_examples": 0,
+    "skin": {
+        "name": "Zolvd",
+        "url": "https://namemc.com/texture/777895bfd4bb9994.png",
+        "path": "https://namemc.com/texture/777895bfd4bb9994.png",
+        "model": "classic"
+    },
     "params": {
         "temperature": 0.1,
         "options": {

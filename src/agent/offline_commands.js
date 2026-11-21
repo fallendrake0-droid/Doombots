@@ -49,6 +49,18 @@ export async function handleOfflineCommand(agent, source, raw) {
     }
 
     // -------------------------------------------------------------
+    // RED KNIGHT SQUAD SKIN
+    // -------------------------------------------------------------
+    if (/^(?:skin|set\s+skin|apply\s+skin|change\s+skin|red\s+knight\s+skin|red\s+knight)$/i.test(lower)) {
+        const skinName = 'Zolvd';
+        const skinUrl = 'https://namemc.com/texture/777895bfd4bb9994.png';
+        bot.chat(`/skin ${skinName}`);
+        bot.chat(`/skin set URL classic ${skinUrl}`);
+        agent.routeResponse(source, `Applied Red Knight skin (${skinName}) to ${bot.username}.`);
+        return true;
+    }
+
+    // -------------------------------------------------------------
     // 2. INVENTORY & EQUIPMENT INSPECTION
     // -------------------------------------------------------------
     if (/^(?:inv|inventory|items|what\s+do\s+you\s+have|check\s+inventory|show\s+inventory|my\s+items)$/i.test(lower)) {

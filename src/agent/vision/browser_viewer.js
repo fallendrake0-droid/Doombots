@@ -31,8 +31,9 @@ export async function addBrowserViewer(bot, count_id = 0) {
 
     if (mod) {
         try {
-            const { applyViewer2dPatch } = await import('../../../scripts/apply-patches.js');
+            const { applyViewer2dPatch, applyBotSkin } = await import('../../../scripts/apply-patches.js');
             applyViewer2dPatch();
+            if (typeof applyBotSkin === 'function') applyBotSkin();
         } catch {}
         let mineflayerViewer = mod.mineflayer;
         if (!mineflayerViewer && mod.default) {

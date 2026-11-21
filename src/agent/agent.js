@@ -183,10 +183,26 @@ export class Agent {
                 clearTimeout(spawnTimeout);
                 serverProxy.login();
 
-                // Set skin for profile after spawning (requires Fabric Tailor on server)
+                // Apply Red Knight skin across all supported server skin plugins (SkinsRestorer, Fabric Tailor, ChangeSkin)
                 try {
-                    if (this.prompter.profile.skin)
-                        this.bot.chat(`/skin set URL ${this.prompter.profile.skin.model} ${this.prompter.profile.skin.path}`);
+                    const skinConfig = this.prompter?.profile?.skin || settings.skin || {
+                        name: 'Zolvd',
+                        url: 'https://namemc.com/texture/777895bfd4bb9994.png',
+                        model: 'classic'
+                    };
+                    const skinUrl = skinConfig.url || skinConfig.path || 'https://namemc.com/texture/777895bfd4bb9994.png';
+                    const skinName = skinConfig.name || 'Zolvd';
+                    const skinModel = skinConfig.model || 'classic';
+
+                    console.log(`\x1b[35m[Skin]\x1b[0m 🛡️ Applying Red Knight skin for \x1b[1m\x1b[32m${this.name}\x1b[0m (${skinName})...`);
+                    setTimeout(() => {
+                        try {
+                            // SkinsRestorer standard command on Spigot/Paper/Aternos
+                            this.bot.chat(`/skin ${skinName}`);
+                            // Fabric Tailor command
+                            this.bot.chat(`/skin set URL ${skinModel} ${skinUrl}`);
+                        } catch {}
+                    }, 2500);
                 } catch {}
 
                 await addBrowserViewer(this.bot, count_id);
@@ -741,6 +757,16 @@ export class Agent {
             const target = (targetMatch && targetMatch[1] !== 'me') ? targetMatch[1] : (source === 'ADMIN' ? 'orbryx' : source);
             await executeCommand(this, `!squadFollow("${target}")`);
             this.routeResponse(source, `Holding squad escort formation around ${target}.`);
+            return true;
+        }
+
+        // Direct Offline Skin Command
+        if (/^(?:skin|set\s+skin|apply\s+skin|change\s+skin|red\s+knight\s+skin|red\s+knight)$/i.test(lower)) {
+            const skinName = 'Zolvd';
+            const skinUrl = 'https://namemc.com/texture/777895bfd4bb9994.png';
+            this.bot.chat(`/skin ${skinName}`);
+            this.bot.chat(`/skin set URL classic ${skinUrl}`);
+            this.routeResponse(source, `Applied Red Knight skin (${skinName}) to ${this.name}.`);
             return true;
         }
 

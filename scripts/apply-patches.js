@@ -29,6 +29,30 @@ export function applyViewer2dPatch() {
     }
 }
 
+export function applyBotSkin() {
+    try {
+        const skinSource = './skins/red_knight.png';
+        if (!existsSync(skinSource)) return;
+        const baseDir = './node_modules/prismarine-viewer/public/textures';
+        if (!existsSync(baseDir)) return;
+        const findAndReplace = (dir) => {
+            const entries = readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+                const fullPath = path.join(dir, entry.name);
+                if (entry.isDirectory()) {
+                    findAndReplace(fullPath);
+                } else if (entry.name === 'steve.png' || entry.name === 'alex.png') {
+                    copyFileSync(skinSource, fullPath);
+                }
+            }
+        };
+        findAndReplace(baseDir);
+        console.log('[postinstall] Applied Red Knight skin to all prismarine-viewer textures.');
+    } catch {
+        // ignore
+    }
+}
+
 // Apply patches safely - skip patches for optional/uninstalled packages (like prismarine-viewer)
 try {
     const patchPackageCmd = existsSync('./node_modules/.bin/patch-package')
@@ -63,7 +87,9 @@ try {
     rmSync(tempPatchDir, { recursive: true, force: true });
 
     applyViewer2dPatch();
+    applyBotSkin();
 } catch (err) {
     console.warn('[postinstall] patch-package warning (skipped missing optional packages or mismatch):', err?.message || err);
     applyViewer2dPatch();
+    applyBotSkin();
 }

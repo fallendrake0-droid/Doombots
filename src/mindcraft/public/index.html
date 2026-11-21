@@ -2445,7 +2445,9 @@
                 card.innerHTML = `
                     <div class="card-header">
                         <div class="bot-identity">
-                            <div class="bot-avatar">${agent.in_game ? '🤖' : '⏳'}</div>
+                            <div class="bot-avatar" style="overflow:hidden; border: 1.5px solid rgba(220, 38, 38, 0.5); background: #0f1115; position: relative;">
+                                <img src="/skins/red_knight_avatar.png" alt="${agent.name}" style="width:100%; height:100%; object-fit:contain; border-radius:6px;" onerror="this.outerHTML='${agent.in_game ? '🤖' : '⏳'}';">
+                            </div>
                             <div>
                                 <span class="bot-name">${agent.name}</span>
                                 <span class="status-badge ${agent.in_game ? 'online' : 'offline'}" style="margin-left:6px;">${agent.in_game ? 'In-Game' : 'Joining...'}</span>
@@ -2896,7 +2898,8 @@
             { name: 'squad farm crops', cat: 'squad', desc: 'Sector-divided automated crop harvesting and reseeding across farmland.' },
             { name: 'squad roles', cat: 'squad', desc: 'Displays current assigned squad roles: Miner, Builder, Guard, Farmer, or Hauler.' },
             { name: 'regroup', cat: 'squad', desc: 'All squad bots immediately converge tightly around Doombot.' },
-            { name: 'distribute items', cat: 'squad', desc: 'Evenly shares food, torches, and mined materials among squad bots.' }
+            { name: 'distribute items', cat: 'squad', desc: 'Evenly shares food, torches, and mined materials among squad bots.' },
+            { name: 'skin', cat: 'squad', desc: 'Applies the custom Red Knight armor skin across all squad bots (SkinsRestorer / Fabric Tailor).' }
         ];
 
         let currentZeroAiCategory = 'all';

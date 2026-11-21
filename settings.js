@@ -63,6 +63,12 @@ const settings = {
     "language": "en", // translate to/from this language. Supports these language names: https://cloud.google.com/translate/docs/languages
     "bot_count": 5, // Number of bots to spawn into Minecraft (default: 5)
     "spawn_delay": 14, // Seconds to stagger multi-bot logins (avoids Aternos/Spigot connection rate limit throttle)
+    "skin": {
+        "name": "Zolvd",
+        "url": "https://namemc.com/texture/777895bfd4bb9994.png",
+        "path": "https://namemc.com/texture/777895bfd4bb9994.png",
+        "model": "classic"
+    },
     "render_bot_view": true, // Enable 2D/3D World View in browser (http://localhost:3000)
     "viewer_primary_only": true, // Stream world view from primary bot (port 3000) to keep CPU & network light
     "viewer_first_person": false, // false for 2D side-scroller view (Mario-style), true for 3D first-person
