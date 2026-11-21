@@ -49,9 +49,9 @@ export const PROVIDERS = [
     },
     {
         name: 'Google Gemini',
-        desc: 'Gemini 2.0 Flash / Pro',
+        desc: 'Gemini 2.5 Flash / Pro',
         keyName: 'GEMINI_API_KEY',
-        defaultModel: 'google/gemini-2.0-flash'
+        defaultModel: 'google/gemini-2.5-flash'
     },
     {
         name: 'Anthropic Claude',

@@ -143,7 +143,7 @@ For near-instant sub-second bot reactions on low-spec hardware (Chromebooks, lap
 | **Together AI** | `together/meta-llama/Llama-3.3-70B-Instruct-Turbo` | `TOGETHER_API_KEY` | Fast open models & Turbo Llama |
 | **DeepSeek** | `deepseek/deepseek-chat` | `DEEPSEEK_API_KEY` | DeepSeek-V3 and DeepSeek-R1 |
 | **OpenAI** | `openai/gpt-4o-mini` | `OPENAI_API_KEY` | GPT-4o, GPT-4o-mini, o1, o3-mini |
-| **Google Gemini** | `google/gemini-2.0-flash` | `GEMINI_API_KEY` | Gemini 2.0 Flash / Pro |
+| **Google Gemini** | `google/gemini-2.5-flash` | `GEMINI_API_KEY` | Gemini 2.5 Flash / Pro |
 | **Anthropic** | `anthropic/claude-3-5-sonnet-latest` | `ANTHROPIC_API_KEY` | Claude 3.5 Sonnet & Haiku |
 | **xAI Grok** | `xai/grok-2-latest` | `XAI_API_KEY` | Grok-2 |
 | **Mistral** | `mistral/mistral-large-latest` | `MISTRAL_API_KEY` | Mistral Large, Codestral |

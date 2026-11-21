@@ -9,7 +9,8 @@ import { executeCommand, commandExists } from './commands/index.js';
  */
 export async function handleOfflineCommand(agent, source, raw) {
     if (!raw || typeof raw !== 'string') return false;
-    const lower = raw.toLowerCase().trim();
+    const clean = typeof agent.cleanUserInput === 'function' ? agent.cleanUserInput(raw) : raw.trim();
+    const lower = (clean || raw).toLowerCase().trim();
     const bot = agent.bot;
 
     // -------------------------------------------------------------
@@ -272,8 +273,63 @@ export async function handleOfflineCommand(agent, source, raw) {
     }
 
     // -------------------------------------------------------------
-    // 8. MINING & EXCAVATION
+    // 8. MINING & EXCAVATION (Zero-AI Offline Squad Teamwork)
     // -------------------------------------------------------------
+    const offlineMiningIntent = typeof agent.parseGatheringIntent === 'function' ? agent.parseGatheringIntent(raw) : null;
+    if (offlineMiningIntent) {
+        const { rawMat, count, stacks } = offlineMiningIntent;
+        const resolved = typeof agent.resolveMaterialIntent === 'function'
+            ? agent.resolveMaterialIntent(rawMat)
+            : { category: 'material', target: rawMat };
+
+        if (resolved.target === 'diamond_ore' || /diamond/i.test(resolved.target)) {
+            agent.routeResponse(source, `💎 Commencing diamond expedition: descending to Y=-58 with hazard protection and squad roles (${count} diamonds / ${stacks} stacks)...`);
+            const res = await executeCommand(agent, `!mineDiamonds(${count})`);
+            agent.routeResponse(source, res || 'Completed diamond mining pass.');
+            return true;
+        }
+
+        if (resolved.category === 'apple') {
+            agent.routeResponse(source, `🍎 Collecting apples in squad formation (${count} apples / ${stacks} stacks)...`);
+            const res = await executeCommand(agent, `!squadCollectApples(${count})`);
+            agent.routeResponse(source, res || 'Completed apple collection pass.');
+            return true;
+        }
+
+        if (resolved.category === 'logs') {
+            agent.routeResponse(source, `🪵 Squad logging timber and collecting apples (${count} logs / ${stacks} stacks, no sapling replanting)...`);
+            const res = await executeCommand(agent, `!squadMineWood(${count})`);
+            agent.routeResponse(source, res || 'Squad timber logging completed.');
+            return true;
+        }
+
+        if (resolved.category === 'food') {
+            agent.routeResponse(source, `🌾 Harvesting and farming crops in squad sectors...`);
+            const res = await executeCommand(agent, '!squadFarmCrops');
+            agent.routeResponse(source, res || 'Harvested and farmed crops.');
+            return true;
+        }
+
+        if (resolved.target === 'cobblestone' || resolved.target === 'stone') {
+            agent.routeResponse(source, `⛏️ Squad quarrying stone with guard & torch teamwork (${count} blocks / ${stacks} stacks)...`);
+            const res = await executeCommand(agent, `!squadMineStone(${count})`);
+            agent.routeResponse(source, res || 'Squad stone quarrying completed.');
+            return true;
+        }
+
+        if (resolved.target.endsWith('_ore') || resolved.target === 'ancient_debris') {
+            agent.routeResponse(source, `⛏️ Squad extracting ${resolved.target.replace(/_/g, ' ')} veins with max 64m scanning (${count} ores / ${stacks} stacks)...`);
+            const res = await executeCommand(agent, `!squadMineOres("${resolved.target}", ${count})`);
+            agent.routeResponse(source, res || 'Squad ore mining completed.');
+            return true;
+        }
+
+        agent.routeResponse(source, `⛏️ Executing squad teamwork mining for ${resolved.target} (${count} blocks / ${stacks} stacks)...`);
+        const res = await executeCommand(agent, `!squadGather("${resolved.target}", ${count})`);
+        agent.routeResponse(source, res || `Completed mining pass for ${resolved.target}.`);
+        return true;
+    }
+
     if (/^(?:mine\s+diamonds?|diamond\s+mine|dig\s+diamonds?|squad\s+mine\s+diamonds?)$/i.test(lower)) {
         agent.routeResponse(source, '💎 Commencing diamond expedition: descending to Y=-58 with hazard protection and squad roles...');
         const res = await executeCommand(agent, '!mineDiamonds(64)');

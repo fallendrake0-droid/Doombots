@@ -262,7 +262,7 @@ export class Agent {
                 }
                 else {
                     let translation = await handleEnglishTranslation(message);
-                    this.handleMessage(username, translation);
+                    await this.handleMessage(username, translation);
                 }
             } catch (error) {
                 console.error('Error handling message:', error);
@@ -537,57 +537,105 @@ export class Agent {
         return false;
     }
 
-    parseGatheringIntent(raw) {
-        if (!raw || typeof raw !== 'string') return null;
-        const lower = raw.toLowerCase().trim();
+    cleanUserInput(rawMessage) {
+        if (!rawMessage || typeof rawMessage !== 'string') return '';
+        let clean = rawMessage.trim();
 
-        // Check direct pattern: "[material] X stacks" e.g. "stone 3 stacks", "dirt 2 stacks", "diamond stack"
-        const directStacks = lower.match(/^([a-zA-Z0-9_\s]+?)\s+(?:(\d+)|a)?\s*stacks?$/i);
-        if (directStacks && !/^(stay|follow|defend|guard|bridge)/i.test(directStacks[1])) {
-            const stacks = directStacks[2] ? parseInt(directStacks[2], 10) : 1;
-            return { rawMat: directStacks[1].trim(), count: stacks * 64, stacks };
+        // 1. Remove wrapping quotes or backticks: e.g. "mine 64 diamonds", 'mine 64 diamonds'
+        clean = clean.replace(/^["'`“‘]+|["'`”’]+$/g, '').trim();
+
+        // 2. Remove bot name prefix: e.g. "Doombot:", "Doombot,", "Doombot -", "Doombot ", or any other bot's name
+        const rawAgents = serverProxy.getAgents() || [];
+        const botNames = [this.name, ...rawAgents.map(a => typeof a === 'string' ? a : a?.name).filter(Boolean)];
+        for (const name of botNames) {
+            if (!name) continue;
+            const botPrefixRegex = new RegExp(`^${name}[:,-]?\\s*`, 'i');
+            if (botPrefixRegex.test(clean)) {
+                clean = clean.replace(botPrefixRegex, '').trim();
+            }
         }
 
-        // Check if message has a gather/mine action verb
-        const gatherAction = /^(?:mine|get|gather|collect|dig|harvest|chop)\b/i.test(lower);
-        if (!gatherAction) return null;
+        // 3. Remove squad broadcast prefixes: e.g. "all:", "bots:", "squad:", "team:", "everyone:"
+        clean = clean.replace(/^(?:all|bots|squad|team|everyone)[:,-]?\s*/i, '').trim();
 
-        // Check for stacks: "mine 3 stacks of stone", "get 2 stacks sand", "mine stack of diamond", "mine a stack of iron"
-        const stacksMatch = lower.match(/(?:mine|get|gather|collect|dig|harvest|chop)\s+(?:(\d+)|a)?\s*stacks?(?:\s+of)?\s+([a-zA-Z0-9_\s]+)/i);
-        // Check for count: "mine 128 stone", "get 50 dirt", "mine 20 iron"
-        const countMatch = lower.match(/^(?:mine|get|gather|collect|dig|harvest|chop)\s+(\d+)\s+([a-zA-Z0-9_\s]+)/i);
-        // General: "mine stone", "collect apples", "mine andesite", "gather sand", "mine diamonds"
-        const generalMatch = lower.match(/^(?:mine|get|gather|collect|dig|harvest|chop)\s+([a-zA-Z0-9_\s]+)/i);
+        // 4. Loop-strip conversational filler / polite prefixes:
+        let prev = '';
+        while (prev !== clean) {
+            prev = clean;
+            clean = clean.replace(/^(?:can\s+you\s+please|could\s+you\s+please|would\s+you\s+please|please|can\s+you|could\s+you|would\s+you|i\s+want\s+you\s+to|i\s+need\s+you\s+to|go\s+and|go\s+ahead\s+and|go|hey|hello|hi|yo)\s+/i, '').trim();
+        }
 
-        let count = 64; // default 1 stack
-        let rawMat = '';
+        // 5. Remove trailing polite words and punctuation
+        clean = clean.replace(/[.!?]+$/g, '').trim();
+        clean = clean.replace(/\s+(?:please|pls|now|asap)$/i, '').trim();
+        clean = clean.replace(/^["'`“‘]+|["'`”’]+$/g, '').trim();
 
-        if (stacksMatch) {
-            const stacks = stacksMatch[1] ? parseInt(stacksMatch[1], 10) : 1;
-            count = stacks * 64;
-            rawMat = stacksMatch[2].trim();
-        } else if (countMatch) {
-            count = parseInt(countMatch[1], 10);
-            rawMat = countMatch[2].trim();
-        } else if (generalMatch) {
-            rawMat = generalMatch[1].trim();
+        return clean;
+    }
+
+    parseGatheringIntent(raw) {
+        if (!raw || typeof raw !== 'string') return null;
+        let lower = this.cleanUserInput ? this.cleanUserInput(raw).toLowerCase().trim() : raw.toLowerCase().trim();
+        lower = lower.replace(/^["'`“‘]+|["'`”’]+$/g, '').trim();
+
+        let afterVerb = lower;
+        const gatherAction = /^(?:mine|get|gather|collect|dig|harvest|chop|quarry|excavate)\b/i.test(lower);
+        if (gatherAction) {
+            afterVerb = lower.replace(/^(?:mine|get|gather|collect|dig|harvest|chop|quarry|excavate)\s+/i, '').trim();
+        } else {
+            // If no verb, check if message directly states: "[material] X stacks" or "[material] 64"
+            const isStackDirect = /^([a-zA-Z0-9_\s]+?)\s+(?:(\d+)|a)?\s*stacks?$/i.test(lower);
+            const isCountDirect = /^([a-zA-Z0-9_\s]+?)\s+(?:x\s*)?(\d+)$/i.test(lower);
+            if (!isStackDirect && !isCountDirect) return null;
+        }
+
+        // 1. "2 stacks of diamonds", "2 stacks diamonds", "stack of diamonds", "a stack of diamonds"
+        const stackPrefixMatch = afterVerb.match(/^(?:(\d+)|a)?\s*stacks?(?:\s+of)?\s+([a-zA-Z0-9_\s]+)$/i);
+        if (stackPrefixMatch) {
+            const stacks = stackPrefixMatch[1] ? parseInt(stackPrefixMatch[1], 10) : 1;
+            let rawMat = stackPrefixMatch[2].trim().replace(/^of\s+/i, '');
+            return { rawMat, count: stacks * 64, stacks };
+        }
+
+        // 2. "64 diamonds", "128 stone", "x64 iron"
+        const countPrefixMatch = afterVerb.match(/^(?:x\s*)?(\d+)\s+([a-zA-Z0-9_\s]+)$/i);
+        if (countPrefixMatch) {
+            const count = parseInt(countPrefixMatch[1], 10);
+            let rawMat = countPrefixMatch[2].trim().replace(/^of\s+/i, '');
             const endStacks = rawMat.match(/^([a-zA-Z0-9_\s]+?)\s+(?:(\d+)|a)?\s*stacks?$/i);
             if (endStacks) {
                 rawMat = endStacks[1].trim();
                 const s = endStacks[2] ? parseInt(endStacks[2], 10) : 1;
-                count = s * 64;
+                return { rawMat, count: s * 64, stacks: s };
             }
-        } else {
-            return null;
+            return { rawMat, count, stacks: Math.max(1, Math.round(count / 64)) };
         }
 
-        // Clean material name
-        rawMat = rawMat.replace(/^of\s+/i, '').replace(/\s+(?:please|pls)$/i, '').trim();
+        // 3. "diamonds 2 stacks", "stone 3 stacks", "diamonds stack"
+        const stackSuffixMatch = afterVerb.match(/^([a-zA-Z0-9_\s]+?)\s+(?:(\d+)|a)?\s*stacks?$/i);
+        if (stackSuffixMatch && !/^(stay|follow|defend|guard|bridge|tpa|back)/i.test(stackSuffixMatch[1])) {
+            const stacks = stackSuffixMatch[2] ? parseInt(stackSuffixMatch[2], 10) : 1;
+            let rawMat = stackSuffixMatch[1].trim().replace(/^of\s+/i, '');
+            return { rawMat, count: stacks * 64, stacks };
+        }
 
-        // If rawMat is empty or a non-material verb, skip
-        if (!rawMat || /^(?:me|orbryx|here|area|perimeter|shelter|house)$/i.test(rawMat)) return null;
+        // 4. "diamonds 64", "stone 128"
+        const countSuffixMatch = afterVerb.match(/^([a-zA-Z0-9_\s]+?)\s+(?:x\s*)?(\d+)$/i);
+        if (countSuffixMatch && !/^(stay|follow|defend|guard|bridge|tpa|back)/i.test(countSuffixMatch[1])) {
+            const count = parseInt(countSuffixMatch[2], 10);
+            let rawMat = countSuffixMatch[1].trim().replace(/^of\s+/i, '');
+            return { rawMat, count, stacks: Math.max(1, Math.round(count / 64)) };
+        }
 
-        return { rawMat, count, stacks: Math.max(1, Math.round(count / 64)) };
+        // 5. If gatherAction was present: "diamonds", "stone", "iron", "apples" (no count provided -> default 64 / 1 stack)
+        if (gatherAction) {
+            let rawMat = afterVerb.replace(/^of\s+/i, '').replace(/\s+(?:please|pls)$/i, '').trim();
+            if (rawMat && !/^(?:me|orbryx|here|area|perimeter|shelter|house)$/i.test(rawMat)) {
+                return { rawMat, count: 64, stacks: 1 };
+            }
+        }
+
+        return null;
     }
 
     resolveMaterialIntent(rawMat) {
@@ -625,11 +673,11 @@ export class Agent {
         if (m === 'end_stone' || m === 'endstone') return { category: 'material', target: 'end_stone' };
 
         // Ores
-        if (m === 'iron' || m === 'iron_ore') return { category: 'material', target: 'iron_ore' };
+        if (m === 'iron' || m === 'iron_ore' || m === 'raw_iron') return { category: 'material', target: 'iron_ore' };
         if (m === 'coal' || m === 'coal_ore') return { category: 'material', target: 'coal_ore' };
-        if (m === 'copper' || m === 'copper_ore') return { category: 'material', target: 'copper_ore' };
-        if (m === 'gold' || m === 'gold_ore') return { category: 'material', target: 'gold_ore' };
-        if (m === 'diamond' || m === 'diamonds' || m === 'diamond_ore') return { category: 'material', target: 'diamond_ore' };
+        if (m === 'copper' || m === 'copper_ore' || m === 'raw_copper') return { category: 'material', target: 'copper_ore' };
+        if (m === 'gold' || m === 'gold_ore' || m === 'raw_gold') return { category: 'material', target: 'gold_ore' };
+        if (m === 'diamond' || m === 'diamonds' || m === 'diamond_ore' || m === 'deepslate_diamond' || m === 'deepslate_diamonds' || m === 'deepslate_diamond_ore') return { category: 'material', target: 'diamond_ore' };
         if (m === 'redstone' || m === 'redstone_ore') return { category: 'material', target: 'redstone_ore' };
         if (m === 'lapis' || m === 'lapis_lazuli' || m === 'lapis_ore') return { category: 'material', target: 'lapis_ore' };
         if (m === 'emerald' || m === 'emeralds' || m === 'emerald_ore') return { category: 'material', target: 'emerald_ore' };
@@ -647,7 +695,8 @@ export class Agent {
 
     async handleFastShortcut(source, raw) {
         if (!raw || typeof raw !== 'string') return false;
-        const lower = raw.toLowerCase().trim();
+        const cleanRaw = this.cleanUserInput ? this.cleanUserInput(raw) : raw.trim();
+        const lower = (cleanRaw || raw).toLowerCase().trim();
 
         // Direct manual /tpa execution - strictly manual, bypasses AI completely
         const tpaMatch = lower.match(/^(?:do\s+)?(?:\/)?tpa(?:\s+([a-zA-Z0-9_]+))?$/i);
@@ -667,7 +716,7 @@ export class Agent {
         }
 
         // Direct Minecraft slash commands (e.g. "/tpa orbryx", "do /tpa orbryx", "/home", "/spawn", "/gamemode")
-        const slashMatch = raw.match(/^(?:do\s+)?(\/[a-zA-Z0-9_-]+(?:\s+.*)?)$/i);
+        const slashMatch = (cleanRaw || raw).match(/^(?:do\s+)?(\/[a-zA-Z0-9_-]+(?:\s+.*)?)$/i);
         if (slashMatch) {
             const slashCmd = slashMatch[1].trim();
             console.log(`[FastCommand] ${this.name} executing direct slash command: ${slashCmd}`);
@@ -1085,7 +1134,7 @@ export class Agent {
         const from_other_bot = convoManager.isOtherAgent(source);
 
         if (!self_prompt && !from_other_bot) { // from user, check for fast commands or forced commands
-            const raw = message.trim();
+            const raw = (this.cleanUserInput ? this.cleanUserInput(message) : message.trim()) || message.trim();
             const lower = raw.toLowerCase();
 
             // Check for multi-goal squad task delegation (e.g. "get logs and food", "mine wood and defend", "Doombot mine cobblestone, Doombot2 farm crops")
@@ -1098,7 +1147,7 @@ export class Agent {
             const fastHandled = await this.handleFastShortcut(source, raw);
             if (fastHandled) return true;
 
-            const user_command_name = containsCommand(message);
+            const user_command_name = containsCommand(raw) || containsCommand(message);
             if (user_command_name) {
                 if (!commandExists(user_command_name)) {
                     this.routeResponse(source, `Command '${user_command_name}' does not exist.`);
@@ -1110,7 +1159,7 @@ export class Agent {
                     // add the preceding message to the history to give context for newAction
                     this.history.add(source, message);
                 }
-                let execute_res = await executeCommand(this, message);
+                let execute_res = await executeCommand(this, raw.includes(user_command_name) ? raw : message);
                 if (execute_res) 
                     this.routeResponse(source, execute_res);
                 return true;
@@ -1152,10 +1201,21 @@ export class Agent {
             } catch (err) {
                 const errMsg = String(err?.message || err);
                 console.error(`[AI: ${this.name}] Prompt error:`, errMsg);
-                if (errMsg.includes('429') || errMsg.includes('Rate limit') || errMsg.includes('ECONNREFUSED') || errMsg.includes('API Key is missing')) {
-                    this.routeResponse(source, "AI is offline or rate-limited. Offline Engine Active! Use commands like: mine, farm, defend, follow me, craft, smelt, build, inv, status, or type 'help'.");
+                // Zero-AI Fallback: Check if message can be executed via offline commands
+                const fastFallback = await this.handleFastShortcut(source, message);
+                if (fastFallback) {
+                    console.log(`[OfflineFallback] ${this.name} fulfilled "${message}" via offline fast commands after AI error.`);
+                    break;
+                }
+                const offlineFallback = await handleOfflineCommand(this, source, message);
+                if (offlineFallback) {
+                    console.log(`[OfflineFallback] ${this.name} fulfilled "${message}" via offline command suite after AI error.`);
+                    break;
+                }
+                if (errMsg.includes('429') || errMsg.includes('Rate limit') || errMsg.includes('ECONNREFUSED') || errMsg.includes('API Key is missing') || errMsg.includes('404')) {
+                    this.routeResponse(source, "⚡ AI is offline or rate-limited. Offline Engine Active! Use commands like: mine 64 diamonds, farm, defend, follow me, craft, smelt, build, inv, status, or type 'help'.");
                 } else {
-                    this.routeResponse(source, "I encountered an error connecting to my AI model. Type 'help' for offline commands.");
+                    this.routeResponse(source, "I encountered an error connecting to my AI model. Type 'help' for zero-API offline commands.");
                 }
                 break;
             }
@@ -1165,8 +1225,19 @@ export class Agent {
                 break; // empty response ends loop
             }
 
-            if (res.includes('My brain disconnected') || res.includes('rate_limit_exceeded')) {
-                res = "Groq daily token limit reached. Offline Engine Active! Use: mine, farm, defend, follow me, status, or type 'help'.";
+            if (res.includes('My brain disconnected') || res.includes('rate_limit_exceeded') || res.includes('Offline Engine Active') || res.includes('AI_OFFLINE') || res.includes('NOT_FOUND') || res.includes('404')) {
+                // Zero-AI Fallback: Check if message can be executed via offline commands
+                const fastFallback = await this.handleFastShortcut(source, message);
+                if (fastFallback) {
+                    console.log(`[OfflineFallback] ${this.name} fulfilled "${message}" via offline fast commands after AI disconnect.`);
+                    break;
+                }
+                const offlineFallback = await handleOfflineCommand(this, source, message);
+                if (offlineFallback) {
+                    console.log(`[OfflineFallback] ${this.name} fulfilled "${message}" via offline command suite after AI disconnect.`);
+                    break;
+                }
+                res = "AI model offline or rate-limited. Offline Engine Active! Use: mine 64 diamonds, farm, defend, follow me, status, or type 'help'.";
             }
 
             console.log(`${this.name} full response to ${source}: ""${res}""`);

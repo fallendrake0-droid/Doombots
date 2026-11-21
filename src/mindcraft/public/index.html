@@ -988,6 +988,7 @@
     <nav class="nav-tabs">
         <button class="nav-tab active" onclick="switchTab('squad')">🤖 Squad Overview</button>
         <button class="nav-tab" onclick="switchTab('commander')">🧠 AI Commander</button>
+        <button class="nav-tab" onclick="switchTab('zeroai')">⚡ Zero-AI Commands</button>
         <button class="nav-tab" onclick="switchTab('commands100')">⚡ 100 Commands</button>
         <button class="nav-tab" onclick="switchTab('players')">👤 Players & Mobs</button>
         <button class="nav-tab" onclick="switchTab('schematics')">📐 Schematics</button>
@@ -1125,6 +1126,125 @@
                     No active mission dispatched. Enter an objective above or click an operation to instruct the squad.
                 </div>
             </div>
+        </div>
+    </main>
+
+    <!-- TAB: NO AI NEEDED COMMANDS (ZERO-TOKEN / ZERO-API OFFLINE SUITE) -->
+    <main id="tab-zeroai" class="tab-content" style="display:none;">
+        <!-- Prominent Hero Banner -->
+        <div class="info-card" style="margin-bottom:20px; border: 1.5px solid var(--cyan); background: linear-gradient(135deg, rgba(88,166,255,0.12) 0%, rgba(35,134,54,0.08) 50%, rgba(22,27,34,0.98) 100%);">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:12px;">
+                <div>
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+                        <span style="font-size:1.8rem;">⚡</span>
+                        <h2 style="margin:0; font-size:1.4rem; color:#fff; font-weight:800; letter-spacing:0.5px;">NO AI NEEDED COMMANDS (ZERO-TOKEN / ZERO-API)</h2>
+                        <span class="status-badge online" style="background:#238636; border-color:#2ea043; font-weight:700;">100% OFFLINE ACTIVE</span>
+                    </div>
+                    <p style="font-size:0.92rem; color:var(--text-muted); margin:0; line-height:1.4;">
+                        Instant, zero-latency bot control executing directly via regex interception in <code style="color:var(--cyan);">agent.js</code> and <code style="color:var(--cyan);">offline_commands.js</code>. <strong>Zero LLM calls, zero tokens burned, zero API keys required, and immune to Groq/Gemini rate limits or 404 errors!</strong>
+                    </p>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <div style="font-weight:700; font-size:0.85rem; color:var(--green); background:rgba(35,134,54,0.15); padding:8px 16px; border-radius:20px; border:1px solid rgba(46,160,67,0.4);" id="zeroAiCountBadge">
+                        ⚡ 60+ Zero-API Commands Ready
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Action Feature Cards -->
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:12px; margin-top:16px;">
+                <div style="background:var(--bg-dark); border:1px solid rgba(88,166,255,0.3); border-radius:8px; padding:12px;">
+                    <div style="font-weight:700; color:var(--cyan); margin-bottom:6px; font-size:0.95rem; display:flex; align-items:center; gap:6px;">
+                        <span>💎</span> Deepslate Diamond Expeditions
+                    </div>
+                    <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">
+                        Descends to optimal diamond level (Y=-58), seals lava, avoids open caves, clears falling gravel, and mines diamond veins.
+                    </p>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('mine 64 diamonds')">💎 Mine 64 Diamonds</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('mine 2 stacks of diamonds')">💎 2 Stacks (128)</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('dig to diamond level')">⛏️ Dig to Y=-58</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('max ore scan')">🔍 64m Ore Scan</button>
+                    </div>
+                </div>
+
+                <div style="background:var(--bg-dark); border:1px solid rgba(241,224,90,0.3); border-radius:8px; padding:12px;">
+                    <div style="font-weight:700; color:#f1e05a; margin-bottom:6px; font-size:0.95rem; display:flex; align-items:center; gap:6px;">
+                        <span>⛏️</span> Multi-Stack Material Gathering
+                    </div>
+                    <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">
+                        Excavate stone, dirt, ores, sand, andesite, gravel, or logs in collaborative squad formation. Specify any number of stacks!
+                    </p>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('mine 3 stacks of stone')">⛏️ 3 Stacks Stone</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('mine 2 stacks of dirt')">🌱 2 Stacks Dirt</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('mine 64 iron')">⛓️ 64 Iron Ore</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('mine 64 coal')">⬛ 64 Coal</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('mine 64 gold')">🪙 64 Gold</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('mine 64 wood')">🌲 64 Wood Logs</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('collect 64 apples')">🍎 64 Apples</button>
+                    </div>
+                </div>
+
+                <div style="background:var(--bg-dark); border:1px solid rgba(248,81,73,0.3); border-radius:8px; padding:12px;">
+                    <div style="font-weight:700; color:var(--red); margin-bottom:6px; font-size:0.95rem; display:flex; align-items:center; gap:6px;">
+                        <span>🛡️</span> Combat, Escort & Survival
+                    </div>
+                    <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">
+                        Defend teammates, escort ally orbryx, auto-equip highest DPS weapons and shields, /tpa, and auto-eat to regenerate health.
+                    </p>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('defend the area')">⚔️ Defend Area</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('follow orbryx')">🏃 Follow orbryx</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('/tpa orbryx')">📍 /tpa orbryx</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('/back')">🔄 /back</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('auto equip')">🛡️ Auto Best Gear</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('eat')">🍗 Eat Food</button>
+                        <button class="btn btn-red btn-sm" onclick="sendSquadCommand('stop')">🛑 Emergency Stop</button>
+                    </div>
+                </div>
+
+                <div style="background:var(--bg-dark); border:1px solid rgba(46,160,67,0.3); border-radius:8px; padding:12px;">
+                    <div style="font-weight:700; color:var(--green); margin-bottom:6px; font-size:0.95rem; display:flex; align-items:center; gap:6px;">
+                        <span>🎒</span> Inspection & Logistics
+                    </div>
+                    <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">
+                        Inspect 36-slot inventories, view vital statistics, vacuum dropped floor items, construct emergency survival shelters.
+                    </p>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('inv')">🎒 Show Inventory</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('status')">📊 Vitals & HP</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('pickup')">🧲 Vacuum Items</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('build dirt shelter')">🏠 Build Shelter</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('squad farm crops')">🌾 Farm Crops</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search and Filter Bar -->
+        <div class="info-card" style="margin-bottom:20px;">
+            <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
+                <input id="searchZeroAiInput" type="text" class="squad-input" style="flex:1; min-width:260px;" placeholder="🔍 Filter Zero-AI commands (e.g. 'diamond', 'stone', 'iron', 'wood', 'defend', 'tpa', 'inv', 'eat')..." oninput="filterZeroAiCommands()">
+                <button class="btn btn-neutral btn-sm" onclick="clearZeroAiFilter()">Clear Filter</button>
+            </div>
+
+            <!-- Category Pills -->
+            <div class="quick-chips" style="margin-top:0; gap:8px;">
+                <button class="chip-btn" id="zeroAiCatBtn-all" style="border-color:var(--cyan); background:rgba(88,166,255,0.15);" onclick="setZeroAiCategory('all', this)">All Commands</button>
+                <button class="chip-btn" onclick="setZeroAiCategory('mining', this)">💎 Diamonds & Ores</button>
+                <button class="chip-btn" onclick="setZeroAiCategory('gathering', this)">⛏️ Stacks & Quarrying</button>
+                <button class="chip-btn" onclick="setZeroAiCategory('combat', this)">⚔️ Combat & Defense</button>
+                <button class="chip-btn" onclick="setZeroAiCategory('movement', this)">🏃 Movement & TPA</button>
+                <button class="chip-btn" onclick="setZeroAiCategory('inventory', this)">🎒 Inventory & Items</button>
+                <button class="chip-btn" onclick="setZeroAiCategory('survival', this)">🍎 Survival & Building</button>
+                <button class="chip-btn" onclick="setZeroAiCategory('squad', this)">🤝 Squad Teamwork</button>
+            </div>
+        </div>
+
+        <!-- Zero AI Commands Grid -->
+        <div id="zeroAiCommandsContainer" class="commands-grid">
+            <!-- Rendered dynamically by JavaScript -->
         </div>
     </main>
 
@@ -2695,6 +2815,171 @@
         }
         window.clear100Filter = clear100Filter;
 
+        // --- ZERO-AI OFFLINE COMMANDS REPERTOIRE (NO TOKENS, NO API KEYS) ---
+        const ZERO_AI_COMMANDS = [
+            // Diamonds & Ores (Mining)
+            { name: 'mine 64 diamonds', cat: 'mining', desc: 'Descends down to Y=-58 with hazard protection (seals lava, avoids caves) and extracts 1 full stack of diamonds.' },
+            { name: 'mine 2 stacks of diamonds', cat: 'mining', desc: 'Squad teamwork mining run extracting 128 deepslate diamonds down at Y=-58.' },
+            { name: 'dig to diamond level', cat: 'mining', desc: 'Safely carves a walkable 1x2 staircase down to optimal diamond Y level (-58).' },
+            { name: 'max ore scan', cat: 'mining', desc: 'Deep 64-block spherical scanner locating diamond veins, ancient debris, gold, and iron with coordinates.' },
+            { name: 'mine 64 iron', cat: 'mining', desc: 'Extracts 64 raw iron ore veins using coordinated squad ore scanning.' },
+            { name: 'mine 64 coal', cat: 'mining', desc: 'Mines 64 coal ore blocks for immediate torch crafting and furnace smelting.' },
+            { name: 'mine 64 gold', cat: 'mining', desc: 'Excavates 64 gold ore blocks at deep layers with pickaxe auto-swap.' },
+            { name: 'mine 64 copper', cat: 'mining', desc: 'Mines 64 copper ore blocks in defensive formation.' },
+            { name: 'mine 64 redstone', cat: 'mining', desc: 'Harvests 64 redstone ore blocks with light-level awareness.' },
+            { name: 'mine 64 lapis', cat: 'mining', desc: 'Harvests 64 lapis lazuli ore blocks for enchanting.' },
+            { name: 'mine 64 ancient debris', cat: 'mining', desc: 'Mines 64 ancient debris / netherite blocks using diamond pickaxe.' },
+            { name: 'strip mine', cat: 'mining', desc: 'Excavates a straight 1x2 strip mining branch tunnel placing wall torches every 8 blocks.' },
+            { name: 'staircase down', cat: 'mining', desc: 'Carves a safe downward staircase avoiding falling gravel and sand hazards.' },
+            { name: 'quarry', cat: 'mining', desc: 'Excavates a clean 3x3 quarry pit downward for bulk stone gathering.' },
+
+            // Material Stacks & Quarrying (Gathering)
+            { name: 'mine 3 stacks of stone', cat: 'gathering', desc: 'Quarries 192 cobblestone/stone blocks with torch placement and guard sentry.' },
+            { name: 'mine 2 stacks of dirt', cat: 'gathering', desc: 'Excavates 128 dirt blocks for earthworks and landscaping.' },
+            { name: 'mine 64 wood', cat: 'gathering', desc: 'Logs 64 oak timber logs in squad formation (strictly avoids replanting saplings).' },
+            { name: 'mine 2 stacks of wood', cat: 'gathering', desc: 'Fells trees and gathers 128 logs without replanting saplings.' },
+            { name: 'collect 64 apples', cat: 'gathering', desc: 'Gathers 64 apples dropped from decayed oak leaves and floor drops.' },
+            { name: 'collect apples', cat: 'gathering', desc: 'Squad sweeps surrounding forest for fallen and harvested apples.' },
+            { name: 'mine 64 andesite', cat: 'gathering', desc: 'Mines 64 andesite blocks with stone pickaxe.' },
+            { name: 'mine 64 gravel', cat: 'gathering', desc: 'Excavates 64 gravel blocks safely with torch drop mechanics.' },
+            { name: 'mine 64 sand', cat: 'gathering', desc: 'Excavates 64 sand blocks for glass and mortar.' },
+            { name: 'mine 64 diorite', cat: 'gathering', desc: 'Extracts 64 diorite blocks.' },
+            { name: 'mine 64 granite', cat: 'gathering', desc: 'Extracts 64 granite blocks.' },
+            { name: 'mine 64 deepslate', cat: 'gathering', desc: 'Extracts 64 cobbled deepslate blocks.' },
+            { name: 'mine 64 obsidian', cat: 'gathering', desc: 'Mines 64 obsidian blocks with diamond pickaxe.' },
+
+            // Combat & Defense (Combat)
+            { name: 'defend the area', cat: 'combat', desc: 'Eliminates all hostile mobs within 24 blocks and secures area with torches.' },
+            { name: 'hunt hostiles', cat: 'combat', desc: 'Actively tracks down and neutralizes zombies, skeletons, spiders, and creepers.' },
+            { name: 'auto equip', cat: 'combat', desc: 'Equips highest attack damage weapon, strongest armor, and off-hand shield.' },
+            { name: 'guard location', cat: 'combat', desc: 'Stations bot as sentry guard at current coordinates attacking intruders.' },
+            { name: 'shield up', cat: 'combat', desc: 'Equips shield in off-hand and raises guard stance against ranged attacks.' },
+            { name: 'attack zombie', cat: 'combat', desc: 'Targets and slays nearest zombie.' },
+            { name: 'attack skeleton', cat: 'combat', desc: 'Charges and neutralizes nearest ranged skeleton.' },
+            { name: 'attack creeper', cat: 'combat', desc: 'Executes hit-and-retreat strikes on creeper to eliminate without exploding.' },
+
+            // Movement & TPA (Movement)
+            { name: '/tpa orbryx', cat: 'movement', desc: 'Strictly manual /tpa teleport request sent to permanent ally orbryx (zero AI).' },
+            { name: '/back', cat: 'movement', desc: 'Executes /back command on respawn to recover death point items safely.' },
+            { name: 'follow orbryx', cat: 'movement', desc: 'Locks onto permanent ally orbryx and maintains tactical escort formation.' },
+            { name: 'come here', cat: 'movement', desc: 'Pathfinds directly to the commanding player and stands beside them.' },
+            { name: 'look at me', cat: 'movement', desc: 'Rotates head to look directly at the commanding player.' },
+            { name: 'stay', cat: 'movement', desc: 'Freezes in place, clears navigation goals, and holds position indefinitely.' },
+            { name: 'stop', cat: 'movement', desc: 'Emergency halt: cancels all active mining, fighting, pathfinding, and building tasks.' },
+            { name: 'jump', cat: 'movement', desc: 'Executes an immediate jump.' },
+            { name: 'crouch', cat: 'movement', desc: 'Toggles sneak/crouch stance to safely traverse ledges without falling.' },
+
+            // Inventory & Items (Inventory)
+            { name: 'inv', cat: 'inventory', desc: 'Displays precise 36-slot item counts, equipped armor, main hand, and off-hand gear.' },
+            { name: 'status', cat: 'inventory', desc: 'Reports HP (out of 20), Hunger (out of 20), Armor level, XYZ coordinates, and current state.' },
+            { name: 'pickup', cat: 'inventory', desc: 'Sweeps 24-block radius, vacuums all floating item drops, and equips best gear.' },
+            { name: 'drop all', cat: 'inventory', desc: 'Tosses entire inventory onto the ground for teammate collection.' },
+            { name: 'deposit all', cat: 'inventory', desc: 'Transfers gathered minerals, wood, and stones into nearest storage chest.' },
+            { name: 'dump trash', cat: 'inventory', desc: 'Discards junk items (poisonous potatoes, excess seeds, rotten flesh).' },
+
+            // Survival & Building (Survival)
+            { name: 'eat', cat: 'survival', desc: 'Eats highest saturation food from inventory until hunger points reach full.' },
+            { name: 'sleep', cat: 'survival', desc: 'Finds nearest bed, waits for night, sleeps to reset spawn and skip night.' },
+            { name: 'build dirt shelter', cat: 'survival', desc: 'Constructs an immediate survival bunker with door opening and perimeter defense.' },
+            { name: 'craft crafting_table', cat: 'survival', desc: 'Crafts workbench from available planks.' },
+            { name: 'craft wooden_pickaxe', cat: 'survival', desc: 'Crafts basic wooden pickaxe for initial stone quarrying.' },
+            { name: 'craft stone_pickaxe', cat: 'survival', desc: 'Crafts durable stone pickaxe for iron and coal extraction.' },
+            { name: 'smelt iron', cat: 'survival', desc: 'Cooks raw iron in nearest furnace using coal or wood fuel.' },
+            { name: 'smelt food', cat: 'survival', desc: 'Cooks raw beef, pork, or mutton in furnace to restore high nutrition.' },
+            { name: 'place torch', cat: 'survival', desc: 'Places wall/floor torch to bring light level above hostile mob spawn threshold.' },
+
+            // Squad Teamwork (Squad)
+            { name: 'squad mine diamonds', cat: 'squad', desc: '5-bot collaborative diamond expedition: lead miner tunnels, branch miner digs shafts, torch bearer lights up, sentry defends, hauler vacuums drops.' },
+            { name: 'squad mine stone', cat: 'squad', desc: 'Coordinated quarrying operation: 2 bots excavate stone, 1 places torches, 1 guards against mobs, 1 hauls.' },
+            { name: 'squad mine wood', cat: 'squad', desc: 'Multi-bot timber felling and apple harvesting expedition (no replanting).' },
+            { name: 'squad mine ores', cat: 'squad', desc: 'Collaborative deepslate ore vein excavation with 64m radar.' },
+            { name: 'squad farm crops', cat: 'squad', desc: 'Sector-divided automated crop harvesting and reseeding across farmland.' },
+            { name: 'squad roles', cat: 'squad', desc: 'Displays current assigned squad roles: Miner, Builder, Guard, Farmer, or Hauler.' },
+            { name: 'regroup', cat: 'squad', desc: 'All squad bots immediately converge tightly around Doombot.' },
+            { name: 'distribute items', cat: 'squad', desc: 'Evenly shares food, torches, and mined materials among squad bots.' }
+        ];
+
+        let currentZeroAiCategory = 'all';
+
+        function renderZeroAiCommands() {
+            const container = document.getElementById('zeroAiCommandsContainer');
+            if (!container) return;
+
+            const searchInput = document.getElementById('searchZeroAiInput');
+            const query = (searchInput ? searchInput.value.toLowerCase().trim() : '');
+
+            const filtered = ZERO_AI_COMMANDS.filter(cmd => {
+                const matchesCat = (currentZeroAiCategory === 'all' || cmd.cat === currentZeroAiCategory);
+                const matchesSearch = !query || cmd.name.toLowerCase().includes(query) || cmd.desc.toLowerCase().includes(query) || cmd.cat.toLowerCase().includes(query);
+                return matchesCat && matchesSearch;
+            });
+
+            const badge = document.getElementById('zeroAiCountBadge');
+            if (badge) {
+                badge.textContent = `⚡ ${filtered.length} / ${ZERO_AI_COMMANDS.length} Commands Available`;
+            }
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:30px; color:var(--text-muted); font-size:0.95rem;">No Zero-AI commands found matching "${query}".</div>`;
+                return;
+            }
+
+            const catLabels = {
+                mining: '💎 Diamonds & Ores',
+                gathering: '⛏️ Stacks & Quarry',
+                combat: '⚔️ Combat & Defense',
+                movement: '🏃 Movement & TPA',
+                inventory: '🎒 Inventory & Logistics',
+                survival: '🍎 Survival & Crafting',
+                squad: '🤝 Squad Teamwork'
+            };
+
+            container.innerHTML = filtered.map(cmd => `
+                <div class="command-card" style="border-left: 3px solid var(--cyan);">
+                    <div>
+                        <div class="cmd-header">
+                            <span class="cmd-badge" style="color:#f1e05a;">${cmd.name}</span>
+                            <span class="cmd-category" style="background:rgba(88,166,255,0.12); color:var(--cyan); border:1px solid rgba(88,166,255,0.25);">${catLabels[cmd.cat] || cmd.cat}</span>
+                        </div>
+                        <p class="cmd-desc" style="margin-top:10px;">${cmd.desc}</p>
+                    </div>
+                    <div style="display:flex; gap:8px; margin-top:8px;">
+                        <button class="btn btn-primary btn-sm" style="flex:1;" onclick="sendSquadCommand('${cmd.name.replace(/'/g, "\\'")}')">⚡ Run on Squad</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        window.renderZeroAiCommands = renderZeroAiCommands;
+
+        function setZeroAiCategory(cat, btn) {
+            currentZeroAiCategory = cat;
+            if (btn && btn.parentElement) {
+                Array.from(btn.parentElement.children).forEach(el => {
+                    el.style.borderColor = 'var(--border)';
+                    el.style.background = 'var(--bg-card-hover)';
+                });
+                btn.style.borderColor = 'var(--cyan)';
+                btn.style.background = 'rgba(88,166,255,0.15)';
+            }
+            renderZeroAiCommands();
+        }
+        window.setZeroAiCategory = setZeroAiCategory;
+
+        function filterZeroAiCommands() {
+            renderZeroAiCommands();
+        }
+        window.filterZeroAiCommands = filterZeroAiCommands;
+
+        function clearZeroAiFilter() {
+            const input = document.getElementById('searchZeroAiInput');
+            if (input) input.value = '';
+            currentZeroAiCategory = 'all';
+            const allBtn = document.getElementById('zeroAiCatBtn-all');
+            if (allBtn) setZeroAiCategory('all', allBtn);
+            else renderZeroAiCommands();
+        }
+        window.clearZeroAiFilter = clearZeroAiFilter;
+
         // 1,000+ Schematics Catalog Management
         let allSchematics = [];
         let currentSchematicCat = 'all';
@@ -3121,10 +3406,12 @@
         // Initialize themes, commands, and schematics on DOM ready
         window.addEventListener('DOMContentLoaded', () => {
             initThemeGrid();
+            renderZeroAiCommands();
             render100Commands();
             initSchematics();
         });
         initThemeGrid();
+        renderZeroAiCommands();
         render100Commands();
         initSchematics();
     </script>

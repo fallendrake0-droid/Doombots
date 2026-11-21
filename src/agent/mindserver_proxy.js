@@ -63,7 +63,10 @@ class MindServerProxy {
         this.socket.on('send-message', async (data) => {
             try {
                 const from = data?.from || 'ADMIN';
-                const message = data?.message || String(data);
+                let message = data?.message || String(data);
+                if (typeof message === 'string') {
+                    message = message.trim().replace(/^["'`“‘]+|["'`”’]+$/g, '').trim();
+                }
 
                 // If bot is still connecting/spawning into Minecraft, wait for it to be ready
                 if (!this.agent?.bot?.entity?.position || typeof this.agent?.respondFunc !== 'function') {

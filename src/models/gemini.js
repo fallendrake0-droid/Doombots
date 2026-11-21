@@ -6,7 +6,16 @@ import { getKey } from '../utils/keys.js';
 export class Gemini {
     static prefix = 'google';
     constructor(model_name, url, params) {
-        this.model_name = model_name;
+        let cleanModel = model_name || 'gemini-2.5-flash';
+        if (typeof cleanModel === 'string' && cleanModel.startsWith('google/')) {
+            cleanModel = cleanModel.substring(7);
+        }
+        // Map retired or 404 models to current active versions
+        if (cleanModel === 'gemini-2.0-flash' || cleanModel === 'models/gemini-2.0-flash' || cleanModel === 'gemini-flash-latest') {
+            console.log(`[Gemini] Mapping deprecated model '${cleanModel}' -> 'gemini-2.5-flash'`);
+            cleanModel = 'gemini-2.5-flash';
+        }
+        this.model_name = cleanModel;
         this.params = params;
         this.safetySettings = [
             {
@@ -46,23 +55,42 @@ export class Gemini {
             });
         }
 
-        try {
-            const result = await this.genAI.models.generateContent({
-                model: this.model_name || "gemini-2.5-flash",
-                contents: contents,
-                safetySettings: this.safetySettings,
-                config: {
-                    systemInstruction: systemMessage,
-                    ...(this.params || {})
+        const fallbackCandidates = [
+            this.model_name,
+            'gemini-2.5-flash',
+            'gemini-1.5-flash',
+            'gemini-2.0-flash-001'
+        ].filter(Boolean);
+        const uniqueModels = [...new Set(fallbackCandidates)];
+
+        let lastErr = null;
+        for (const candidateModel of uniqueModels) {
+            try {
+                const result = await this.genAI.models.generateContent({
+                    model: candidateModel,
+                    contents: contents,
+                    safetySettings: this.safetySettings,
+                    config: {
+                        systemInstruction: systemMessage,
+                        ...(this.params || {})
+                    }
+                });
+                const response = (await result?.text) || '';
+                console.log(`[Gemini] Received response using model: ${candidateModel}`);
+                return response;
+            } catch (err) {
+                lastErr = err;
+                const errStr = String(err?.message || err);
+                console.warn(`[Gemini] Model '${candidateModel}' failed: ${errStr}`);
+                if (!errStr.includes('404') && !errStr.includes('NOT_FOUND') && !errStr.includes('is no longer available')) {
+                    // Non-404 error (e.g. rate limit, auth) - do not exhaust candidates
+                    break;
                 }
-            });
-            const response = (await result?.text) || '';
-            console.log('Received.');
-            return response;
-        } catch (err) {
-            console.error('Gemini error:', err?.message || err);
-            return 'My brain disconnected, try again.';
+            }
         }
+
+        console.error('Gemini error:', lastErr?.message || lastErr);
+        return 'Gemini API offline or rate-limited. Offline Engine Active!';
     }
 
     async sendVisionRequest(turns, systemMessage, imageBuffer) {
@@ -87,28 +115,40 @@ export class Gemini {
         })
 
         let res = null;
-        try {
-            console.log('Awaiting Google API vision response...');
-            const result = await this.genAI.models.generateContent({
-                model: this.model_name,
-                contents: contents,
-                safetySettings: this.safetySettings,
-                generationConfig: {
-                    ...(this.params || {})
-                },
-                systemInstruction: systemMessage
-            });
-            res = await result.text;
-            console.log('Received.');
-        } catch (err) {
-            console.log(err);
-            if (err.message.includes("Image input modality is not enabled for models/")) {
-                res = "Vision is only supported by certain models.";
-            } else {
-                res = "An unexpected error occurred, please try again.";
+        let cleanVisionModel = this.model_name || 'gemini-2.5-flash';
+        if (cleanVisionModel === 'gemini-2.0-flash' || cleanVisionModel === 'models/gemini-2.0-flash') {
+            cleanVisionModel = 'gemini-2.5-flash';
+        }
+        const fallbackVision = [cleanVisionModel, 'gemini-2.5-flash', 'gemini-1.5-flash'].filter(Boolean);
+        const uniqueVision = [...new Set(fallbackVision)];
+
+        for (const m of uniqueVision) {
+            try {
+                console.log(`Awaiting Google API vision response (${m})...`);
+                const result = await this.genAI.models.generateContent({
+                    model: m,
+                    contents: contents,
+                    safetySettings: this.safetySettings,
+                    generationConfig: {
+                        ...(this.params || {})
+                    },
+                    systemInstruction: systemMessage
+                });
+                res = await result.text;
+                console.log('Received vision response.');
+                return res;
+            } catch (err) {
+                console.warn(`[Gemini Vision] Model '${m}' error:`, err?.message || err);
+                const errStr = String(err?.message || err);
+                if (errStr.includes("Image input modality is not enabled for models/")) {
+                    res = "Vision is only supported by certain models.";
+                } else if (!errStr.includes('404') && !errStr.includes('NOT_FOUND')) {
+                    res = "An unexpected error occurred, please try again.";
+                    break;
+                }
             }
         }
-        return res;
+        return res || "Vision model unavailable.";
     }
 
     async embed(text) {
