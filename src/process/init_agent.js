@@ -69,6 +69,17 @@ process.on('unhandledRejection', (reason) => {
     if (msg.includes('EPIPE') || msg.includes('ECONNRESET')) {
         process.exit(1);
     }
+    // Filter out known transient pathfinder and digging aborts that occur on action switches or unstuck
+    const transientErrors = [
+        'Digging aborted',
+        'Took to long to decide path to goal',
+        'Path was stopped before it could be completed',
+        'No path to the goal',
+        'GoalChanged'
+    ];
+    if (transientErrors.some(t => msg.includes(t))) {
+        return;
+    }
     formatDiagnostic(reason, 'Unhandled Rejection');
 });
 

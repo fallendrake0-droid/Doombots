@@ -261,7 +261,8 @@ for (let i = 0; i < botCount; i++) {
     await Mindcraft.createAgent(agentSettings);
 
     if (i < botCount - 1) {
-        console.log(`\x1b[36m[Doombots]\x1b[0m Waiting 12s before connecting next bot (avoids Aternos/Spigot connection throttle)...`);
-        await new Promise(resolve => setTimeout(resolve, 12000));
+        const delaySec = parseInt(settings.spawn_delay || 14, 10);
+        console.log(`\x1b[36m[Doombots]\x1b[0m Waiting ${delaySec}s before connecting next bot (avoids Aternos/Spigot connection throttle)...`);
+        await new Promise(resolve => setTimeout(resolve, delaySec * 1000));
     }
 }

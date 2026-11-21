@@ -12,13 +12,20 @@ export function getNearestFreeSpace(bot, size=1, distance=8) {
      * @example
      * let position = world.getNearestFreeSpace(bot, 1, 8);
      **/
-    let empty_pos = bot.findBlocks({
-        matching: (block) => {
-            return block && block.name == 'air';
-        },
-        maxDistance: distance,
-        count: 1000
-    });
+    if (!bot?.entity?.position) return null;
+    let empty_pos = [];
+    try {
+        empty_pos = bot.findBlocks({
+            point: bot.entity.position,
+            matching: (block) => {
+                return block && block.name == 'air';
+            },
+            maxDistance: distance,
+            count: 1000
+        }) || [];
+    } catch {
+        return null;
+    }
     for (let i = 0; i < empty_pos.length; i++) {
         let empty = true;
         for (let x = 0; x < size; x++) {
@@ -51,6 +58,7 @@ export function getBlockAtPosition(bot, x=0, y=0, z=0) {
      * let blockBelow = world.getBlockAtPosition(bot, 0, -1, 0);
      * let blockAbove = world.getBlockAtPosition(bot, 0, 2, 0); since minecraft position is at the feet
      **/
+    if (!bot?.entity?.position) return { name: 'air' };
     let block = bot.blockAt(bot.entity.position.offset(x, y, z));
     if (!block) block = {name: 'air'};
        
@@ -85,6 +93,7 @@ export function getFirstBlockAboveHead(bot, ignore_types=null, distance=32) {
      * @example
      * let firstBlockAboveHead = world.getFirstBlockAboveHead(bot, null, 32);
      **/
+    if (!bot?.entity?.position) return 'none';
     // if ignore_types is not a list, make it a list.
     let ignore_blocks = []; 
     if (ignore_types === null) ignore_blocks = ['air', 'cave_air'];
@@ -152,9 +161,14 @@ export function getNearestBlocksWhere(bot, predicate, distance=8, count=10000) {
      * @example
      * let waterBlocks = world.getNearestBlocksWhere(bot, block => block.name === 'water', 16, 10);
      **/
-    let positions = bot.findBlocks({matching: predicate, maxDistance: distance, count: count});
-    let blocks = positions.map(position => bot.blockAt(position));
-    return blocks;
+    if (!bot?.entity?.position) return [];
+    try {
+        let positions = bot.findBlocks({point: bot.entity.position, matching: predicate, maxDistance: distance, count: count}) || [];
+        let blocks = positions.map(position => bot.blockAt(position)).filter(b => b != null);
+        return blocks;
+    } catch {
+        return [];
+    }
 }
 
 
@@ -169,7 +183,7 @@ export function getNearestBlock(bot, block_type, distance=16) {
      * let coalBlock = world.getNearestBlock(bot, 'coal_ore', 16);
      **/
     let blocks = getNearestBlocks(bot, block_type, distance, 1);
-    if (blocks.length > 0) {
+    if (blocks && blocks.length > 0) {
         return blocks[0];
     }
     return null;
@@ -177,8 +191,10 @@ export function getNearestBlock(bot, block_type, distance=16) {
 
 
 export function getNearbyEntities(bot, maxDistance=16) {
+    if (!bot?.entity?.position || !bot.entities) return [];
     let entities = [];
     for (const entity of Object.values(bot.entities)) {
+        if (!entity?.position) continue;
         const distance = entity.position.distanceTo(bot.entity.position);
         if (distance > maxDistance) continue;
         entities.push({ entity: entity, distance: distance });
@@ -192,14 +208,17 @@ export function getNearbyEntities(bot, maxDistance=16) {
 }
 
 export function getNearestEntityWhere(bot, predicate, maxDistance=16) {
-    return bot.nearestEntity(entity => predicate(entity) && bot.entity.position.distanceTo(entity.position) < maxDistance);
+    if (!bot?.entity?.position) return null;
+    return bot.nearestEntity(entity => entity && entity.position && predicate(entity) && bot.entity.position.distanceTo(entity.position) < maxDistance);
 }
 
 
 export function getNearbyPlayers(bot, maxDistance) {
+    if (!bot?.entity?.position || !bot.entities) return [];
     if (maxDistance == null) maxDistance = 16;
     let players = [];
     for (const entity of Object.values(bot.entities)) {
+        if (!entity?.position) continue;
         const distance = entity.position.distanceTo(bot.entity.position);
         if (distance > maxDistance) continue;
         if (entity.type == 'player' && entity.username != bot.username) {
@@ -318,7 +337,7 @@ export function getPosition(bot) {
      * let position = world.getPosition(bot);
      * let x = position.x;
      **/
-    return bot.entity.position;
+    return bot?.entity?.position || null;
 }
 
 
@@ -426,6 +445,11 @@ export function getBiomeName(bot) {
      * @example
      * let biome = world.getBiomeName(bot);
      **/
-    const biomeId = bot.world.getBiome(bot.entity.position);
-    return mc.getAllBiomes()[biomeId].name;
+    if (!bot?.entity?.position || !bot.world) return 'unknown';
+    try {
+        const biomeId = bot.world.getBiome(bot.entity.position);
+        return mc.getAllBiomes()[biomeId]?.name || 'plains';
+    } catch {
+        return 'unknown';
+    }
 }

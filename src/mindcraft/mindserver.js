@@ -273,7 +273,9 @@ export function createMindServer(host_public = false, port = 8080) {
                 console.log(`[MindServer] Broadcasting command to all bots: ${payload.message}`);
                 for (const name of Object.keys(agent_connections)) {
                     try {
-                        agent_connections[name].socket?.emit('send-message', payload);
+                        if (agent_connections[name]?.socket) {
+                            agent_connections[name].socket.emit('send-message', payload);
+                        }
                     } catch (err) {
                         console.error(`Error sending to ${name}:`, err);
                     }
@@ -281,8 +283,8 @@ export function createMindServer(host_public = false, port = 8080) {
                 return;
             }
 
-			if (!agent_connections[agentName]) {
-				console.warn(`Agent ${agentName} not in game, cannot send message via MindServer.`);
+			if (!agent_connections[agentName] || !agent_connections[agentName].socket) {
+				console.warn(`Agent ${agentName} not ready or not connected, cannot send message.`);
                 return;
 			}
 			try {
@@ -299,7 +301,9 @@ export function createMindServer(host_public = false, port = 8080) {
             console.log(`[MindServer] Broadcasting command to all bots: ${payload.message}`);
             for (const name of Object.keys(agent_connections)) {
                 try {
-                    agent_connections[name].socket?.emit('send-message', payload);
+                    if (agent_connections[name]?.socket) {
+                        agent_connections[name].socket.emit('send-message', payload);
+                    }
                 } catch (err) {
                     console.error(`Error sending to ${name}:`, err);
                 }

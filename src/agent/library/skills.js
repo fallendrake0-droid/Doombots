@@ -452,120 +452,156 @@ export async function collectBlock(bot, blockType, num=1, exclude=null) {
         log(bot, `Invalid number of blocks to collect: ${num}.`);
         return false;
     }
-    let blocktypes = [blockType];
-    if (blockType === 'coal' || blockType === 'diamond' || blockType === 'emerald' || blockType === 'iron' || blockType === 'gold' || blockType === 'lapis_lazuli' || blockType === 'redstone')
-        blocktypes.push(blockType+'_ore');
-    if (blockType.endsWith('ore'))
-        blocktypes.push('deepslate_'+blockType);
-    if (blockType === 'dirt')
-        blocktypes.push('grass_block');
-    if (blockType === 'cobblestone')
-        blocktypes.push('stone');
-    const isLiquid = blockType === 'lava' || blockType === 'water';
+    if (!bot?.entity?.position) {
+        log(bot, `Bot is not spawned in the world yet.`);
+        return false;
+    }
+    bot.modes?.pause('unstuck');
+    try {
+        let blocktypes = [blockType];
+        if (blockType === 'coal' || blockType === 'diamond' || blockType === 'emerald' || blockType === 'iron' || blockType === 'gold' || blockType === 'lapis_lazuli' || blockType === 'redstone')
+            blocktypes.push(blockType+'_ore');
+        if (blockType.endsWith('ore'))
+            blocktypes.push('deepslate_'+blockType);
+        if (blockType === 'dirt')
+            blocktypes.push('grass_block');
+        if (blockType === 'cobblestone')
+            blocktypes.push('stone');
+        const isLiquid = blockType === 'lava' || blockType === 'water';
 
-    let collected = 0;
+        let collected = 0;
 
-    const movements = new pf.Movements(bot);
-    movements.dontMineUnderFallingBlock = false;
-    movements.dontCreateFlow = true;
+        const movements = new pf.Movements(bot);
+        movements.dontMineUnderFallingBlock = false;
+        movements.dontCreateFlow = true;
 
-    // Blocks to ignore safety for, usually next to lava/water
-    const unsafeBlocks = ['obsidian'];
+        // Blocks to ignore safety for, usually next to lava/water
+        const unsafeBlocks = ['obsidian'];
 
-    for (let i=0; i<num; i++) {
-        let blocks = world.getNearestBlocksWhere(bot, block => {
-            if (!blocktypes.includes(block.name)) {
-                return false;
-            }
-            if (exclude) {
-                for (let position of exclude) {
-                    if (block.position.x === position.x && block.position.y === position.y && block.position.z === position.z) {
-                        return false;
+        for (let i=0; i<num; i++) {
+            let blocks = world.getNearestBlocksWhere(bot, block => {
+                if (!blocktypes.includes(block.name)) {
+                    return false;
+                }
+                if (exclude) {
+                    for (let position of exclude) {
+                        if (block.position.x === position.x && block.position.y === position.y && block.position.z === position.z) {
+                            return false;
+                        }
                     }
                 }
-            }
-            if (isLiquid) {
-                // collect only source blocks
-                return block.metadata === 0;
-            }
-            
-            return movements.safeToBreak(block) || unsafeBlocks.includes(block.name);
-        }, 64, 1);
+                if (isLiquid) {
+                    // collect only source blocks
+                    return block.metadata === 0;
+                }
+                
+                return movements.safeToBreak(block) || unsafeBlocks.includes(block.name);
+            }, 64, 1);
 
-        if (blocks.length === 0) {
-            if (collected === 0)
-                log(bot, `No ${blockType} nearby to collect.`);
-            else
-                log(bot, `No more ${blockType} nearby to collect.`);
-            break;
-        }
-        const block = blocks[0];
-        await bot.tool.equipForBlock(block);
-        if (isLiquid) {
-            const bucket = bot.inventory.findInventoryItem('bucket');
-            if (!bucket) {
-                log(bot, `Don't have bucket to harvest ${blockType}.`);
-                return false;
-            }
-            await bot.equip(bucket, 'hand');
-        }
-        const itemId = bot.heldItem ? bot.heldItem.type : null
-        if (!block.canHarvest(itemId)) {
-            log(bot, `Don't have right tools to harvest ${blockType}.`);
-            return false;
-        }
-        try {
-            let success = false;
-            if (isLiquid) {
-                success = await useToolOnBlock(bot, 'bucket', block);
-            }
-            else if (mc.mustCollectManually(blockType)) {
-                await goToPosition(bot, block.position.x, block.position.y, block.position.z, 2);
-                await bot.dig(block);
-                await pickupNearbyItems(bot);
-                success = true;
-            }
-            else {
-                const collectPromise = bot.collectBlock.collect(block);
-                const timeoutPromise = new Promise((_, reject) => {
-                    const timer = setTimeout(() => reject(new Error('Collect block timed out')), 20000);
-                    const pollInterrupt = setInterval(() => {
-                        if (bot.interrupt_code) {
-                            clearTimeout(timer);
-                            clearInterval(pollInterrupt);
-                            try { bot.collectBlock?.cancelTask?.(() => {}); } catch {}
-                            try { bot.pathfinder?.stop(); } catch {}
-                            reject(new Error('Interrupted'));
-                        }
-                    }, 200);
-                    collectPromise.finally(() => {
-                        clearTimeout(timer);
-                        clearInterval(pollInterrupt);
-                    });
-                });
-                await Promise.race([collectPromise, timeoutPromise]);
-                success = true;
-            }
-            if (success)
-                collected++;
-            await autoLight(bot);
-        }
-        catch (err) {
-            if (err.name === 'NoChests') {
-                log(bot, `Failed to collect ${blockType}: Inventory full, no place to deposit.`);
+            if (blocks.length === 0) {
+                if (collected === 0)
+                    log(bot, `No ${blockType} nearby to collect.`);
+                else
+                    log(bot, `No more ${blockType} nearby to collect.`);
                 break;
             }
-            else {
-                log(bot, `Failed to collect ${blockType}: ${err}.`);
-                continue;
+            const block = blocks[0];
+            await bot.tool.equipForBlock(block);
+            if (isLiquid) {
+                const bucket = bot.inventory.findInventoryItem('bucket');
+                if (!bucket) {
+                    log(bot, `Don't have bucket to harvest ${blockType}.`);
+                    return false;
+                }
+                await bot.equip(bucket, 'hand');
             }
+            const itemId = bot.heldItem ? bot.heldItem.type : null
+            if (!block.canHarvest(itemId)) {
+                log(bot, `Don't have right tools to harvest ${blockType}.`);
+                return false;
+            }
+            try {
+                let success = false;
+                if (isLiquid) {
+                    success = await useToolOnBlock(bot, 'bucket', block);
+                }
+                else if (mc.mustCollectManually(blockType)) {
+                    await goToPosition(bot, block.position.x, block.position.y, block.position.z, 2);
+                    try {
+                        await bot.dig(block);
+                        await pickupNearbyItems(bot);
+                        success = true;
+                    } catch (digErr) {
+                        if (digErr?.message?.includes('Digging aborted')) {
+                            log(bot, `Digging of ${blockType} was interrupted.`);
+                            success = false;
+                        } else {
+                            throw digErr;
+                        }
+                    }
+                }
+                else {
+                    const collectPromise = bot.collectBlock.collect(block);
+                    // Prevent unhandled rejection if race timeout or interrupt rejects first
+                    collectPromise.catch(() => {});
+                    const timeoutPromise = new Promise((_, reject) => {
+                        const timer = setTimeout(() => {
+                            try { bot.collectBlock?.cancelTask?.(() => {}); } catch {}
+                            try { bot.pathfinder?.stop(); } catch {}
+                            try { bot.stopDigging?.(); } catch {}
+                            reject(new Error('Collect block timed out'));
+                        }, 25000);
+                        const pollInterrupt = setInterval(() => {
+                            if (bot.interrupt_code) {
+                                clearTimeout(timer);
+                                clearInterval(pollInterrupt);
+                                try { bot.collectBlock?.cancelTask?.(() => {}); } catch {}
+                                try { bot.pathfinder?.stop(); } catch {}
+                                try { bot.stopDigging?.(); } catch {}
+                                reject(new Error('Interrupted'));
+                            }
+                        }, 200);
+                        collectPromise.finally(() => {
+                            clearTimeout(timer);
+                            clearInterval(pollInterrupt);
+                        });
+                    });
+                    try {
+                        await Promise.race([collectPromise, timeoutPromise]);
+                        success = true;
+                    } catch (raceErr) {
+                        try { bot.collectBlock?.cancelTask?.(() => {}); } catch {}
+                        try { bot.pathfinder?.stop(); } catch {}
+                        throw raceErr;
+                    }
+                }
+                if (success)
+                    collected++;
+                await autoLight(bot);
+            }
+            catch (err) {
+                if (err.name === 'NoChests') {
+                    log(bot, `Failed to collect ${blockType}: Inventory full, no place to deposit.`);
+                    break;
+                }
+                else if (err.message && (err.message.includes('Interrupted') || err.message.includes('Digging aborted'))) {
+                    log(bot, `Collection of ${blockType} was interrupted.`);
+                    break;
+                }
+                else {
+                    log(bot, `Failed to collect ${blockType}: ${err}.`);
+                    continue;
+                }
+            }
+            
+            if (bot.interrupt_code)
+                break;  
         }
-        
-        if (bot.interrupt_code)
-            break;  
+        log(bot, `Collected ${collected} ${blockType}.`);
+        return collected > 0;
+    } finally {
+        bot.modes?.unpause('unstuck');
     }
-    log(bot, `Collected ${collected} ${blockType}.`);
-    return collected > 0;
 }
 
 export async function pickupNearbyItems(bot) {
@@ -576,8 +612,12 @@ export async function pickupNearbyItems(bot) {
      * @example
      * await skills.pickupNearbyItems(bot);
      **/
+    if (!bot?.entity?.position) return false;
     const distance = 8;
-    const getNearestItem = bot => bot.nearestEntity(entity => entity.name === 'item' && bot.entity.position.distanceTo(entity.position) < distance);
+    const getNearestItem = bot => {
+        if (!bot?.entity?.position) return null;
+        return bot.nearestEntity(entity => entity && entity.name === 'item' && entity.position && bot.entity.position.distanceTo(entity.position) < distance);
+    };
     let nearestItem = getNearestItem(bot);
     let pickedUp = 0;
     while (nearestItem) {
@@ -611,6 +651,7 @@ export async function breakBlockAt(bot, x, y, z) {
      * await skills.breakBlockAt(bot, position.x, position.y - 1, position.x);
      **/
     if (x == null || y == null || z == null) throw new Error('Invalid position to break block at.');
+    if (!bot?.entity?.position) return false;
     let block = bot.blockAt(Vec3(x, y, z));
     if (block.name !== 'air' && block.name !== 'water' && block.name !== 'lava') {
         if (bot.modes.isOn('cheat')) {
@@ -637,8 +678,16 @@ export async function breakBlockAt(bot, x, y, z) {
                 return false;
             }
         }
-        await bot.dig(block, true);
-        log(bot, `Broke ${block.name} at x:${x.toFixed(1)}, y:${y.toFixed(1)}, z:${z.toFixed(1)}.`);
+        try {
+            await bot.dig(block, true);
+            log(bot, `Broke ${block.name} at x:${x.toFixed(1)}, y:${y.toFixed(1)}, z:${z.toFixed(1)}.`);
+        } catch (digErr) {
+            if (digErr?.message?.includes('Digging aborted')) {
+                log(bot, `Digging of ${block.name} was stopped.`);
+                return false;
+            }
+            throw digErr;
+        }
     }
     else {
         log(bot, `Skipping block at x:${x.toFixed(1)}, y:${y.toFixed(1)}, z:${z.toFixed(1)} because it is ${block.name}.`);
@@ -1143,11 +1192,14 @@ export async function goToGoal(bot, goal) {
     bot.pathfinder.setMovements(final_movements);
     try {
         await bot.pathfinder.goto(goal);
-        clearInterval(doorCheckInterval);
+        if (doorCheckInterval) clearInterval(doorCheckInterval);
         return true;
     } catch (err) {
-        clearInterval(doorCheckInterval);
-        // we need to catch so we can clean up the door check interval, then rethrow the error
+        if (doorCheckInterval) clearInterval(doorCheckInterval);
+        if (err.name === 'PathStopped' || err.name === 'GoalChanged' || err.name === 'Timeout' || (err.message && err.message.includes('Took to long'))) {
+            log(bot, `Path navigation finished: ${err.message || err.name}`);
+            return false;
+        }
         throw err;
     }
 }
@@ -1162,12 +1214,14 @@ function startDoorInterval(bot) {
     if (_doorInterval) {
         clearInterval(_doorInterval);
     }
+    if (!bot?.entity?.position) return null;
     let prev_pos = bot.entity.position.clone();
     let prev_check = Date.now();
     let stuck_time = 0;
 
 
     const doorCheckInterval = setInterval(() => {
+        if (!bot?.entity?.position) return;
         const now = Date.now();
         if (bot.entity.position.distanceTo(prev_pos) >= 0.1) {
             stuck_time = 0;

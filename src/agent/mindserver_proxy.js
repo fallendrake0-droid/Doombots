@@ -60,22 +60,26 @@ class MindServerProxy {
             this.agent.cleanKill();
         });
 		
-        this.socket.on('send-message', (data) => {
+        this.socket.on('send-message', async (data) => {
             try {
                 const from = data?.from || 'ADMIN';
                 const message = data?.message || String(data);
+
+                // If bot is still connecting/spawning into Minecraft, wait for it to be ready
+                if (!this.agent?.bot?.entity?.position || typeof this.agent?.respondFunc !== 'function') {
+                    let waited = 0;
+                    while ((!this.agent?.bot?.entity?.position || typeof this.agent?.respondFunc !== 'function') && waited < 10000) {
+                        await new Promise(r => setTimeout(r, 400));
+                        waited += 400;
+                    }
+                }
+
                 if (typeof this.agent?.respondFunc === 'function') {
                     this.agent.respondFunc(from, message);
-                } else if (typeof this.agent?.handleMessage === 'function') {
+                } else if (this.agent?.bot?.entity?.position && typeof this.agent?.handleMessage === 'function') {
                     this.agent.handleMessage(from, message);
                 } else {
-                    setTimeout(() => {
-                        try {
-                            if (typeof this.agent?.respondFunc === 'function') {
-                                this.agent.respondFunc(from, message);
-                            }
-                        } catch {}
-                    }, 1000);
+                    console.warn(`[${this.agent?.name || 'Agent'}] Discarded message "${message}" because bot is not fully spawned yet.`);
                 }
             } catch (error) {
                 console.error('Error in send-message: ', error?.message || error);

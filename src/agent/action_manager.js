@@ -114,6 +114,24 @@ export class ActionManager {
                 TIMEOUT = this._startTimeout(timeout);
             }
 
+            // Ensure bot is actually spawned and has an entity position before executing actions
+            if (!this.agent.bot?.entity?.position) {
+                let waitCount = 0;
+                while (!this.agent.bot?.entity?.position && waitCount < 25) {
+                    await new Promise(r => setTimeout(r, 200));
+                    waitCount++;
+                }
+                if (!this.agent.bot?.entity?.position) {
+                    const notice = `Bot ${this.agent.name} is not fully spawned in the world yet.`;
+                    console.warn(`[${this.agent.name}] ${notice}`);
+                    this.executing = false;
+                    this.currentActionLabel = '';
+                    this.currentActionFn = null;
+                    clearTimeout(TIMEOUT);
+                    return { success: false, message: notice, interrupted: false, timedout: false };
+                }
+            }
+
             // start the action
             await actionFn();
 

@@ -114,11 +114,20 @@ const modes_list = [
                 return; // don't get stuck when idle
             }
             const bot = agent.bot;
-            const cur_dig_block = bot.targetDigBlock;
-            if (cur_dig_block && !this.prev_dig_block) {
-                this.prev_dig_block = cur_dig_block;
+            if (!bot?.entity?.position) {
+                this.stuck_time = 0;
+                return;
             }
-            if (this.prev_location && this.prev_location.distanceTo(bot.entity.position) < this.distance && cur_dig_block == this.prev_dig_block) {
+            const cur_dig_block = bot.targetDigBlock;
+            // If bot is actively digging a block, it is working, not stuck
+            if (cur_dig_block) {
+                this.prev_location = bot.entity.position.clone();
+                this.stuck_time = 0;
+                this.prev_dig_block = cur_dig_block;
+                this.last_time = Date.now();
+                return;
+            }
+            if (this.prev_location && this.prev_location.distanceTo(bot.entity.position) < this.distance) {
                 this.stuck_time += (Date.now() - this.last_time) / 1000;
             }
             else {
@@ -333,6 +342,10 @@ async function execute(mode, agent, func, timeout=-1) {
         !code_return.interrupted; // this mode action was not interrupted by something else
 
     if (should_reprompt) {
+        if (settings.minimize_tokens || settings.fast_mode) {
+            agent.clearBotLogs();
+            return;
+        }
         // auto prompt to respond to the interruption
         let role = convoManager.inConversation() ? agent.last_sender : 'system';
         let logs = agent.bot.modes.flushBehaviorLog();
