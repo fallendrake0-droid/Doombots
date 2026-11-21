@@ -182,13 +182,15 @@ export async function handleOfflineCommand(agent, source, raw) {
     // 6. SURVIVAL & EMERGENCY
     // -------------------------------------------------------------
     if (/^(?:eat|feed|eat\s+food|heal)$/i.test(lower)) {
-        if (bot.autoEat && typeof bot.autoEat.eat === 'function') {
-            try {
-                await bot.autoEat.eat(true);
-                agent.routeResponse(source, 'Consumed food to restore hunger and health.');
-            } catch {
+        try {
+            const ate = await skills.eatUntilFull(bot, 20);
+            if (ate) {
+                agent.routeResponse(source, `Finished eating. Hunger is now ${Math.round(bot.food)}/20.`);
+            } else {
                 agent.routeResponse(source, 'No suitable food found in inventory.');
             }
+        } catch {
+            agent.routeResponse(source, 'No suitable food found in inventory.');
         }
         return true;
     }

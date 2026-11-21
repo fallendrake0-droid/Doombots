@@ -27,6 +27,14 @@ export class ActionManager {
 
     async stop() {
         if (!this.executing) return;
+        // If bot is currently in the middle of eating food, allow the current bite to finish (~1.6s) before tearing down
+        if (this.agent.bot?.isEating) {
+            let eatWait = 0;
+            while (this.agent.bot.isEating && eatWait < 8) {
+                eatWait++;
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+        }
         let attempts = 0;
         const maxAttempts = 10; // ~3 seconds max wait before forcibly releasing
         while (this.executing && attempts < maxAttempts) {

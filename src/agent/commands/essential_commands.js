@@ -41,15 +41,11 @@ export const essentialCommandsList = [
         perform: async function(agent) {
             const bot = agent.bot;
             if (bot.food >= 20) return 'Hunger is already full (20/20).';
-            const items = bot.inventory.items();
-            const foodItem = items.find(i => FOOD_NAMES.includes(i.name)) || items.find(i => i.name.includes('cooked') || i.name === 'bread' || i.name === 'apple');
-            if (!foodItem) return 'No suitable food found in inventory to eat.';
-            try {
-                await bot.equip(foodItem, 'hand');
-                await bot.consume();
-                return `Ate ${foodItem.name.replace(/_/g, ' ')}. Hunger is now ${Math.round(bot.food)}/20.`;
-            } catch (err) {
-                return `Could not eat: ${err.message}`;
+            const ate = await skills.eatUntilFull(bot, 20);
+            if (ate) {
+                return `Finished eating. Hunger is now full (${Math.round(bot.food)}/20).`;
+            } else {
+                return `Could not finish eating (current hunger: ${Math.round(bot.food)}/20).`;
             }
         }
     },
@@ -59,15 +55,16 @@ export const essentialCommandsList = [
         perform: async function(agent) {
             const bot = agent.bot;
             const items = bot.inventory.items();
-            const healing = items.find(i => i.name.includes('golden_apple') || i.name.includes('potion') || FOOD_NAMES.includes(i.name));
-            if (!healing) return 'No golden apple or restorative items in inventory.';
-            try {
-                await bot.equip(healing, 'hand');
-                await bot.consume();
-                return `Used ${healing.name.replace(/_/g, ' ')} for healing. Health: ${Math.round(bot.health)}/20.`;
-            } catch (err) {
-                return `Could not heal: ${err.message}`;
+            const gApple = items.find(i => i.name.includes('golden_apple'));
+            if (gApple) {
+                await skills.safeEat(bot, gApple.name);
+                return `Consumed golden apple for healing. Health: ${Math.round(bot.health)}/20.`;
             }
+            const ate = await skills.eatUntilFull(bot, 20);
+            if (ate) {
+                return `Ate food to regenerate health. Health: ${Math.round(bot.health)}/20, Food: ${Math.round(bot.food)}/20.`;
+            }
+            return 'No suitable healing food found in inventory.';
         }
     },
     {

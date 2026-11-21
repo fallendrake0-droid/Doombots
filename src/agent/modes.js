@@ -28,10 +28,10 @@ const modes_list = [
         interrupts: ['all'],
         on: true,
         active: false,
-        fall_blocks: ['sand', 'gravel', 'concrete_powder'], // includes matching substrings like 'sandstone' and 'red_sand'
+        fall_blocks: ['gravel', 'sand', 'red_sand', 'concrete_powder'],
         update: async function (agent) {
             const bot = agent.bot;
-            if (!bot?.entity?.position) return;
+            if (!bot?.entity?.position || !Number.isFinite(bot.entity.position.x)) return;
             let block = bot.blockAt(bot.entity.position);
             let blockAbove = bot.blockAt(bot.entity.position.offset(0, 1, 0));
             if (!block) block = {name: 'air'}; // hacky fix when blocks are not loaded
@@ -43,26 +43,29 @@ const modes_list = [
                 bot.setControlState('jump', true);
             }
 
-            // Anti-starvation: Automatically eat when hunger drops below 18 to maintain regeneration
-            if (bot.food !== undefined && bot.food <= 18) {
-                if (bot.autoEat && !bot.autoEat.isEating && typeof bot.autoEat.eat === 'function') {
-                    try { bot.autoEat.eat(true).catch(() => {}); } catch {}
-                }
+            // Anti-starvation: Safely finish eating when hunger drops below 18 to maintain regeneration
+            if (bot.food !== undefined && bot.food <= 18 && !bot.isEating) {
+                execute(this, agent, async () => {
+                    await skills.eatUntilFull(bot);
+                });
             }
 
             // Low-health defense: Raise off-hand shield & auto-eat immediately when taking damage
-            if (bot.health !== undefined && bot.health < 12) {
+            if (bot.health !== undefined && bot.health < 12 && !bot.isEating) {
                 if (bot.inventory?.slots?.[45]?.name === 'shield') {
                     try { bot.activateItem(true); } catch {}
                 }
-                if (bot.autoEat && !bot.autoEat.isEating && typeof bot.autoEat.eat === 'function') {
-                    try { bot.autoEat.eat(true).catch(() => {}); } catch {}
+                if (bot.food !== undefined && bot.food <= 18) {
+                    execute(this, agent, async () => {
+                        await skills.eatUntilFull(bot);
+                    });
                 }
             }
 
-            if (this.fall_blocks.some(name => blockAbove.name.includes(name))) {
+            if (this.fall_blocks.includes(blockAbove.name)) {
                 execute(this, agent, async () => {
-                    await skills.moveAway(bot, 2);
+                    // Instantly dig away suffocating falling block above head
+                    await skills.breakBlockAt(bot, bot.entity.position.x, bot.entity.position.y + 1, bot.entity.position.z);
                 });
             }
             else if (block.name === 'lava' || block.name === 'fire' ||
@@ -127,13 +130,13 @@ const modes_list = [
         max_stuck_time: 20,
         prev_dig_block: null,
         update: async function (agent) {
-            if (agent.isIdle()) { 
+            if (agent.isIdle() || agent.bot?.isEating) { 
                 this.prev_location = null;
                 this.stuck_time = 0;
-                return; // don't get stuck when idle
+                return; // don't get stuck when idle or eating
             }
             const bot = agent.bot;
-            if (!bot?.entity?.position) {
+            if (!bot?.entity?.position || !Number.isFinite(bot.entity.position.x)) {
                 this.stuck_time = 0;
                 return;
             }
@@ -216,6 +219,7 @@ const modes_list = [
         on: true,
         active: false,
         update: async function (agent) {
+            if (!agent.isIdle() || agent.bot?.isEating) return;
             const huntable = world.getNearestEntityWhere(agent.bot, entity => mc.isHuntable(entity), 8);
             if (huntable && await world.isClearPath(agent.bot, huntable)) {
                 execute(this, agent, async () => {
@@ -236,6 +240,10 @@ const modes_list = [
         prev_item: null,
         noticed_at: -1,
         update: async function (agent) {
+            if (!agent.isIdle() || agent.bot?.isEating) {
+                this.noticed_at = -1;
+                return;
+            }
             let item = world.getNearestEntityWhere(agent.bot, entity => entity.name === 'item', 8);
             let empty_inv_slots = agent.bot.inventory ? agent.bot.inventory.emptySlotCount() : 0;
             if (item && item !== this.prev_item && await world.isClearPath(agent.bot, item) && empty_inv_slots > 1) {
@@ -265,6 +273,7 @@ const modes_list = [
         cooldown: 5,
         last_place: Date.now(),
         update: function (agent) {
+            if (!agent.isIdle() || agent.bot?.isEating) return;
             if (world.shouldPlaceTorch(agent.bot)) {
                 if (Date.now() - this.last_place < this.cooldown * 1000) return;
                 execute(this, agent, async () => {
@@ -283,6 +292,7 @@ const modes_list = [
         active: false,
         distance: 0.5,
         update: async function (agent) {
+            if (!agent.isIdle() || agent.bot?.isEating) return;
             const player = world.getNearestEntityWhere(agent.bot, entity => entity.type === 'player', this.distance);
             if (player) {
                 execute(this, agent, async () => {
@@ -443,6 +453,10 @@ class ModeController {
     async update() {
         if (_agent.isIdle()) {
             this.unPauseAll();
+        }
+        if (_agent.bot?.isEating) {
+            // Do not interrupt eating with background modes
+            return;
         }
         for (let mode of modes_list) {
             let interruptible = mode.interrupts.some(i => i === 'all') || mode.interrupts.some(i => i === _agent.actions.currentActionLabel);

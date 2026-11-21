@@ -368,15 +368,69 @@ export class Agent {
         this.bot.on('whisper', handleInboundChat);
         this.bot.on('chat', handleInboundChat);
 
-        // Set up auto-eat (eats earlier at 18 to maintain continuous health regeneration)
+        // Set up auto-eat with guaranteed uninterrupted eating
         this.bot.autoEat.options = {
             priority: 'foodPoints',
             startAt: 18, // Maintain >= 18 hunger so natural health regeneration is always active!
-            bannedFood: ["rotten_flesh", "spider_eye", "poisonous_potato", "pufferfish"],
-            useOffhand: true,
+            bannedFood: ["rotten_flesh", "spider_eye", "poisonous_potato", "pufferfish", "chorus_fruit"],
+            offhand: false, // Always eat with main hand for 100% server compatibility & shield protection
             checkOnItemPickup: true
         };
-        try { this.bot.autoEat.enable(); } catch {}
+        try {
+            this.bot.autoEat.enable();
+            this.bot.autoEat.eat = async () => {
+                return await skills.eatUntilFull(this.bot);
+            };
+        } catch {}
+
+        // Anti-NaN position, rotation, and physics watchdog
+        let lastValidPos = null;
+        let lastValidYaw = 0;
+        let lastValidPitch = 0;
+
+        const origLook = this.bot.look ? this.bot.look.bind(this.bot) : null;
+        if (origLook) {
+            this.bot.look = async (yaw, pitch, force) => {
+                if (!Number.isFinite(yaw) || Number.isNaN(yaw)) yaw = lastValidYaw;
+                if (!Number.isFinite(pitch) || Number.isNaN(pitch)) pitch = lastValidPitch;
+                lastValidYaw = yaw;
+                lastValidPitch = pitch;
+                return origLook(yaw, pitch, force);
+            };
+        }
+
+        const origLookAt = this.bot.lookAt ? this.bot.lookAt.bind(this.bot) : null;
+        if (origLookAt) {
+            this.bot.lookAt = async (point, force) => {
+                if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y) || !Number.isFinite(point.z)) return;
+                return origLookAt(point, force);
+            };
+        }
+
+        this.bot.on('physicTick', () => {
+            if (!this.bot?.entity?.position) return;
+            const pos = this.bot.entity.position;
+            if (Number.isFinite(pos.x) && Number.isFinite(pos.y) && Number.isFinite(pos.z)) {
+                lastValidPos = pos.clone();
+            } else if (lastValidPos) {
+                pos.set(lastValidPos.x, lastValidPos.y, lastValidPos.z);
+                try { this.bot.entity.velocity?.set(0, 0, 0); } catch {}
+            }
+            if (this.bot.entity.yaw !== undefined) {
+                if (Number.isFinite(this.bot.entity.yaw)) {
+                    lastValidYaw = this.bot.entity.yaw;
+                } else {
+                    this.bot.entity.yaw = lastValidYaw;
+                }
+            }
+            if (this.bot.entity.pitch !== undefined) {
+                if (Number.isFinite(this.bot.entity.pitch)) {
+                    lastValidPitch = this.bot.entity.pitch;
+                } else {
+                    this.bot.entity.pitch = lastValidPitch;
+                }
+            }
+        });
 
         // Auto equip best armor & shield immediately on spawn
         setTimeout(async () => {
@@ -817,13 +871,15 @@ export class Agent {
 
         // Direct Offline Eat / Heal (Zero AI)
         if (/^(?:eat|feed|eat\s+food|heal)$/i.test(lower)) {
-            if (this.bot.autoEat && typeof this.bot.autoEat.eat === 'function') {
-                try {
-                    await this.bot.autoEat.eat(true);
-                    this.routeResponse(source, 'Ate food to restore hunger and health.');
-                } catch {
+            try {
+                const ate = await skills.eatUntilFull(this.bot, 20);
+                if (ate) {
+                    this.routeResponse(source, `Finished eating. Hunger is now ${Math.round(this.bot.food)}/20.`);
+                } else {
                     this.routeResponse(source, 'No suitable food found in inventory.');
                 }
+            } catch {
+                this.routeResponse(source, 'No suitable food found in inventory.');
             }
             return true;
         }

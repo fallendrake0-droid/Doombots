@@ -714,12 +714,9 @@ export async function defendSelf(bot, range=12) {
                 }
             }
 
-            // Low health survival safeguard: block with shield & eat
-            if (bot.health < 6) {
-                try { bot.activateItem(true); } catch {}
-                if (bot.autoEat && typeof bot.autoEat.eat === 'function') {
-                    try { await bot.autoEat.eat(true); } catch {}
-                }
+            // Low health survival safeguard: eat to regenerate health
+            if (bot.health < 8 && bot.food !== undefined && bot.food <= 18) {
+                try { await eatUntilFull(bot, 18); } catch {}
             }
 
             // Engage PVP pathfinding towards enemy
@@ -1005,9 +1002,10 @@ export async function breakBlockAt(bot, x, y, z) {
      * let position = world.getPosition(bot);
      * await skills.breakBlockAt(bot, position.x, position.y - 1, position.x);
      **/
-    if (x == null || y == null || z == null) throw new Error('Invalid position to break block at.');
-    if (!bot?.entity?.position) return false;
+    if (x == null || y == null || z == null || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return false;
+    if (!bot?.entity?.position || !Number.isFinite(bot.entity.position.x) || !Number.isFinite(bot.entity.position.z)) return false;
     let block = bot.blockAt(Vec3(x, y, z));
+    if (!block) return false;
     if (block.name !== 'air' && block.name !== 'water' && block.name !== 'lava') {
         if (bot.modes.isOn('cheat')) {
             if (useDelay) { await new Promise(resolve => setTimeout(resolve, blockPlaceDelay)); }
@@ -1153,6 +1151,10 @@ export async function placeBlock(bot, blockType, x, y, z, placeOn='bottom', dont
     }
 
     const targetBlock = bot.blockAt(target_dest);
+    if (!targetBlock) {
+        log(bot, `Cannot place ${blockType} at ${target_dest}: chunk not loaded.`);
+        return false;
+    }
     if (targetBlock.name === blockType || (targetBlock.name === 'grass_block' && blockType === 'dirt')) {
         log(bot, `${blockType} already at ${targetBlock.position}.`);
         return false;
@@ -1193,14 +1195,14 @@ export async function placeBlock(bot, blockType, x, y, z, placeOn='bottom', dont
 
     for (let d of dirs) {
         const block = bot.blockAt(target_dest.plus(d));
-        if (!empty_blocks.includes(block.name)) {
+        if (block && !empty_blocks.includes(block.name)) {
             buildOffBlock = block;
             faceVec = new Vec3(-d.x, -d.y, -d.z); // invert
             break;
         }
     }
     if (!buildOffBlock) {
-        log(bot, `Cannot place ${blockType} at ${targetBlock.position}: nothing to place on.`);
+        log(bot, `Cannot place ${blockType} at ${target_dest}: nothing to place on.`);
         return false;
     }
 
@@ -1424,6 +1426,132 @@ export async function viewChest(bot) {
     return true;
 }
 
+const BANNED_FOODS = ['rotten_flesh', 'spider_eye', 'poisonous_potato', 'pufferfish', 'chorus_fruit'];
+const NOURISHING_FOODS = [
+    'golden_carrot', 'enchanted_golden_apple', 'golden_apple',
+    'cooked_beef', 'steak', 'cooked_porkchop', 'cooked_mutton',
+    'cooked_salmon', 'cooked_chicken', 'baked_potato',
+    'cooked_cod', 'cooked_rabbit', 'bread', 'apple',
+    'carrot', 'beetroot', 'sweet_berries', 'glow_berries', 'melon_slice'
+];
+
+export async function safeEat(bot, preferredItem = null) {
+    /**
+     * Safely consumes a food item from inventory with full completion guarantee:
+     * - Pauses movement so eating animation is never aborted prematurely.
+     * - Holds right-click for the full 32 ticks (~1.61s) required by Minecraft protocol.
+     * - Actively confirms food level increase / stack decrease before releasing.
+     * - Restores previous held tool/weapon after eating finishes.
+     */
+    if (!bot?.inventory) return false;
+    if (bot.food !== undefined && bot.food >= 20) return true;
+
+    // Find best food
+    const items = bot.inventory.items();
+    let foodItem = null;
+    if (preferredItem) {
+        foodItem = items.find(it => it.name === preferredItem && !BANNED_FOODS.includes(it.name));
+    }
+    if (!foodItem) {
+        for (const fname of NOURISHING_FOODS) {
+            foodItem = items.find(it => it.name === fname);
+            if (foodItem) break;
+        }
+    }
+    if (!foodItem) {
+        // Fallback: any edible item in registry
+        foodItem = items.find(it => bot.registry?.foodsByName?.[it.name] && !BANNED_FOODS.includes(it.name));
+    }
+    if (!foodItem) {
+        return false;
+    }
+
+    bot.isEating = true;
+    if (bot.autoEat) bot.autoEat.isEating = true;
+
+    // Pause pathfinding & movement
+    try { bot.pathfinder?.setGoal(null); } catch {}
+    try { bot.stopDigging?.(); } catch {}
+    try { bot.clearControlStates?.(); } catch {}
+
+    const previousHandSlot = bot.getEquipmentDestSlot('hand');
+    const previousItem = bot.inventory.slots[previousHandSlot]?.name || null;
+
+    try {
+        await bot.equip(foodItem, 'hand');
+    } catch {
+        bot.isEating = false;
+        if (bot.autoEat) bot.autoEat.isEating = false;
+        return false;
+    }
+
+    const startFood = bot.food !== undefined ? bot.food : 0;
+    const startCount = foodItem.count;
+
+    // Begin consuming (holding right-click in main hand)
+    bot.deactivateItem();
+    bot.activateItem(false);
+
+    const startTime = Date.now();
+    let consumed = false;
+
+    // Minecraft eating takes 32 ticks (1.61 seconds). Poll up to 2.4s to guarantee completion.
+    while (Date.now() - startTime < 2400) {
+        await new Promise(r => setTimeout(r, 60));
+        const currentHeld = bot.inventory.slots[previousHandSlot];
+        const currentFood = bot.food !== undefined ? bot.food : startFood;
+
+        if (currentFood > startFood || (currentHeld && currentHeld.count < startCount) || !currentHeld) {
+            consumed = true;
+            break;
+        }
+    }
+
+    bot.deactivateItem();
+
+    // If packet timing was delayed, attempt fallback consume
+    if (!consumed && bot.food !== undefined && bot.food <= startFood) {
+        try {
+            await bot.consume();
+            consumed = true;
+        } catch {}
+    }
+
+    // Restore previous tool or weapon
+    if (previousItem && previousItem !== foodItem.name) {
+        const oldItem = bot.inventory.items().find(it => it.name === previousItem);
+        if (oldItem) {
+            try { await bot.equip(oldItem, 'hand'); } catch {}
+        }
+    }
+
+    bot.isEating = false;
+    if (bot.autoEat) bot.autoEat.isEating = false;
+    return consumed;
+}
+
+export async function eatUntilFull(bot, targetHunger = 19) {
+    /**
+     * Keeps eating until hunger level is restored to targetHunger (default: 19).
+     * Prevents partial/interrupted eating cycles.
+     */
+    if (!bot?.inventory) return false;
+    if (bot.food !== undefined && bot.food >= targetHunger) return true;
+
+    log(bot, `[Nutrition] 🍗 Hunger at ${bot.food !== undefined ? Math.round(bot.food) : '?'}/20. Eating until satisfied...`);
+
+    let attempts = 0;
+    while (bot.food !== undefined && bot.food < targetHunger && attempts < 8 && !bot.interrupt_code) {
+        attempts++;
+        const ate = await safeEat(bot);
+        if (!ate) break;
+        await new Promise(r => setTimeout(r, 120));
+    }
+
+    log(bot, `[Nutrition] 😋 Finished eating. Current hunger: ${bot.food !== undefined ? Math.round(bot.food) : 20}/20.`);
+    return bot.food !== undefined ? bot.food >= targetHunger : true;
+}
+
 export async function consume(bot, itemName="") {
     /**
      * Eat/drink the given item.
@@ -1433,20 +1561,22 @@ export async function consume(bot, itemName="") {
      * @example
      * await skills.eat(bot, "apple");
      **/
-    let item, name;
     if (itemName) {
-        item = bot.inventory.findInventoryItem(itemName);
-        name = itemName;
+        const item = bot.inventory.findInventoryItem(itemName);
+        if (!item) {
+            log(bot, `You do not have any ${itemName} to eat.`);
+            return false;
+        }
+        const success = await safeEat(bot, itemName);
+        if (success) {
+            log(bot, `Consumed ${itemName}.`);
+            return true;
+        }
     }
-    if (!item) {
-        log(bot, `You do not have any ${name} to eat.`);
-        return false;
-    }
-    await bot.equip(item, 'hand');
-    await bot.consume();
-    log(bot, `Consumed ${item.name}.`);
-    return true;
+    return await eatUntilFull(bot, 20);
 }
+
+export const eat = consume;
 
 
 export async function giveToPlayer(bot, itemType, username, num=1) {
@@ -1650,8 +1780,12 @@ export async function goToPosition(bot, x, y, z, min_distance=2) {
      * let position = world.world.getNearestBlock(bot, "oak_log", 64).position;
      * await skills.goToPosition(bot, position.x, position.y, position.x + 20);
      **/
-    if (x == null || y == null || z == null) {
-        log(bot, `Missing coordinates, given x:${x} y:${y} z:${z}`);
+    if (x == null || y == null || z == null || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+        log(bot, `Missing or invalid coordinates, given x:${x} y:${y} z:${z}`);
+        return false;
+    }
+    if (!bot?.entity?.position || !Number.isFinite(bot.entity.position.x) || !Number.isFinite(bot.entity.position.z)) {
+        log(bot, `Bot position is invalid, cannot navigate.`);
         return false;
     }
     if (bot.modes.isOn('cheat')) {
@@ -1677,13 +1811,16 @@ export async function goToPosition(bot, x, y, z, min_distance=2) {
     try {
         await goToGoal(bot, new pf.goals.GoalNear(x, y, z, min_distance));
         clearInterval(progressInterval);
+        if (!bot?.entity?.position || !Number.isFinite(bot.entity.position.x) || !Number.isFinite(bot.entity.position.z)) {
+            return false;
+        }
         const distance = bot.entity.position.distanceTo(new Vec3(x, y, z));
-        if (distance <= min_distance+1) {
+        if (Number.isFinite(distance) && distance <= min_distance+1) {
             log(bot, `You have reached at ${x}, ${y}, ${z}.`);
             return true;
         }
         else {
-            log(bot, `Unable to reach ${x}, ${y}, ${z}, you are ${Math.round(distance)} blocks away.`);
+            log(bot, `Unable to reach ${x}, ${y}, ${z}, you are ${Number.isFinite(distance) ? Math.round(distance) : '?'} blocks away.`);
             return false;
         }
     } catch (err) {
@@ -1877,7 +2014,13 @@ export async function moveAway(bot, distance) {
      * @example
      * await skills.moveAway(bot, 8);
      **/
+    if (!bot?.entity?.position) return false;
     const pos = bot.entity.position;
+    if (!Number.isFinite(pos.x) || !Number.isFinite(pos.y) || !Number.isFinite(pos.z)) {
+        try { bot.entity.velocity?.set(0, 0, 0); } catch {}
+        return false;
+    }
+    const originPos = pos.floored();
     let goal = new pf.goals.GoalNear(pos.x, pos.y, pos.z, distance);
     let inverted_goal = new pf.goals.GoalInvert(goal);
     bot.pathfinder.setMovements(new pf.Movements(bot));
@@ -1885,8 +2028,8 @@ export async function moveAway(bot, distance) {
     if (bot.modes.isOn('cheat')) {
         const move = new pf.Movements(bot);
         const path = await bot.pathfinder.getPathTo(move, inverted_goal, 10000);
-        let last_move = path.path[path.path.length-1];
-        if (last_move) {
+        let last_move = path?.path?.[path.path.length-1];
+        if (last_move && Number.isFinite(last_move.x) && Number.isFinite(last_move.y) && Number.isFinite(last_move.z)) {
             let x = Math.floor(last_move.x);
             let y = Math.floor(last_move.y);
             let z = Math.floor(last_move.z);
@@ -1895,9 +2038,13 @@ export async function moveAway(bot, distance) {
         }
     }
 
-    await goToGoal(bot, inverted_goal);
+    try {
+        await goToGoal(bot, inverted_goal);
+    } catch {}
     let new_pos = bot.entity.position;
-    log(bot, `Moved away from ${pos.floored()} to ${new_pos.floored()}.`);
+    if (new_pos && Number.isFinite(new_pos.x) && Number.isFinite(new_pos.z)) {
+        log(bot, `Moved away from ${originPos} to ${new_pos.floored()}.`);
+    }
     return true;
 }
 
@@ -2061,6 +2208,7 @@ export async function tillAndSow(bot, x, y, z, seedType=null) {
      **/
     let pos = new Vec3(Math.floor(x), Math.floor(y), Math.floor(z));
     let block = bot.blockAt(pos);
+    if (!block) return false;
     log(bot, `Planting ${seedType} at x:${x.toFixed(1)}, y:${y.toFixed(1)}, z:${z.toFixed(1)}.`);
 
     if (bot.modes.isOn('cheat')) {
@@ -2080,6 +2228,7 @@ export async function tillAndSow(bot, x, y, z, seedType=null) {
         return false;
     }
     let above = bot.blockAt(new Vec3(x, y+1, z));
+    if (!above) return false;
     if (above.name !== 'air') {
         if (block.name === 'farmland') {
             log(bot, `Land is already farmed with ${above.name}.`);
@@ -2523,6 +2672,7 @@ export async function useToolOn(bot, toolName, targetName) {
      * @param {Block} block - the block reference to use the tool on.
      * @returns {Promise<boolean>} true if action succeeded
      */
+    if (!block || !block.position) return false;
 
     const distance = toolName === 'water_bucket' && block.name !== 'lava' ? 1.5 : 2;
     await goToPosition(bot, block.position.x, block.position.y, block.position.z, distance);
@@ -2638,9 +2788,9 @@ export async function squadMineLogs(bot, targetNum = 384) {
     const minedPositions = new Set();
 
     while (currentLogs < (initialLogs + targetNum) && !bot.interrupt_code) {
-        // Survival check: Eat if hungry
-        if (bot.food !== undefined && bot.food < 16 && bot.autoEat && typeof bot.autoEat.eat === 'function') {
-            try { await bot.autoEat.eat(true); } catch {}
+        // Survival check: Eat until full if hungry
+        if (bot.food !== undefined && bot.food <= 17) {
+            try { await eatUntilFull(bot); } catch {}
         }
 
         // Squad Mutual Protection check: Defend if hostiles nearby
@@ -3042,9 +3192,9 @@ export async function squadCollectApples(bot, targetNum = 64) {
     while (currentApples < (initialApples + targetNum) && cycles < 40 && !bot.interrupt_code) {
         cycles++;
 
-        // Survival check: Eat if hungry
-        if (bot.food !== undefined && bot.food < 16 && bot.autoEat && typeof bot.autoEat.eat === 'function') {
-            try { await bot.autoEat.eat(true); } catch {}
+        // Survival check: Eat until full if hungry
+        if (bot.food !== undefined && bot.food <= 17) {
+            try { await eatUntilFull(bot); } catch {}
         }
 
         // Mutual defense
@@ -3184,9 +3334,9 @@ export async function squadGatherMaterial(bot, materialName, targetNum = 64) {
     while (mined < targetNum && attempts < 30 && !bot.interrupt_code) {
         attempts++;
 
-        // Survival check: Eat if hungry
-        if (bot.food !== undefined && bot.food < 16 && bot.autoEat && typeof bot.autoEat.eat === 'function') {
-            try { await bot.autoEat.eat(true); } catch {}
+        // Survival check: Eat until full if hungry
+        if (bot.food !== undefined && bot.food <= 17) {
+            try { await eatUntilFull(bot); } catch {}
         }
 
         // Mutual defense: defend if hostile mob approaches
@@ -3688,8 +3838,8 @@ export async function safeStaircaseDown(bot, targetY = -58) {
         }
 
         // Eat if hungry
-        if (bot.food !== undefined && bot.food < 16 && bot.autoEat && typeof bot.autoEat.eat === 'function') {
-            try { await bot.autoEat.eat(true); } catch {}
+        if (bot.food !== undefined && bot.food <= 17) {
+            try { await eatUntilFull(bot); } catch {}
         }
 
         const currentPos = bot.entity.position.floored();
@@ -3731,15 +3881,25 @@ export async function safeStaircaseDown(bot, targetY = -58) {
 
             // Verify step floor is solid: if air/liquid, place solid block to walk on
             const floorBlock = bot.blockAt(floorStep);
-            if (!floorBlock || floorBlock.name === 'air' || floorBlock.name === 'cave_air' || floorBlock.name.includes('lava') || floorBlock.name.includes('water')) {
+            if (!floorBlock || floorBlock.name === 'air' || floorBlock.name === 'cave_air' || (floorBlock.name && (floorBlock.name.includes('lava') || floorBlock.name.includes('water')))) {
                 const plugItem = bot.inventory.items().find(it => ['cobblestone', 'cobbled_deepslate', 'deepslate', 'dirt', 'stone'].includes(it.name));
                 if (plugItem) {
-                    await placeBlock(bot, plugItem.name, floorStep.x, floorStep.y, floorStep.z, 'bottom', true);
+                    try {
+                        await placeBlock(bot, plugItem.name, floorStep.x, floorStep.y, floorStep.z, 'bottom', true);
+                    } catch {}
                 }
             }
 
             // Move onto the new step (feet at footStep.y, which is y - 1)
-            await goToPosition(bot, footStep.x + 0.5, footStep.y, footStep.z + 0.5, 0.8);
+            const reached = await goToPosition(bot, footStep.x + 0.5, footStep.y, footStep.z + 0.5, 0.8);
+            if (!reached && bot.entity?.position && Number.isFinite(bot.entity.position.x)) {
+                try {
+                    await bot.lookAt(new Vec3(footStep.x + 0.5, footStep.y + 1, footStep.z + 0.5), true);
+                    bot.setControlState('forward', true);
+                    await new Promise(r => setTimeout(r, 200));
+                    bot.clearControlStates();
+                } catch {}
+            }
 
             // Light with torches every 6 steps
             if (steps % 6 === 0) {
@@ -3799,9 +3959,9 @@ export async function diamondStripMine(bot, maxDiamonds = 64, tunnelLength = 80,
             await equipBestToolFor(bot, 'deepslate_diamond_ore');
         }
 
-        // Survival check: Eat if hungry
-        if (bot.food !== undefined && bot.food < 16 && bot.autoEat && typeof bot.autoEat.eat === 'function') {
-            try { await bot.autoEat.eat(true); } catch {}
+        // Survival check: Eat until full if hungry
+        if (bot.food !== undefined && bot.food <= 17) {
+            try { await eatUntilFull(bot); } catch {}
         }
 
         const curPos = bot.entity.position.floored();
@@ -3914,11 +4074,17 @@ export async function mineDirectlyToTarget(bot, targetPos, maxSteps = 160) {
      * Tunnels directly in a straight bee-line shaft straight to targetPos coordinates.
      * Breaches and clears blocks, bridges liquid/air gaps, places torches, and extracts ore.
      */
-    if (!bot?.entity?.position || !targetPos) return 0;
+    if (!bot?.entity?.position || !Number.isFinite(bot.entity.position.x) || !targetPos) return 0;
     let steps = 0;
 
     while (steps < maxSteps && !bot.interrupt_code) {
         steps++;
+
+        // Survival check: Eat until full if hungry
+        if (bot.food !== undefined && bot.food <= 17) {
+            try { await eatUntilFull(bot); } catch {}
+        }
+
         const curPos = bot.entity.position.floored();
         const dist = bot.entity.position.distanceTo(targetPos);
 
@@ -4038,7 +4204,7 @@ export async function squadMineDiamonds(bot, targetNum = 64) {
      * - If no diamond is currently in loaded surface chunks, carves directly down to Y=-58.
      * - Senses and extracts all contiguous diamond veins with BFS and vacuums all drops.
      */
-    if (!bot?.entity?.position) return false;
+    if (!bot?.entity?.position || !Number.isFinite(bot.entity.position.x)) return false;
     await autoEquipBest(bot);
     await equipBestToolFor(bot, 'deepslate_diamond_ore');
 
@@ -4050,6 +4216,11 @@ export async function squadMineDiamonds(bot, targetNum = 64) {
 
     while (diamondsMined < targetNum && cycles < maxCycles && !bot.interrupt_code) {
         cycles++;
+
+        // Survival check: Eat until full if hungry
+        if (bot.food !== undefined && bot.food <= 17) {
+            try { await eatUntilFull(bot); } catch {}
+        }
 
         // 1. Scan loaded chunks for diamond ores within 128m
         const diamondOres = findNearbyDiamondOres(bot, 128, 40);
