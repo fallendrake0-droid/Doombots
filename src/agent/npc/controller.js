@@ -8,6 +8,7 @@ import { itemSatisfied, rotateXZ } from './utils.js';
 import * as skills from '../library/skills.js';
 import * as world from '../library/world.js';
 import * as mc from '../../utils/mcdata.js';
+import { getProceduralSchematic, getSchematicsCatalog } from './construction/schematics_library.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,8 +21,43 @@ export class NPCContoller {
         this.temp_goals = [];
         this.item_goal = new ItemGoal(agent, this.data);
         this.build_goal = new BuildGoal(agent);
-        this.constructions = {};
+        this.constructions = new Proxy({}, {
+            get: (target, prop) => {
+                if (typeof prop === 'string' && !(prop in target)) {
+                    try {
+                        const schematic = getProceduralSchematic(prop);
+                        if (schematic) {
+                            this.normalizeConstruction(schematic);
+                            target[prop] = schematic;
+                        }
+                    } catch (e) {}
+                }
+                return target[prop];
+            },
+            has: (target, prop) => {
+                if (prop in target) return true;
+                const catalog = getSchematicsCatalog();
+                return catalog.some(c => c.id === prop);
+            }
+        });
         this.last_goals = {};
+    }
+
+    normalizeConstruction(construction) {
+        if (!construction || !construction.blocks || !construction.blocks[0]) return;
+        let sizez = construction.blocks[0].length;
+        let sizex = construction.blocks[0][0].length;
+        let max_size = Math.max(sizex, sizez);
+        for (let y = 0; y < construction.blocks.length; y++) {
+            for (let z = 0; z < max_size; z++) {
+                if (z >= construction.blocks[y].length)
+                    construction.blocks[y].push([]);
+                for (let x = 0; x < max_size; x++) {
+                    if (x >= construction.blocks[y][z].length)
+                        construction.blocks[y][z].push('');
+                }
+            }
+        }
     }
 
     getBuiltPositions() {

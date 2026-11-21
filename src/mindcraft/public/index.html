@@ -694,6 +694,60 @@
             color: var(--text-main);
         }
 
+        /* Schematics Category Filter & Pagination */
+        .category-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .cat-pill {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            user-select: none;
+        }
+        .cat-pill:hover {
+            border-color: var(--cyan);
+            color: #fff;
+        }
+        .cat-pill.active {
+            background: rgba(88, 166, 255, 0.2);
+            border-color: var(--cyan);
+            color: var(--cyan);
+            font-weight: 700;
+        }
+        .pagination-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 18px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .player-badge {
+            font-size: 0.72rem;
+            padding: 2px 7px;
+            border-radius: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .badge-ally { background: rgba(241, 224, 90, 0.2); color: #f1e05a; border: 1px solid rgba(241, 224, 90, 0.4); }
+        .badge-online { background: rgba(63, 185, 80, 0.15); color: #3fb950; border: 1px solid rgba(63, 185, 80, 0.3); }
+        .badge-tab { background: rgba(88, 166, 255, 0.15); color: #58a6ff; border: 1px solid rgba(88, 166, 255, 0.3); }
+
         /* Theme Color Customizer */
         .theme-grid {
             display: grid;
@@ -1035,21 +1089,79 @@
 
     <!-- TAB 2: PLAYERS & MOBS -->
     <main id="tab-players" class="tab-content" style="display:none;">
-        <div class="players-panel">
-            <div class="info-card">
-                <h3><span>👤</span> Players Detected on Server</h3>
-                <div id="playerListContainer">
-                    <div style="color:var(--text-muted); font-size:0.85rem;">Scanning for online players...</div>
+        <div style="display:flex; flex-direction:column; gap:20px;">
+            <!-- VIP Immutable Ally: orbryx -->
+            <div class="info-card" style="border-left: 4px solid #f1e05a; background: linear-gradient(135deg, rgba(241,224,90,0.06) 0%, rgba(22,27,34,0.95) 100%);">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="font-size:2rem;">👑</span>
+                        <div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <h3 style="margin:0; color:#f1e05a; font-size:1.3rem;">orbryx</h3>
+                                <span class="player-badge badge-ally">Permanent Ally</span>
+                                <span id="orbryxStatusBadge" class="status-badge online">Active Ally</span>
+                            </div>
+                            <span style="font-size:0.8rem; color:var(--text-muted);">Supreme Squad Ally • Protected by all bots • Immune to squad attacks</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <span style="font-size:0.75rem; color:#3fb950; background:rgba(63,185,80,0.15); padding:4px 10px; border-radius:6px; border:1px solid rgba(63,185,80,0.3); font-weight:700;">⚔️ Never Attack • Always Defend</span>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; margin-bottom:16px;">
+                    <div style="background:var(--bg-dark); padding:10px 14px; border-radius:8px; border:1px solid var(--border);">
+                        <span style="font-size:0.75rem; color:var(--text-muted);">Current Distance</span>
+                        <div id="orbryxDistance" style="font-weight:800; color:#fff; font-size:1.05rem; margin-top:2px;">Checking...</div>
+                    </div>
+                    <div style="background:var(--bg-dark); padding:10px 14px; border-radius:8px; border:1px solid var(--border);">
+                        <span style="font-size:0.75rem; color:var(--text-muted);">Ping & Gamemode</span>
+                        <div id="orbryxGamemode" style="font-weight:800; color:#58a6ff; font-size:1.05rem; margin-top:2px;">Survival • 0ms</div>
+                    </div>
+                    <div style="background:var(--bg-dark); padding:10px 14px; border-radius:8px; border:1px solid var(--border);">
+                        <span style="font-size:0.75rem; color:var(--text-muted);">Escort Status</span>
+                        <div id="orbryxEscortStatus" style="font-weight:800; color:#7ee787; font-size:1.05rem; margin-top:2px;">Guarded</div>
+                    </div>
+                </div>
+
+                <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                    <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('defend orbryx')">🛡️ Defend & Patrol orbryx</button>
+                    <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('follow orbryx')">🏃 Follow & Escort orbryx</button>
+                    <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('do /tpa orbryx')">⚡ Squad TPA (/tpa orbryx)</button>
+                    <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('give food to orbryx')">🍞 Supply Food</button>
+                    <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('give armor to orbryx')">⚔️ Supply Armor</button>
+                    <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('give logs to orbryx')">🪵 Supply Wood</button>
                 </div>
             </div>
-            <div class="info-card">
-                <h3><span>🧟</span> Nearby Entities & Mobs</h3>
-                <div id="entityListContainer" class="mob-list">
-                    <span style="color:var(--text-muted); font-size:0.85rem;">Scanning surroundings...</span>
+
+            <!-- Server Players & Nearby Mobs Grid -->
+            <div class="players-panel">
+                <div class="info-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h3 style="margin:0;"><span>🌐</span> Server Tab-List Players</h3>
+                        <span id="serverPlayersCount" style="font-size:0.8rem; color:var(--cyan); font-weight:700;">0 Players Online</span>
+                    </div>
+                    <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:12px;">
+                        Full server player list queried from the server tab list (includes all players across the realm).
+                    </p>
+                    <div id="playerListContainer">
+                        <div style="color:var(--text-muted); font-size:0.85rem;">Scanning server tab list...</div>
+                    </div>
                 </div>
-                <div style="margin-top:14px; display:flex; gap:6px;">
-                    <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('!attack zombie')">⚔️ Attack Nearest Zombie</button>
-                    <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('!attack skeleton')">🏹 Attack Skeleton</button>
+
+                <div class="info-card">
+                    <h3><span>🧟</span> Nearby Entities & Mobs</h3>
+                    <div id="entityListContainer" class="mob-list">
+                        <span style="color:var(--text-muted); font-size:0.85rem;">Scanning surroundings...</span>
+                    </div>
+                    <div style="margin-top:16px; display:flex; flex-wrap:wrap; gap:6px;">
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('!attack zombie')">⚔️ Attack Zombies</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('!attack skeleton')">🏹 Attack Skeletons</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('!attack spider')">🕷️ Attack Spiders</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('!attack creeper')">💥 Defuse Creepers</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('!farmCrops')">🌾 Farm Nearby Crops</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('!guardArea')">🛡️ Guard Area</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1058,115 +1170,49 @@
     <!-- TAB 3: SCHEMATICS & BLUEPRINTS -->
     <main id="tab-schematics" class="tab-content" style="display:none;">
         <div class="info-card" style="margin-bottom:16px;">
-            <h3><span>📐</span> Construction Schematics & Autonomous Blueprints</h3>
-            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
-                Choose any pre-built schematic or order the squad to gather materials and construct it autonomously.
-            </p>
-            <div class="schematic-grid">
-                <!-- Dirt Shelter -->
-                <div class="schematic-card">
-                    <div class="schematic-header">
-                        <span class="schematic-title">🏕️ Dirt Shelter</span>
-                        <span class="schematic-size">5 × 6 × 4</span>
-                    </div>
-                    <p class="schematic-desc">Quick emergency bunker with bed, chest, torch, and door. Protects against night mobs.</p>
-                    <div class="material-chips">
-                        <span class="mat-chip">🟫 64 Dirt</span>
-                        <span class="mat-chip">🛏️ 1 Bed</span>
-                        <span class="mat-chip">📦 1 Chest</span>
-                        <span class="mat-chip">🚪 1 Door</span>
-                    </div>
-                    <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('build a dirt shelter')">⚡ Build with Squad</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
+                <div>
+                    <h3 style="margin-bottom:4px;"><span>📐</span> Procedural Schematics & Blueprints Library</h3>
+                    <p style="font-size:0.85rem; color:var(--text-muted);">
+                        Over 1,000+ procedural architectural blueprints across 12 Minecraft categories. Select any blueprint to order autonomous squad construction.
+                    </p>
                 </div>
+                <div id="schematicStatsBadge" class="cmd-badge" style="font-size:0.85rem;">1,050 Schematics</div>
+            </div>
 
-                <!-- Small Wood House -->
-                <div class="schematic-card">
-                    <div class="schematic-header">
-                        <span class="schematic-title">🪵 Small Wood House</span>
-                        <span class="schematic-size">7 × 7 × 5</span>
-                    </div>
-                    <p class="schematic-desc">Cozy starter wooden cabin with oak log corner pillars, plank walls, and pitched roof.</p>
-                    <div class="material-chips">
-                        <span class="mat-chip">🪵 12 Logs</span>
-                        <span class="mat-chip">🪵 52 Planks</span>
-                        <span class="mat-chip">🚪 1 Door</span>
-                        <span class="mat-chip">🕯️ 2 Torches</span>
-                    </div>
-                    <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('build a small wood house')">⚡ Build with Squad</button>
-                </div>
+            <!-- Search and Filter Bar -->
+            <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+                <input id="schematicSearchInput" type="text" class="squad-input" style="flex:1; min-width:260px;" placeholder="🔍 Search by name, theme, material, or category (e.g. bunker, castle, spire, sandstone, farm, bridge)..." oninput="onSchematicSearch(this.value)">
+                <button class="btn btn-neutral btn-sm" onclick="resetSchematicFilter()">🔄 Reset Filters</button>
+            </div>
 
-                <!-- Stone Outpost -->
-                <div class="schematic-card">
-                    <div class="schematic-header">
-                        <span class="schematic-title">🏰 Stone Outpost</span>
-                        <span class="schematic-size">7 × 7 × 6</span>
-                    </div>
-                    <p class="schematic-desc">Fortified cobblestone garrison with blast-resistant walls, battlements, and perimeter torches.</p>
-                    <div class="material-chips">
-                        <span class="mat-chip">🪨 68 Cobblestone</span>
-                        <span class="mat-chip">🚪 1 Door</span>
-                        <span class="mat-chip">🕯️ 4 Torches</span>
-                    </div>
-                    <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('build a small stone house')">⚡ Build with Squad</button>
-                </div>
+            <!-- Category Pills -->
+            <div id="schematicCategoryPills" class="category-pills">
+                <!-- Populated dynamically -->
+            </div>
 
-                <!-- Watchtower -->
-                <div class="schematic-card">
-                    <div class="schematic-header">
-                        <span class="schematic-title">🗼 Watchtower</span>
-                        <span class="schematic-size">5 × 5 × 8</span>
-                    </div>
-                    <p class="schematic-desc">Elevated lookout tower with internal ladder climb, top observation platform, and parapet.</p>
-                    <div class="material-chips">
-                        <span class="mat-chip">🪨 48 Cobble</span>
-                        <span class="mat-chip">🪵 32 Planks</span>
-                        <span class="mat-chip">🪜 6 Ladders</span>
-                        <span class="mat-chip">🕯️ 4 Torches</span>
-                    </div>
-                    <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('build a watchtower')">⚡ Build with Squad</button>
-                </div>
+            <!-- Schematics Grid -->
+            <div id="schematicGridContainer" class="schematic-grid">
+                <!-- Dynamically rendered -->
+            </div>
 
-                <!-- Crop Farm Plot -->
-                <div class="schematic-card">
-                    <div class="schematic-header">
-                        <span class="schematic-title">🌾 Crop Farm Plot</span>
-                        <span class="schematic-size">5 × 5 × 3</span>
-                    </div>
-                    <p class="schematic-desc">Fenced agricultural grid with central water source and perimeter gate for food production.</p>
-                    <div class="material-chips">
-                        <span class="mat-chip">🟫 24 Dirt</span>
-                        <span class="mat-chip">💧 1 Water</span>
-                        <span class="mat-chip">🪵 16 Fences</span>
-                        <span class="mat-chip">🌾 8 Wheat</span>
-                    </div>
-                    <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('build a farm plot')">⚡ Build with Squad</button>
-                </div>
-
-                <!-- Large Manor -->
-                <div class="schematic-card">
-                    <div class="schematic-header">
-                        <span class="schematic-title">🏛️ Large Manor</span>
-                        <span class="schematic-size">15 × 15 × 10</span>
-                    </div>
-                    <p class="schematic-desc">Grand multi-room stone & timber estate. Bots collaborate to mine resources and construct.</p>
-                    <div class="material-chips">
-                        <span class="mat-chip">🪨 128 Stone</span>
-                        <span class="mat-chip">🪵 96 Planks</span>
-                        <span class="mat-chip">🪟 Glass</span>
-                        <span class="mat-chip">🕯️ Torches</span>
-                    </div>
-                    <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('build a large house')">⚡ Build with Squad</button>
+            <!-- Pagination Bar -->
+            <div class="pagination-bar">
+                <span id="schematicPageInfo" style="font-size:0.85rem; color:var(--text-muted);">Showing 1 - 24 of 1,050</span>
+                <div style="display:flex; gap:8px;">
+                    <button id="btnPrevPage" class="btn btn-neutral btn-sm" onclick="changeSchematicPage(-1)">◀ Previous</button>
+                    <button id="btnNextPage" class="btn btn-neutral btn-sm" onclick="changeSchematicPage(1)">Next ▶</button>
                 </div>
             </div>
         </div>
 
         <div class="info-card">
-            <h3><span>✨</span> Custom Schematic Builder & Order Generator</h3>
+            <h3><span>✨</span> Custom Natural Language Builder</h3>
             <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:10px;">
-                Enter any natural language building instruction for the squad:
+                Order the squad to gather materials and build any custom structure described in plain English:
             </p>
             <div style="display:flex; gap:8px;">
-                <input id="customSchematicInput" type="text" class="squad-input" placeholder="e.g. 'Build a 7x7 glass dome with a glowstone center' or 'build a cobblestone bridge'...">
+                <input id="customSchematicInput" type="text" class="squad-input" placeholder="e.g. 'Build a 7x7 glass dome with a glowstone center' or 'build a cobblestone bridge'..." onkeydown="if(event.key==='Enter')orderCustomBuild()">
                 <button class="btn btn-primary" onclick="orderCustomBuild()">⚡ Generate & Build</button>
             </div>
         </div>
@@ -1673,6 +1719,10 @@
             if (squadBar) {
                 squadBar.style.display = (tabId === 'viewer3d' || tabId === 'settings') ? 'none' : 'block';
             }
+
+            if (tabId === 'schematics' && allSchematics.length === 0) {
+                initSchematics();
+            }
         }
         window.switchTab = switchTab;
 
@@ -2015,21 +2065,109 @@
                 if (gp.weather) document.getElementById('worldWeather').textContent = gp.weather;
             });
 
-            // Update Tab 2 (Players List)
+            // Collect Players & Entities for Tab 2
+            const serverPlayersMap = new Map();
+
+            Object.keys(states).forEach(name => {
+                const st = states[name];
+                if (!st || st.error) return;
+
+                // Tab list players from allServerPlayers
+                if (st.nearby && Array.isArray(st.nearby.allServerPlayers)) {
+                    st.nearby.allServerPlayers.forEach(p => {
+                        const existing = serverPlayersMap.get(p.username);
+                        if (!existing || (!existing.inVisualRange && p.inVisualRange)) {
+                            serverPlayersMap.set(p.username, p);
+                        }
+                    });
+                }
+
+                // Visual players fallback
+                const gp = st.gameplay || {};
+                if (Array.isArray(gp.players)) {
+                    gp.players.forEach(pName => {
+                        if (!serverPlayersMap.has(pName)) {
+                            serverPlayersMap.set(pName, {
+                                username: pName,
+                                inVisualRange: true,
+                                isAlly: pName.toLowerCase() === 'orbryx',
+                                distance: null,
+                                ping: 0,
+                                gamemode: 0
+                            });
+                        }
+                    });
+                }
+            });
+
+            // Update VIP Ally orbryx Card
+            const orbryx = serverPlayersMap.get('orbryx');
+            const oDistEl = document.getElementById('orbryxDistance');
+            const oGmEl = document.getElementById('orbryxGamemode');
+            const oBadge = document.getElementById('orbryxStatusBadge');
+            const oEscort = document.getElementById('orbryxEscortStatus');
+
+            if (orbryx) {
+                if (oBadge) {
+                    oBadge.textContent = orbryx.inVisualRange ? 'In Visual Range' : 'Online (Tab List)';
+                    oBadge.className = 'status-badge online';
+                }
+                if (oDistEl) {
+                    oDistEl.textContent = orbryx.distance != null ? `${orbryx.distance} blocks` : (orbryx.inVisualRange ? 'Nearby' : 'Server Tab List');
+                }
+                if (oGmEl) {
+                    const gmNames = { 0: 'Survival', 1: 'Creative', 2: 'Adventure', 3: 'Spectator' };
+                    const gmStr = gmNames[orbryx.gamemode] || 'Survival';
+                    oGmEl.textContent = `${gmStr} • ${orbryx.ping || 0}ms`;
+                }
+                if (oEscort) {
+                    oEscort.textContent = orbryx.distance != null && orbryx.distance < 10 ? 'Guarded & In Reach' : 'Patrolling';
+                }
+            } else {
+                if (oDistEl) oDistEl.textContent = 'Server Tab List';
+                if (oGmEl) oGmEl.textContent = 'Survival';
+                if (oBadge) {
+                    oBadge.textContent = 'Permanent Ally';
+                    oBadge.className = 'status-badge online';
+                }
+            }
+
+            // Update Tab 2 (All Server Players List)
             const pContainer = document.getElementById('playerListContainer');
+            const pCountEl = document.getElementById('serverPlayersCount');
+            if (pCountEl) {
+                pCountEl.textContent = `${serverPlayersMap.size} Players Online`;
+            }
+
             if (pContainer) {
-                if (allDetectedPlayers.size === 0) {
-                    pContainer.innerHTML = `<div style="color:var(--text-muted); font-size:0.85rem;">No other players currently within visual range.</div>`;
+                if (serverPlayersMap.size === 0) {
+                    pContainer.innerHTML = `<div style="color:var(--text-muted); font-size:0.85rem;">No players detected on server tab list yet.</div>`;
                 } else {
-                    pContainer.innerHTML = Array.from(allDetectedPlayers).map(p => `
-                        <div class="player-row">
-                            <span style="font-weight:700; color:#fff;">👤 ${p}</span>
-                            <div style="display:flex; gap:6px;">
-                                <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('do /tpa ${p}')">⚡ Teleport Squad (/tpa ${p})</button>
-                                <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('follow ${p}')">🏃 Follow</button>
+                    const gmNames = { 0: 'Survival', 1: 'Creative', 2: 'Adventure', 3: 'Spectator' };
+                    pContainer.innerHTML = Array.from(serverPlayersMap.values()).map(p => {
+                        const isOrb = p.username.toLowerCase() === 'orbryx';
+                        const isAlly = p.isAlly || isOrb;
+                        const distStr = p.distance != null ? `${p.distance}m away` : (p.inVisualRange ? 'Nearby' : 'Tab List');
+                        const gmStr = gmNames[p.gamemode] || 'Survival';
+                        const pingStr = p.ping ? `${p.ping}ms` : '0ms';
+
+                        return `
+                            <div class="player-row" style="${isAlly ? 'border-color: rgba(241,224,90,0.4); background: rgba(241,224,90,0.03);' : ''}">
+                                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                    <span style="font-weight:700; color:#fff;">${isAlly ? '👑' : '👤'} ${p.username}</span>
+                                    ${isAlly ? '<span class="player-badge badge-ally">Ally</span>' : ''}
+                                    <span class="player-badge ${p.inVisualRange ? 'badge-online' : 'badge-tab'}">${distStr}</span>
+                                    <span class="player-badge badge-tab">${gmStr}</span>
+                                    <span class="player-badge badge-tab">📶 ${pingStr}</span>
+                                </div>
+                                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                    <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('do /tpa ${p.username}')">⚡ /tpa ${p.username}</button>
+                                    <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('follow ${p.username}')">🏃 Follow</button>
+                                    ${isAlly ? `<button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('defend ${p.username}')">🛡️ Defend</button>` : ''}
+                                </div>
                             </div>
-                        </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 }
             }
 
@@ -2443,13 +2581,185 @@
         }
         window.clear100Filter = clear100Filter;
 
-        // Initialize themes and commands on DOM ready
+        // 1,000+ Schematics Catalog Management
+        let allSchematics = [];
+        let currentSchematicCat = 'all';
+        let currentSchematicSearch = '';
+        let currentSchematicPage = 1;
+        const SCHEMATICS_PER_PAGE = 24;
+
+        async function initSchematics() {
+            try {
+                const res = await fetch('/api/schematics');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.success && Array.isArray(data.schematics)) {
+                        allSchematics = data.schematics;
+                        renderSchematicCategories();
+                        renderSchematics();
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not fetch /api/schematics:', e);
+            }
+        }
+
+        function renderSchematicCategories() {
+            const container = document.getElementById('schematicCategoryPills');
+            if (!container) return;
+
+            const cats = [
+                { id: 'all', name: 'All Schematics', icon: '🏛️' },
+                { id: 'shelters', name: 'Shelters & Bunkers', icon: '🏕️' },
+                { id: 'houses', name: 'Houses & Cabins', icon: '🪵' },
+                { id: 'castles', name: 'Castles & Keeps', icon: '🏰' },
+                { id: 'towers', name: 'Towers & Spires', icon: '🗼' },
+                { id: 'farms', name: 'Automated Farms', icon: '🌾' },
+                { id: 'bridges', name: 'Bridges & Skyways', icon: '🌉' },
+                { id: 'walls', name: 'Defense Walls', icon: '🛡️' },
+                { id: 'temples', name: 'Temples & Shrines', icon: '🏛️' },
+                { id: 'vaults', name: 'Treasuries & Vaults', icon: '💎' },
+                { id: 'arenas', name: 'PVP Arenas', icon: '🏟️' },
+                { id: 'harbors', name: 'Docks & Harbors', icon: '⚓' },
+                { id: 'portals', name: 'Portals & Shrines', icon: '🔮' }
+            ];
+
+            container.innerHTML = cats.map(c => {
+                const count = c.id === 'all' 
+                    ? allSchematics.length 
+                    : allSchematics.filter(s => s.category === c.id).length;
+                return `
+                    <div class="cat-pill ${c.id === currentSchematicCat ? 'active' : ''}" onclick="setSchematicCategory('${c.id}', this)">
+                        <span>${c.icon}</span> ${c.name} (${count})
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function setSchematicCategory(cat, el) {
+            currentSchematicCat = cat;
+            currentSchematicPage = 1;
+            document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
+            if (el) el.classList.add('active');
+            renderSchematics();
+        }
+        window.setSchematicCategory = setSchematicCategory;
+
+        function onSchematicSearch(val) {
+            currentSchematicSearch = (val || '').toLowerCase().trim();
+            currentSchematicPage = 1;
+            renderSchematics();
+        }
+        window.onSchematicSearch = onSchematicSearch;
+
+        function resetSchematicFilter() {
+            const input = document.getElementById('schematicSearchInput');
+            if (input) input.value = '';
+            currentSchematicSearch = '';
+            currentSchematicCat = 'all';
+            currentSchematicPage = 1;
+            renderSchematicCategories();
+            renderSchematics();
+        }
+        window.resetSchematicFilter = resetSchematicFilter;
+
+        function changeSchematicPage(delta) {
+            currentSchematicPage += delta;
+            renderSchematics();
+        }
+        window.changeSchematicPage = changeSchematicPage;
+
+        function renderSchematics() {
+            const container = document.getElementById('schematicGridContainer');
+            if (!container) return;
+
+            let filtered = allSchematics;
+            if (currentSchematicCat !== 'all') {
+                filtered = filtered.filter(s => s.category === currentSchematicCat);
+            }
+            if (currentSchematicSearch) {
+                filtered = filtered.filter(s => 
+                    s.name.toLowerCase().includes(currentSchematicSearch) ||
+                    s.desc.toLowerCase().includes(currentSchematicSearch) ||
+                    (s.material && s.material.toLowerCase().includes(currentSchematicSearch)) ||
+                    s.category.toLowerCase().includes(currentSchematicSearch)
+                );
+            }
+
+            const total = filtered.length;
+            const totalPages = Math.max(1, Math.ceil(total / SCHEMATICS_PER_PAGE));
+            if (currentSchematicPage > totalPages) currentSchematicPage = totalPages;
+            if (currentSchematicPage < 1) currentSchematicPage = 1;
+
+            const startIdx = (currentSchematicPage - 1) * SCHEMATICS_PER_PAGE;
+            const pageItems = filtered.slice(startIdx, startIdx + SCHEMATICS_PER_PAGE);
+
+            // Update badge & pagination
+            const badgeEl = document.getElementById('schematicStatsBadge');
+            if (badgeEl) badgeEl.textContent = `${total} Schematics`;
+
+            const pageInfo = document.getElementById('schematicPageInfo');
+            if (pageInfo) {
+                pageInfo.textContent = `Showing ${total === 0 ? 0 : startIdx + 1} - ${Math.min(startIdx + SCHEMATICS_PER_PAGE, total)} of ${total} (Page ${currentSchematicPage} of ${totalPages})`;
+            }
+
+            const btnPrev = document.getElementById('btnPrevPage');
+            const btnNext = document.getElementById('btnNextPage');
+            if (btnPrev) btnPrev.disabled = (currentSchematicPage <= 1);
+            if (btnNext) btnNext.disabled = (currentSchematicPage >= totalPages);
+
+            if (pageItems.length === 0) {
+                container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:30px; color:var(--text-muted);">No schematics found matching criteria.</div>`;
+                return;
+            }
+
+            const catIcons = {
+                shelters: '🏕️',
+                houses: '🪵',
+                castles: '🏰',
+                towers: '🗼',
+                farms: '🌾',
+                bridges: '🌉',
+                walls: '🛡️',
+                temples: '🏛️',
+                vaults: '💎',
+                arenas: '🏟️',
+                harbors: '⚓',
+                portals: '🔮'
+            };
+
+            container.innerHTML = pageItems.map(s => {
+                const icon = catIcons[s.category] || '📐';
+                return `
+                    <div class="schematic-card">
+                        <div class="schematic-header">
+                            <span class="schematic-title">${icon} ${s.name}</span>
+                            <span class="schematic-size">${s.dimensions}</span>
+                        </div>
+                        <p class="schematic-desc">${s.desc}</p>
+                        <div class="material-chips">
+                            <span class="mat-chip">🧱 ${cleanItemName(s.material)}</span>
+                            ${s.pillar ? `<span class="mat-chip">🪵 ${cleanItemName(s.pillar)}</span>` : ''}
+                            <span class="mat-chip">📦 ~${s.blocksCount} blocks</span>
+                        </div>
+                        <div style="display:flex; gap:6px; margin-top:auto;">
+                            <button class="btn btn-primary btn-sm" style="flex:1;" onclick="sendSquadCommand('build a ${s.name.replace(/'/g, "\\'")}')">⚡ Build with Squad</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Initialize themes, commands, and schematics on DOM ready
         window.addEventListener('DOMContentLoaded', () => {
             initThemeGrid();
             render100Commands();
+            initSchematics();
         });
         initThemeGrid();
         render100Commands();
+        initSchematics();
     </script>
 </body>
 </html>

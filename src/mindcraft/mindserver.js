@@ -65,6 +65,28 @@ export function createMindServer(host_public = false, port = 8080) {
         res.status(404).send(`Agent '${agentName}' or 3D viewer not found.`);
     });
 
+    // API route to list 1,000+ schematics library
+    app.get('/api/schematics', async (req, res) => {
+        try {
+            const { getSchematicsCatalog, CATEGORIES } = await import('../agent/npc/construction/schematics_library.js');
+            const catalog = getSchematicsCatalog();
+            res.json({ success: true, count: catalog.length, categories: CATEGORIES, schematics: catalog });
+        } catch (e) {
+            res.status(500).json({ success: false, error: e?.message || String(e) });
+        }
+    });
+
+    // API route to get full 3D blueprint blocks for a schematic
+    app.get('/api/schematics/:id', async (req, res) => {
+        try {
+            const { getProceduralSchematic } = await import('../agent/npc/construction/schematics_library.js');
+            const schematic = getProceduralSchematic(req.params.id);
+            res.json({ success: true, schematic });
+        } catch (e) {
+            res.status(500).json({ success: false, error: e?.message || String(e) });
+        }
+    });
+
     // Texture proxy: resolve item/block textures using minecraft-assets with version fallback
     app.get('/assets/item/:agent/:name.png', async (req, res) => {
         try {

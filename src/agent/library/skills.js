@@ -11,6 +11,72 @@ export function log(bot, message) {
     bot.output += message + '\n';
 }
 
+export function isAlly(bot, playerOrName) {
+    if (!playerOrName) return false;
+    const name = typeof playerOrName === 'string'
+        ? playerOrName
+        : (playerOrName.username || playerOrName.name || '');
+    if (!name) return false;
+    const lower = name.toLowerCase();
+    if (lower === 'orbryx') return true;
+    const alliesList = (bot?.settings?.allies || settings.allies || []).map(a => a.toLowerCase());
+    return alliesList.includes(lower);
+}
+
+export function getEnchantmentWeight(item) {
+    if (!item) return 0;
+    let score = 0;
+    try {
+        const enchs = item.ench || (item.nbt?.value?.Enchantments?.value?.value) || (item.nbt?.value?.ench?.value?.value) || [];
+        if (Array.isArray(enchs)) {
+            for (const e of enchs) {
+                const id = (e.id?.value || e.id || '').toString().toLowerCase();
+                const lvl = Number(e.lvl?.value || e.lvl || 1);
+                if (id.includes('sharpness')) score += lvl * 1.5;
+                else if (id.includes('fire_aspect')) score += lvl * 1.2;
+                else if (id.includes('smite') || id.includes('bane')) score += lvl * 1.0;
+                else if (id.includes('knockback')) score += lvl * 0.8;
+                else if (id.includes('protection')) score += lvl * 2.0;
+                else if (id.includes('thorns')) score += lvl * 1.5;
+                else if (id.includes('feather_falling')) score += lvl * 1.5;
+                else if (id.includes('unbreaking')) score += lvl * 0.5;
+                else if (id.includes('mending')) score += 2.0;
+                else score += lvl * 0.5;
+            }
+        }
+        if (Array.isArray(item.enchantments)) {
+            for (const e of item.enchantments) {
+                const name = (e.name || '').toLowerCase();
+                const lvl = Number(e.lvl || 1);
+                if (name.includes('sharpness')) score += lvl * 1.5;
+                else if (name.includes('protection')) score += lvl * 2.0;
+                else score += lvl * 1.0;
+            }
+        }
+    } catch {}
+    return score;
+}
+
+export function scoreWeapon(item) {
+    if (!item) return 0;
+    const baseDamage = WEAPON_DAMAGE[item.name] || (item.name.includes('sword') ? 4 : (item.name.includes('axe') && !item.name.includes('pickaxe') ? 3.5 : 1));
+    const enchBonus = getEnchantmentWeight(item);
+    return baseDamage + enchBonus;
+}
+
+export function scoreArmor(item) {
+    if (!item) return 0;
+    let baseTier = 0;
+    for (const [mat, tier] of Object.entries(ARMOR_TIERS)) {
+        if (item.name.startsWith(mat)) {
+            baseTier = tier;
+            break;
+        }
+    }
+    const enchBonus = getEnchantmentWeight(item);
+    return (baseTier * 5) + enchBonus;
+}
+
 async function autoLight(bot) {
     if (world.shouldPlaceTorch(bot)) {
         try {
@@ -73,15 +139,15 @@ export async function autoEquipBest(bot) {
 
     for (const slot of armorSlots) {
         const curItem = bot.inventory.slots[slot.slotId];
-        const curTier = curItem ? getArmorTier(curItem.name) : 0;
+        const curScore = curItem ? scoreArmor(curItem) : 0;
         let bestItem = null;
-        let bestTier = curTier;
+        let bestScore = curScore;
 
         for (const item of items) {
             if (item.name.endsWith('_' + slot.type)) {
-                const tier = getArmorTier(item.name);
-                if (tier > bestTier) {
-                    bestTier = tier;
+                const score = scoreArmor(item);
+                if (score > bestScore) {
+                    bestScore = score;
                     bestItem = item;
                 }
             }
@@ -157,11 +223,11 @@ export async function equipHighestAttack(bot) {
     if (!bot?.inventory) return;
     const items = bot.inventory.items();
     let bestItem = null;
-    let maxDamage = 1;
+    let maxScore = 1;
     for (const item of items) {
-        const dmg = WEAPON_DAMAGE[item.name] || (item.name.includes('sword') ? 4 : (item.name.includes('axe') && !item.name.includes('pickaxe') ? 3.5 : 1));
-        if (dmg > maxDamage) {
-            maxDamage = dmg;
+        const score = scoreWeapon(item);
+        if (score > maxScore) {
+            maxScore = score;
             bestItem = item;
         }
     }
@@ -480,27 +546,97 @@ export async function attackEntity(bot, entity, kill=true) {
      * await skills.attackEntity(bot, entity);
      **/
 
+    if (!entity) return false;
+    if (isAlly(bot, entity)) {
+        log(bot, `Will not attack ${entity.username || entity.name}: target is a designated ally.`);
+        return false;
+    }
+
     let pos = entity.position;
-    await equipHighestAttack(bot)
+    await autoEquipBest(bot);
+    await equipHighestAttack(bot);
 
     if (!kill) {
         if (bot.entity.position.distanceTo(pos) > 5) {
-            console.log('moving to mob...')
+            console.log('moving to mob...');
             await goToPosition(bot, pos.x, pos.y, pos.z);
         }
-        console.log('attacking mob...')
+        console.log('attacking mob...');
         await bot.attack(entity);
+        return true;
     }
     else {
-        bot.pvp.attack(entity);
-        while (world.getNearbyEntities(bot, 24).includes(entity)) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+        try {
+            if (bot.pvp && typeof bot.pvp.attack === 'function') {
+                bot.pvp.attack(entity);
+            }
+        } catch {}
+
+        let strafeDir = Math.random() < 0.5 ? 'left' : 'right';
+        let lastStrafeSwitch = Date.now();
+        let isShieldRaised = false;
+        const hasShield = bot.inventory.slots[45]?.name === 'shield' || bot.heldItem?.name === 'shield';
+
+        while (world.getNearbyEntities(bot, 24).includes(entity) && (entity.health == null || entity.health > 0)) {
             if (bot.interrupt_code) {
-                bot.pvp.stop();
+                try { bot.pvp?.stop(); } catch {}
+                if (isShieldRaised) { try { bot.deactivateItem(); } catch {} }
+                bot.clearControlStates();
                 return false;
             }
+
+            const dist = bot.entity.position.distanceTo(entity.position);
+
+            // Shield defense against projectiles / archers or incoming hits
+            const isRanged = entity.name === 'skeleton' || entity.name === 'pillager' || entity.name === 'drowned';
+            if (hasShield && (isRanged || dist > 4) && dist < 16) {
+                if (!isShieldRaised) {
+                    try {
+                        await bot.lookAt(entity.position.offset(0, (entity.height || 1.8) * 0.8, 0), true);
+                        bot.activateItem(true);
+                        isShieldRaised = true;
+                    } catch {}
+                }
+            } else if (isShieldRaised) {
+                try { bot.deactivateItem(); } catch {}
+                isShieldRaised = false;
+            }
+
+            // Close-range PVP: Strafe and Crit timing
+            if (dist <= 3.8) {
+                // Strafe circle movement
+                if (Date.now() - lastStrafeSwitch > 800) {
+                    strafeDir = strafeDir === 'left' ? 'right' : 'left';
+                    lastStrafeSwitch = Date.now();
+                }
+                bot.setControlState(strafeDir, true);
+                bot.setControlState(strafeDir === 'left' ? 'right' : 'left', false);
+
+                // Crit jump apex hit
+                if (bot.entity.onGround && Math.random() < 0.7) {
+                    bot.setControlState('jump', true);
+                    setTimeout(() => bot.setControlState('jump', false), 120);
+                    await new Promise(r => setTimeout(r, 220));
+                }
+
+                try {
+                    await bot.lookAt(entity.position.offset(0, (entity.height || 1.8) * 0.75, 0), true);
+                    if (isShieldRaised) {
+                        bot.deactivateItem();
+                        isShieldRaised = false;
+                    }
+                    bot.attack(entity);
+                } catch {}
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 350));
         }
-        log(bot, `Successfully killed ${entity.name}.`);
+
+        try { bot.pvp?.stop(); } catch {}
+        if (isShieldRaised) { try { bot.deactivateItem(); } catch {} }
+        bot.clearControlStates();
+
+        log(bot, `Successfully defeated ${entity.name || 'target'}.`);
         await pickupNearbyItems(bot);
         return true;
     }

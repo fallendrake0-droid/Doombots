@@ -35,6 +35,27 @@ export function getFullState(agent) {
     let bots = convoManager.getInGameAgents().filter(b => b !== agent.name);
     players = players.filter(p => !bots.includes(p));
 
+    const allServerPlayers = [];
+    if (bot.players) {
+        for (const [uname, pData] of Object.entries(bot.players)) {
+            if (bots.includes(uname) || uname === agent.name) continue;
+            let dist = null;
+            let inRange = false;
+            if (pData?.entity?.position && pos) {
+                dist = Math.round(pos.distanceTo(pData.entity.position));
+                inRange = true;
+            }
+            allServerPlayers.push({
+                username: uname,
+                ping: pData?.ping || 0,
+                gamemode: pData?.gamemode || 0,
+                distance: dist,
+                inView: inRange,
+                isAlly: uname.toLowerCase() === 'orbryx' || (settings.allies || []).map(a => a.toLowerCase()).includes(uname.toLowerCase())
+            });
+        }
+    }
+
     const helmet = bot.inventory.slots[5];
     const chestplate = bot.inventory.slots[6];
     const leggings = bot.inventory.slots[7];
@@ -102,6 +123,7 @@ export function getFullState(agent) {
         },
         nearby: {
             humanPlayers: players,
+            allServerPlayers: allServerPlayers,
             botPlayers: bots,
             entityTypes: getNearbyEntityTypes(bot).filter(t => t !== 'player' && t !== 'item'),
         },

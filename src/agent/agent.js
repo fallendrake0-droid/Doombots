@@ -373,6 +373,271 @@ export class Agent {
         convoManager.endAllConversations();
     }
 
+    getSquadIndex() {
+        const nameMatch = (this.name || '').match(/\d+$/);
+        return nameMatch ? (parseInt(nameMatch[0], 10) - 1) : 0;
+    }
+
+    isMultiGoalPrompt(lower) {
+        if (!lower) return false;
+        if (/\b(doombot\d*|bot\d*)\s*[:,-]?\s*[a-z]+/i.test(lower)) return true;
+        const andClauses = lower.split(/\s+and\s+/);
+        if (andClauses.length >= 2) {
+            const actionKeywords = ['log', 'wood', 'food', 'bread', 'crop', 'stone', 'cobblestone', 'iron', 'coal', 'defend', 'guard', 'hunt', 'build', 'craft', 'follow', 'bridge', 'orbryx'];
+            const firstHasAction = actionKeywords.some(k => andClauses[0].includes(k));
+            const secondHasAction = actionKeywords.some(k => andClauses[1].includes(k));
+            if (firstHasAction && secondHasAction) return true;
+        }
+        return false;
+    }
+
+    parseMultiGoals(message) {
+        if (!message || typeof message !== 'string') return [];
+        const trimmed = message.trim();
+
+        // Check for explicit bot names: e.g. "Doombot mine logs, Doombot2 craft weapons"
+        const botPattern = /\b(doombot\d*|bot\d*)\s*[:,-]?\s*([^,;]+)/gi;
+        const explicitMatches = [...trimmed.matchAll(botPattern)];
+        if (explicitMatches.length >= 2) {
+            return explicitMatches.map(m => ({
+                targetBot: m[1].toLowerCase(),
+                task: m[2].trim()
+            }));
+        }
+
+        const lower = trimmed.toLowerCase();
+        const goalKeywords = [
+            { regex: /\b(?:(?:get|mine|chop|gather|harvest)\s+)?(?:logs?|wood|trees?)\b/i, task: 'mine logs 384' },
+            { regex: /\b(?:(?:get|gather|hunt|farm)\s+)?(?:food|bread|meat|apples?|crops?)\b/i, task: 'farm crops' },
+            { regex: /\b(?:(?:mine|gather)\s+)?(?:stone|cobblestone|rocks?)\b/i, task: 'mine cobblestone 64' },
+            { regex: /\b(?:(?:mine|gather)\s+)?(?:iron|coal|diamonds?)\b/i, task: 'mine iron' },
+            { regex: /\b(?:defend|guard|protect)(?:\s+(?:us|the\s+area|perimeter))?\b/i, task: 'defend the area' },
+            { regex: /\b(?:follow|escort|protect)\s+orbryx\b/i, task: 'defend orbryx' },
+            { regex: /\b(?:build|construct)(?:\s+a)?\s+(?:shelter|house|base|wall)\b/i, task: 'build a dirt shelter' }
+        ];
+
+        const detected = [];
+        for (const gk of goalKeywords) {
+            if (gk.regex.test(lower)) {
+                detected.push(gk.task);
+            }
+        }
+
+        if (detected.length >= 2) {
+            return detected;
+        }
+
+        if (lower.includes(' and ') || lower.includes(';') || (lower.includes(',') && !lower.startsWith('!'))) {
+            const parts = lower.split(/\s*(?:and|;|,)\s*/i).map(p => p.trim()).filter(p => p.length > 2);
+            const actionVerbs = ['get', 'mine', 'chop', 'gather', 'farm', 'defend', 'guard', 'hunt', 'build', 'craft', 'follow', 'escort', 'bridge'];
+            const validParts = parts.filter(p => actionVerbs.some(v => p.startsWith(v)));
+            if (validParts.length >= 2) {
+                return validParts;
+            }
+        }
+
+        return [];
+    }
+
+    async handleMultiGoalSquadTask(source, message) {
+        const goals = this.parseMultiGoals(message);
+        if (!goals || goals.length === 0) return false;
+
+        const myName = (this.name || '').toLowerCase();
+        const myIndex = this.getSquadIndex();
+
+        let assignedTask = null;
+
+        if (typeof goals[0] === 'object' && goals[0].targetBot) {
+            const myAssignment = goals.find(g => g.targetBot === myName || (myName === 'doombot' && g.targetBot === 'bot1') || (myName === `doombot${myIndex + 1}` && g.targetBot === `bot${myIndex + 1}`));
+            if (myAssignment) {
+                assignedTask = myAssignment.task;
+            } else {
+                assignedTask = goals[myIndex % goals.length].task;
+            }
+        } else {
+            assignedTask = goals[myIndex % goals.length];
+        }
+
+        if (assignedTask) {
+            console.log(`[SquadDelegation] ${this.name} (index ${myIndex}) assigned sub-task: "${assignedTask}" from multi-goal request: "${message}"`);
+            this.routeResponse(source, `[Squad Role] ${this.name} assigned task: "${assignedTask}"`);
+            const handledFast = await this.handleFastShortcut(source, assignedTask);
+            if (!handledFast) {
+                await this.handleMessage(source, assignedTask);
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    async handleFastShortcut(source, raw) {
+        if (!raw || typeof raw !== 'string') return false;
+        const lower = raw.toLowerCase().trim();
+
+        // Direct Minecraft slash commands (e.g. "/tpa orbryx", "do /tpa orbryx", "/home", "/spawn", "/gamemode")
+        const slashMatch = raw.match(/^(?:do\s+)?(\/[a-zA-Z0-9_\-]+(?:\s+.*)?)$/i);
+        if (slashMatch) {
+            const slashCmd = slashMatch[1].trim();
+            console.log(`[FastCommand] ${this.name} executing direct slash command: ${slashCmd}`);
+            this.bot.chat(slashCmd);
+            this.routeResponse(source, `Executed: ${slashCmd}`);
+            return true;
+        }
+
+        // Quick natural language intent shortcuts to avoid slow CPU LLM inference timeouts
+        if (/^(stop|halt|freeze|cancel)$/i.test(lower)) {
+            await executeCommand(this, '!stop');
+            this.routeResponse(source, 'Stopped all actions.');
+            return true;
+        }
+        if (/^(stay|stay still|wait here)$/i.test(lower)) {
+            await executeCommand(this, '!stay(-1)');
+            this.routeResponse(source, 'Staying at current position.');
+            return true;
+        }
+        if (/^(follow me|follow\s+([a-zA-Z0-9_]+))$/i.test(lower)) {
+            const targetMatch = lower.match(/^follow\s+([a-zA-Z0-9_]+)$/i);
+            const target = (targetMatch && targetMatch[1] !== 'me') ? targetMatch[1] : (source === 'ADMIN' ? 'orbryx' : source);
+            await executeCommand(this, `!followPlayer("${target}", 3)`);
+            this.routeResponse(source, `Following ${target}.`);
+            return true;
+        }
+        if (/^(mine|chop|gather)\s+(logs?|wood|trees?)/i.test(lower)) {
+            const stacksMatch = lower.match(/(\d+)\s+stacks?/i);
+            const numMatch = lower.match(/(?:mine|chop|gather)\s+(?:logs?|wood|trees?)\s+(\d+)/i);
+            let count = 384; // 6 stacks by default (6 * 64 = 384 logs)
+            if (stacksMatch) {
+                count = parseInt(stacksMatch[1], 10) * 64;
+            } else if (numMatch) {
+                count = parseInt(numMatch[1], 10);
+            }
+            console.log(`[FastCommand] ${this.name} executing squadMineLogs(${count})`);
+            await executeCommand(this, `!squadMineLogs(${count})`);
+            this.routeResponse(source, `Splitting up to mine logs (${count} logs / ${Math.round(count / 64)} stacks).`);
+            return true;
+        }
+        if (/^(boat\s+to|sail\s+to)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/i.test(lower)) {
+            const m = lower.match(/(?:boat|sail)\s+to\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/i);
+            if (m) {
+                const x = parseFloat(m[1]), y = parseFloat(m[2]), z = parseFloat(m[3]);
+                await executeCommand(this, `!boatTo(${x}, ${y}, ${z})`);
+                this.routeResponse(source, `Boating to (${x}, ${y}, ${z}).`);
+                return true;
+            }
+        }
+        if (/^(auto\s*equip|equip\s+best|wear\s+armor|best\s+gear)/i.test(lower)) {
+            await executeCommand(this, '!autoEquip');
+            this.routeResponse(source, 'Equipped best armor, shield, and weapons.');
+            return true;
+        }
+        if (/^mine\s+(stone|cobblestone|rocks?)/i.test(lower)) {
+            await executeCommand(this, '!collectBlocks("cobblestone", 20)');
+            this.routeResponse(source, 'Mining stone.');
+            return true;
+        }
+        if (/^mine\s+(coal)/i.test(lower)) {
+            await executeCommand(this, '!collectBlocks("coal_ore", 10)');
+            this.routeResponse(source, 'Mining coal.');
+            return true;
+        }
+        if (/^mine\s+(iron)/i.test(lower)) {
+            await executeCommand(this, '!collectBlocks("iron_ore", 10)');
+            this.routeResponse(source, 'Mining iron.');
+            return true;
+        }
+        if (/^defend\s+orbryx/i.test(lower)) {
+            await executeCommand(this, '!defendPlayer("orbryx")');
+            this.routeResponse(source, 'Forming defensive perimeter to protect ally orbryx.');
+            return true;
+        }
+        if (/^(farm\s+crops?|harvest\s+crops?|farm)/i.test(lower)) {
+            await executeCommand(this, '!farmCrops');
+            this.routeResponse(source, 'Harvesting mature crops and replanting seeds.');
+            return true;
+        }
+        if (/^(guard(\s+area|\s+perimeter)?|defend\s+area)/i.test(lower)) {
+            await executeCommand(this, '!guardArea(16, 30)');
+            this.routeResponse(source, 'Patrolling and defending area perimeter.');
+            return true;
+        }
+        if (/^bridge(\s+(north|south|east|west))?(\s+(\d+))?/i.test(lower)) {
+            const bMatch = lower.match(/^bridge(?:\s+(north|south|east|west))?(?:\s+(\d+))?/i);
+            const dir = bMatch && bMatch[1] ? bMatch[1].toLowerCase() : 'north';
+            const dist = bMatch && bMatch[2] ? parseInt(bMatch[2], 10) : 10;
+            await executeCommand(this, `!bridge("${dir}", ${dist})`);
+            this.routeResponse(source, `Safe bridging ${dir} for ${dist} blocks.`);
+            return true;
+        }
+        if (/^(give|supply)\s+(food|bread|apples?|meat|armor|gear|wood|logs?)\s+to\s+orbryx/i.test(lower)) {
+            const supplyMatch = lower.match(/^(?:give|supply)\s+(food|bread|apples?|meat|armor|gear|wood|logs?)\s+to\s+orbryx/i);
+            const itemCategory = supplyMatch ? supplyMatch[1].toLowerCase() : 'food';
+            const targetPlayer = 'orbryx';
+            const botInv = this.bot.inventory.items();
+            let foundItem = null;
+            if (itemCategory.includes('food') || itemCategory.includes('bread') || itemCategory.includes('apple') || itemCategory.includes('meat')) {
+                const foods = ['bread', 'cooked_beef', 'cooked_porkchop', 'cooked_mutton', 'cooked_chicken', 'apple', 'baked_potato', 'carrot'];
+                foundItem = botInv.find(i => foods.includes(i.name)) || botInv.find(i => i.name.includes('cooked') || i.name.includes('bread') || i.name.includes('apple'));
+            } else if (itemCategory.includes('armor') || itemCategory.includes('gear')) {
+                foundItem = botInv.find(i => i.name.includes('helmet') || i.name.includes('chestplate') || i.name.includes('leggings') || i.name.includes('boots') || i.name.includes('sword'));
+            } else if (itemCategory.includes('wood') || itemCategory.includes('log')) {
+                foundItem = botInv.find(i => i.name.includes('log') || i.name.includes('planks'));
+            }
+            if (foundItem) {
+                await executeCommand(this, `!givePlayer("${targetPlayer}", "${foundItem.name}", ${Math.min(foundItem.count, 16)})`);
+                this.routeResponse(source, `Supplied ${foundItem.count} ${foundItem.name} to ally ${targetPlayer}.`);
+            } else {
+                this.routeResponse(source, `No ${itemCategory} available in inventory to supply to ${targetPlayer}.`);
+            }
+            return true;
+        }
+        if (/^build\s+/i.test(lower)) {
+            const requested = lower.replace(/^build\s+(a\s+|an\s+)?/i, '').trim();
+            try {
+                const { getSchematicsCatalog } = await import('./npc/construction/schematics_library.js');
+                const catalog = getSchematicsCatalog();
+                const matched = catalog.find(c => c.id === requested || c.name.toLowerCase() === requested || requested.includes(c.id) || c.name.toLowerCase().includes(requested));
+                if (matched) {
+                    this.routeResponse(source, `Initiating squad construction for ${matched.name}...`);
+                    this.npc.data.curr_goal = { name: matched.id, quantity: 1 };
+                    await this.npc.executeGoal();
+                    return true;
+                }
+            } catch (e) {}
+        }
+        if (/^defend(\s+(the\s+area|us|me))?/i.test(lower)) {
+            this.bot.modes.setOn('hunting', true);
+            this.bot.modes.setOn('self_defense', true);
+            await executeCommand(this, '!huntAll("zombie", 32)');
+            this.routeResponse(source, 'Defending area against hostiles.');
+            return true;
+        }
+        if (/^craft\s+([a-zA-Z0-9_]+)/i.test(lower)) {
+            const itemMatch = lower.match(/^craft\s+([a-zA-Z0-9_]+)/i);
+            const item = itemMatch ? itemMatch[1] : 'wooden_pickaxe';
+            await executeCommand(this, `!craftRecipe("${item}", 1)`);
+            this.routeResponse(source, `Crafting ${item}.`);
+            return true;
+        }
+        if (/^build\s+(a\s+)?(dirt\s+)?(shelter|house|base)/i.test(lower)) {
+            await executeCommand(this, '!build("dirt", 3, 3, 2)');
+            this.routeResponse(source, 'Building basic shelter.');
+            return true;
+        }
+
+        // Natural plain English mapping for essential commands (e.g. "eat" -> "!eat", "drop all" -> "!dropAll")
+        const normalizedBare = '!' + lower.replace(/\s+([a-z])/g, (_, c) => c.toUpperCase()).replace(/[^a-zA-Z0-9_!]/g, '');
+        if (commandExists(normalizedBare)) {
+            console.log(`[FastCommand] ${this.name} matched bare command: ${normalizedBare}`);
+            let execute_res = await executeCommand(this, normalizedBare);
+            if (execute_res) this.routeResponse(source, execute_res);
+            return true;
+        }
+
+        return false;
+    }
+
     async handleMessage(source, message, max_responses=null) {
         await this.checkTaskDone();
         if (!source || !message) {
@@ -395,105 +660,15 @@ export class Agent {
             const raw = message.trim();
             const lower = raw.toLowerCase();
 
-            // Direct Minecraft slash commands (e.g. "/tpa orbryx", "do /tpa orbryx", "/home", "/spawn", "/gamemode")
-            const slashMatch = raw.match(/^(?:do\s+)?(\/[a-zA-Z0-9_\-]+(?:\s+.*)?)$/i);
-            if (slashMatch) {
-                const slashCmd = slashMatch[1].trim();
-                console.log(`[FastCommand] ${this.name} executing direct slash command: ${slashCmd}`);
-                this.bot.chat(slashCmd);
-                this.routeResponse(source, `Executed: ${slashCmd}`);
-                return true;
+            // Check for multi-goal squad task delegation (e.g. "get logs and food", "mine wood and defend", "Doombot mine cobblestone, Doombot2 farm crops")
+            if (this.isMultiGoalPrompt(lower)) {
+                const multiGoalHandled = await this.handleMultiGoalSquadTask(source, raw);
+                if (multiGoalHandled) return true;
             }
 
-            // Quick natural language intent shortcuts to avoid slow CPU LLM inference timeouts
-            if (/^(stop|halt|freeze|cancel)$/i.test(lower)) {
-                await executeCommand(this, '!stop');
-                this.routeResponse(source, 'Stopped all actions.');
-                return true;
-            }
-            if (/^(stay|stay still|wait here)$/i.test(lower)) {
-                await executeCommand(this, '!stay(-1)');
-                this.routeResponse(source, 'Staying at current position.');
-                return true;
-            }
-            if (/^(follow me|follow\s+([a-zA-Z0-9_]+))$/i.test(lower)) {
-                const targetMatch = lower.match(/^follow\s+([a-zA-Z0-9_]+)$/i);
-                const target = (targetMatch && targetMatch[1] !== 'me') ? targetMatch[1] : (source === 'ADMIN' ? 'orbryx' : source);
-                await executeCommand(this, `!followPlayer("${target}", 3)`);
-                this.routeResponse(source, `Following ${target}.`);
-                return true;
-            }
-            if (/^(mine|chop|gather)\s+(logs?|wood|trees?)/i.test(lower)) {
-                const stacksMatch = lower.match(/(\d+)\s+stacks?/i);
-                const numMatch = lower.match(/(?:mine|chop|gather)\s+(?:logs?|wood|trees?)\s+(\d+)/i);
-                let count = 384; // 6 stacks by default (6 * 64 = 384 logs)
-                if (stacksMatch) {
-                    count = parseInt(stacksMatch[1], 10) * 64;
-                } else if (numMatch) {
-                    count = parseInt(numMatch[1], 10);
-                }
-                console.log(`[FastCommand] ${this.name} executing squadMineLogs(${count})`);
-                await executeCommand(this, `!squadMineLogs(${count})`);
-                this.routeResponse(source, `Splitting up to mine logs (${count} logs / ${Math.round(count / 64)} stacks).`);
-                return true;
-            }
-            if (/^(boat\s+to|sail\s+to)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/i.test(lower)) {
-                const m = lower.match(/(?:boat|sail)\s+to\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/i);
-                if (m) {
-                    const x = parseFloat(m[1]), y = parseFloat(m[2]), z = parseFloat(m[3]);
-                    await executeCommand(this, `!boatTo(${x}, ${y}, ${z})`);
-                    this.routeResponse(source, `Boating to (${x}, ${y}, ${z}).`);
-                    return true;
-                }
-            }
-            if (/^(auto\s*equip|equip\s+best|wear\s+armor|best\s+gear)/i.test(lower)) {
-                await executeCommand(this, '!autoEquip');
-                this.routeResponse(source, 'Equipped best armor, shield, and weapons.');
-                return true;
-            }
-            if (/^mine\s+(stone|cobblestone|rocks?)/i.test(lower)) {
-                await executeCommand(this, '!collectBlocks("cobblestone", 20)');
-                this.routeResponse(source, 'Mining stone.');
-                return true;
-            }
-            if (/^mine\s+(coal)/i.test(lower)) {
-                await executeCommand(this, '!collectBlocks("coal_ore", 10)');
-                this.routeResponse(source, 'Mining coal.');
-                return true;
-            }
-            if (/^mine\s+(iron)/i.test(lower)) {
-                await executeCommand(this, '!collectBlocks("iron_ore", 10)');
-                this.routeResponse(source, 'Mining iron.');
-                return true;
-            }
-            if (/^defend(\s+(the\s+area|us|me))?/i.test(lower)) {
-                this.bot.modes.setOn('hunting', true);
-                this.bot.modes.setOn('self_defense', true);
-                await executeCommand(this, '!huntAll("zombie", 32)');
-                this.routeResponse(source, 'Defending area against hostiles.');
-                return true;
-            }
-            if (/^craft\s+([a-zA-Z0-9_]+)/i.test(lower)) {
-                const itemMatch = lower.match(/^craft\s+([a-zA-Z0-9_]+)/i);
-                const item = itemMatch ? itemMatch[1] : 'wooden_pickaxe';
-                await executeCommand(this, `!craftRecipe("${item}", 1)`);
-                this.routeResponse(source, `Crafting ${item}.`);
-                return true;
-            }
-            if (/^build\s+(a\s+)?(dirt\s+)?(shelter|house|base)/i.test(lower)) {
-                await executeCommand(this, '!build("dirt", 3, 3, 2)');
-                this.routeResponse(source, 'Building basic shelter.');
-                return true;
-            }
-
-            // Natural plain English mapping for essential commands (e.g. "eat" -> "!eat", "drop all" -> "!dropAll")
-            const normalizedBare = '!' + lower.replace(/\s+([a-z])/g, (_, c) => c.toUpperCase()).replace(/[^a-zA-Z0-9_!]/g, '');
-            if (commandExists(normalizedBare)) {
-                console.log(`[FastCommand] ${this.name} matched bare command: ${normalizedBare}`);
-                let execute_res = await executeCommand(this, normalizedBare);
-                if (execute_res) this.routeResponse(source, execute_res);
-                return true;
-            }
+            // Check fast shortcut
+            const fastHandled = await this.handleFastShortcut(source, raw);
+            if (fastHandled) return true;
 
             const user_command_name = containsCommand(message);
             if (user_command_name) {

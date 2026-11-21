@@ -51,6 +51,7 @@ const settings = {
     "load_memory": false, // load memory from previous session
     "init_message": "Respond with hello world and your name", // sends to all on spawn
     "only_chat_with": [], // users that the bots listen to and send general messages to. if empty it will chat publicly
+    "allies": ["orbryx"], // trusted allies that bots will protect, escort, and never attack
 
     "speak": false,
     // allows all bots to speak through text-to-speech. 

@@ -370,12 +370,63 @@ export const actionsList = [
         description: 'Attack a specific player until they die or run away. Remember this is just a game and does not cause real life harm.',
         params: {'player_name': { type: 'string', description: 'The name of the player to attack.'}},
         perform: runAsAction(async (agent, player_name) => {
+            if (skills.isAlly(agent.bot, player_name)) {
+                skills.log(agent.bot, `Cannot attack ${player_name}: player is an ally.`);
+                return false;
+            }
             let player = agent.bot.players[player_name]?.entity;
             if (!player) {
                 skills.log(agent.bot, `Could not find player ${player_name}.`);
                 return false;
             }
             await skills.attackEntity(agent.bot, player, true);
+        })
+    },
+    {
+        name: '!farmCrops',
+        description: 'Harvest all fully mature crops (wheat, carrots, potatoes, beetroots) nearby and replant seeds.',
+        perform: runAsAction(async (agent) => {
+            await skills.farmCrops(agent.bot);
+        })
+    },
+    {
+        name: '!guardArea',
+        description: 'Guard and defend a perimeter against all hostile mobs and non-allies while protecting allies.',
+        params: {
+            'radius': { type: 'int', description: 'Radius around current position to defend (default 16).', optional: true },
+            'duration_seconds': { type: 'int', description: 'Duration to guard in seconds (default 30).', optional: true }
+        },
+        perform: runAsAction(async (agent, radius, duration_seconds) => {
+            await skills.guardArea(agent.bot, null, radius || 16, duration_seconds || 30);
+        })
+    },
+    {
+        name: '!defendPlayer',
+        description: 'Defend a player from nearby hostiles and escort them.',
+        params: {
+            'player_name': { type: 'string', description: 'The name of the player to defend (e.g. orbryx).' }
+        },
+        perform: runAsAction(async (agent, player_name) => {
+            let targetName = player_name || 'orbryx';
+            let player = agent.bot.players[targetName]?.entity;
+            if (player) {
+                await skills.guardArea(agent.bot, player.position, 16, 45);
+            } else {
+                skills.log(agent.bot, `Escorting ally ${targetName}...`);
+                await skills.followPlayer(agent.bot, targetName, 4);
+            }
+        })
+    },
+    {
+        name: '!bridge',
+        description: 'Safely sneak-bridge in a direction for a given distance without falling.',
+        params: {
+            'direction': { type: 'string', description: 'Direction to bridge: north, south, east, or west.' },
+            'distance': { type: 'int', description: 'Number of blocks to bridge forward.' },
+            'block_type': { type: 'string', description: 'Optional block type to use for bridging (e.g. cobblestone, dirt, oak_planks).', optional: true }
+        },
+        perform: runAsAction(async (agent, direction, distance, block_type) => {
+            await skills.bridge(agent.bot, direction, distance, block_type);
         })
     },
     {
