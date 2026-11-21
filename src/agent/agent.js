@@ -442,6 +442,15 @@ export class Agent {
                 return true;
             }
 
+            // Natural plain English mapping for essential commands (e.g. "eat" -> "!eat", "drop all" -> "!dropAll")
+            const normalizedBare = '!' + lower.replace(/\s+([a-z])/g, (_, c) => c.toUpperCase()).replace(/[^a-zA-Z0-9_!]/g, '');
+            if (commandExists(normalizedBare)) {
+                console.log(`[FastCommand] ${this.name} matched bare command: ${normalizedBare}`);
+                let execute_res = await executeCommand(this, normalizedBare);
+                if (execute_res) this.routeResponse(source, execute_res);
+                return true;
+            }
+
             const user_command_name = containsCommand(message);
             if (user_command_name) {
                 if (!commandExists(user_command_name)) {

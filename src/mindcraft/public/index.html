@@ -601,6 +601,59 @@
             border-color: var(--cyan);
             transform: translateY(-2px);
         }
+
+        /* 100 Commands Grid */
+        .commands-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 18px;
+            margin-top: 18px;
+        }
+        .command-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 12px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+        }
+        .command-card:hover {
+            border-color: var(--cyan);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.28);
+        }
+        .cmd-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .cmd-badge {
+            font-family: monospace;
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: var(--cyan);
+            background: rgba(88, 166, 255, 0.12);
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(88, 166, 255, 0.25);
+            display: inline-block;
+        }
+        .cmd-category {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+        .cmd-desc {
+            font-size: 0.86rem;
+            color: var(--text-main);
+            line-height: 1.45;
+        }
         .schematic-header {
             display: flex;
             align-items: center;
@@ -800,6 +853,7 @@
     <nav class="nav-tabs">
         <button class="nav-tab active" onclick="switchTab('squad')">🤖 Squad Overview</button>
         <button class="nav-tab" onclick="switchTab('commander')">🧠 AI Commander</button>
+        <button class="nav-tab" onclick="switchTab('commands100')">⚡ 100 Commands</button>
         <button class="nav-tab" onclick="switchTab('players')">👤 Players & Mobs</button>
         <button class="nav-tab" onclick="switchTab('schematics')">📐 Schematics</button>
         <button class="nav-tab" onclick="switchTab('server')">🌍 Server & World</button>
@@ -932,6 +986,49 @@
                     No active mission dispatched. Enter an objective above or click an operation to instruct the squad.
                 </div>
             </div>
+        </div>
+    </main>
+
+    <!-- TAB: 100 ESSENTIAL BUILT-IN COMMANDS -->
+    <main id="tab-commands100" class="tab-content" style="display:none;">
+        <div class="info-card" style="margin-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
+                <div>
+                    <h3 style="margin-bottom:4px;"><span>⚡</span> 100 Essential Built-In Commands Library</h3>
+                    <p style="font-size:0.88rem; color:var(--text-muted);">
+                        100 unique, hand-crafted commands covering survival, combat, mining, farming, squad tactics, and utility. Runs with 0ms latency without waiting for LLM or Ollama processing!
+                    </p>
+                </div>
+                <div style="font-weight:700; font-size:0.88rem; color:var(--cyan); background:rgba(88,166,255,0.12); padding:6px 14px; border-radius:20px; border:1px solid rgba(88,166,255,0.25);" id="commandsCountLabel">
+                    100 / 100 Commands Available
+                </div>
+            </div>
+
+            <!-- Search and Filter Bar -->
+            <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
+                <input id="search100Input" type="text" class="squad-input" style="flex:1; min-width:260px;" placeholder="🔍 Search any command (e.g. 'eat', 'flee', 'quarry', 'fish', 'sort', 'torch', 'door')..." oninput="filter100Commands()">
+                <button class="btn btn-neutral btn-sm" onclick="clear100Filter()">Clear Filter</button>
+            </div>
+
+            <!-- Category Pills -->
+            <div class="quick-chips" style="margin-top:0; gap:8px;">
+                <button class="chip-btn" style="border-color:var(--cyan); background:rgba(88,166,255,0.15);" onclick="set100Category('all', this)">All (100)</button>
+                <button class="chip-btn" onclick="set100Category('survival', this)">🍎 Survival (10)</button>
+                <button class="chip-btn" onclick="set100Category('combat', this)">⚔️ Combat (12)</button>
+                <button class="chip-btn" onclick="set100Category('movement', this)">🏃 Movement (12)</button>
+                <button class="chip-btn" onclick="set100Category('mining', this)">⛏️ Mining (10)</button>
+                <button class="chip-btn" onclick="set100Category('building', this)">🏰 Building (10)</button>
+                <button class="chip-btn" onclick="set100Category('farming', this)">🌾 Farming (12)</button>
+                <button class="chip-btn" onclick="set100Category('inventory', this)">🎒 Inventory (10)</button>
+                <button class="chip-btn" onclick="set100Category('squad', this)">🤝 Squad (10)</button>
+                <button class="chip-btn" onclick="set100Category('environment', this)">💡 Environment (8)</button>
+                <button class="chip-btn" onclick="set100Category('utility', this)">⚙️ Utility (10)</button>
+            </div>
+        </div>
+
+        <!-- 100 Commands Grid -->
+        <div id="commands100Container" class="commands-grid">
+            <!-- Rendered dynamically by JavaScript -->
         </div>
     </main>
 
@@ -2141,11 +2238,217 @@
             if (srvHost) srvHost.textContent = host;
         });
 
-        // Initialize themes on DOM ready
+        // --- 100 UNIQUE ESSENTIAL BUILT-IN COMMANDS LIBRARY ---
+        const COMMANDS_100 = [
+            // Survival (10)
+            { id: 1, cat: 'survival', name: '!eat', desc: 'Checks hunger and eats the most nourishing food in inventory until full.' },
+            { id: 2, cat: 'survival', name: '!heal', desc: 'Consumes golden apples or healing potions to regenerate health safely.' },
+            { id: 3, cat: 'survival', name: '!drownEscape', desc: 'Surfaces immediately when submerged underwater and low on oxygen.' },
+            { id: 4, cat: 'survival', name: '!extinguishSelf', desc: 'Extinguishes fire using water bucket clutch or running to water.' },
+            { id: 5, cat: 'survival', name: '!antiFallDamage', desc: 'Readies water bucket clutch when descending steep drop-offs.' },
+            { id: 6, cat: 'survival', name: '!curePoison', desc: 'Drinks milk bucket or honey bottle to clear poison and debuffs.' },
+            { id: 7, cat: 'survival', name: '!sleepInBed', desc: 'Finds nearest bed, waits for nighttime, sleeps, and resets spawn point.' },
+            { id: 8, cat: 'survival', name: '!wakeUp', desc: 'Forces bot to wake up from bed immediately.' },
+            { id: 9, cat: 'survival', name: '!togglePvp', desc: 'Toggles PvP combat stance and retaliation readiness.' },
+            { id: 10, cat: 'survival', name: '!suicide', desc: 'Issues /kill to cleanly respawn if permanently trapped in void or bedrock.' },
+
+            // Combat (12)
+            { id: 11, cat: 'combat', name: '!equipBestWeapon', desc: 'Scans inventory and equips highest attack damage sword or axe.' },
+            { id: 12, cat: 'combat', name: '!equipBestArmor', desc: 'Equips strongest diamond, netherite, or iron armor to all slots.' },
+            { id: 13, cat: 'combat', name: '!equipShield', desc: 'Equips shield in off-hand to block incoming mob attacks.' },
+            { id: 14, cat: 'combat', name: '!huntHostiles', desc: 'Actively hunts and eliminates all hostile mobs within 24 blocks.' },
+            { id: 15, cat: 'combat', name: '!shootTarget', desc: 'Equips bow or crossbow and fires arrows at target hostile.' },
+            { id: 16, cat: 'combat', name: '!snipeMob', desc: 'Eliminates distant creepers or skeletons from safe range.' },
+            { id: 17, cat: 'combat', name: '!fleeThreat', desc: 'Sprints 25 blocks away from overwhelming hostiles to safety.' },
+            { id: 18, cat: 'combat', name: '!guardLocation', desc: 'Guards perimeter around current coordinates, attacking intruders.' },
+            { id: 19, cat: 'combat', name: '!shieldBash', desc: 'Blocks with shield and delivers a counter-strike with weapon.' },
+            { id: 20, cat: 'combat', name: '!clearArea', desc: 'Sleys all hostiles in 32 blocks and places protective torches.' },
+            { id: 21, cat: 'combat', name: '!strikeAndRetreat', desc: 'Hits target mob and backpedals out of melee damage range.' },
+            { id: 22, cat: 'combat', name: '!criticalAttack', desc: 'Jumps and strikes target on descent for critical hit damage.' },
+
+            // Movement (12)
+            { id: 23, cat: 'movement', name: '!leadWay', desc: 'Walks ahead of the player to guide them towards destination.' },
+            { id: 24, cat: 'movement', name: '!jump', desc: 'Executes a single jump.' },
+            { id: 25, cat: 'movement', name: '!crouch', desc: 'Toggles sneak/crouch mode to prevent falling off block edges.' },
+            { id: 26, cat: 'movement', name: '!uncrouch', desc: 'Stops crouching and returns to upright stance.' },
+            { id: 27, cat: 'movement', name: '!sprint', desc: 'Toggles sprint mode forward for high-speed travel.' },
+            { id: 28, cat: 'movement', name: '!swimUp', desc: 'Paddles upward in water to reach the surface.' },
+            { id: 29, cat: 'movement', name: '!climbLadder', desc: 'Ascends nearest ladder or vine to the top platform.' },
+            { id: 30, cat: 'movement', name: '!findPath', desc: 'Calculates pathfinding route to coordinates and reports distance.' },
+            { id: 31, cat: 'movement', name: '!wander', desc: 'Explores safe immediate surrounding terrain.' },
+            { id: 32, cat: 'movement', name: '!patrol', desc: 'Cycles movement in a defensive patrol perimeter.' },
+            { id: 33, cat: 'movement', name: '!teleportMe', desc: 'Sends /tpa teleport request to player orbryx.' },
+            { id: 34, cat: 'movement', name: '!stopMovement', desc: 'Immediately halts pathfinding and clears navigation goals.' },
+
+            // Mining (10)
+            { id: 35, cat: 'mining', name: '!stripMine', desc: 'Digs an efficient 1x2 tunnel forward and places torches.' },
+            { id: 36, cat: 'mining', name: '!quarry', desc: 'Excavates a clean 3x3 quarry pit downward.' },
+            { id: 37, cat: 'mining', name: '!mineVein', desc: 'Extracts entire connected cluster/vein of target ore.' },
+            { id: 38, cat: 'mining', name: '!findOres', desc: 'Scans surroundings for diamonds, iron, gold, and redstone.' },
+            { id: 39, cat: 'mining', name: '!staircaseDown', desc: 'Digs a safe walkable 3-step staircase downward.' },
+            { id: 40, cat: 'mining', name: '!mineTree', desc: 'Cuts down entire tree from trunk base to top canopy.' },
+            { id: 41, cat: 'mining', name: '!clearObstacle', desc: 'Breaks blocks directly obstructing doorway or passage.' },
+            { id: 42, cat: 'mining', name: '!digPillar', desc: 'Pillars straight up with blocks to reach elevation.' },
+            { id: 43, cat: 'mining', name: '!mineSpelunking', desc: 'Explores nearest open cave entrance while placing torches.' },
+            { id: 44, cat: 'mining', name: '!mineObsidian', desc: 'Mines obsidian blocks with diamond pickaxe.' },
+
+            // Building & Crafting (10)
+            { id: 45, cat: 'building', name: '!buildBox', desc: 'Builds a 3x3 hollow protective box shelter with door opening.' },
+            { id: 46, cat: 'building', name: '!buildWall', desc: 'Constructs a 5-block long defensive stone or dirt barricade.' },
+            { id: 47, cat: 'building', name: '!buildFloor', desc: 'Replaces ground in 3x3 radius with smooth wooden planks.' },
+            { id: 48, cat: 'building', name: '!placeDoor', desc: 'Installs wooden or iron door at designated entrance.' },
+            { id: 49, cat: 'building', name: '!craftTools', desc: 'Crafts essential tool kit (pickaxe, axe, shovel, sword).' },
+            { id: 50, cat: 'building', name: '!craftArmor', desc: 'Crafts helmet, chestplate, leggings, and boots from ingots.' },
+            { id: 51, cat: 'building', name: '!craftTorches', desc: 'Crafts torches from coal/charcoal and sticks.' },
+            { id: 52, cat: 'building', name: '!craftBed', desc: 'Crafts bed from wool and wooden planks.' },
+            { id: 53, cat: 'building', name: '!craftChest', desc: 'Crafts wooden storage chest and places near bot.' },
+            { id: 54, cat: 'building', name: '!craftFurnace', desc: 'Crafts stone furnace from 8 cobblestone blocks.' },
+
+            // Farming & Animals (12)
+            { id: 55, cat: 'farming', name: '!tillSoil', desc: 'Uses hoe to till grass/dirt into farmland near water.' },
+            { id: 56, cat: 'farming', name: '!plantSeeds', desc: 'Plants wheat seeds, carrots, or potatoes onto farmland.' },
+            { id: 57, cat: 'farming', name: '!harvestCrops', desc: 'Harvests mature crops and replants seeds automatically.' },
+            { id: 58, cat: 'farming', name: '!bonemealCrop', desc: 'Applies bone meal to accelerate crop or sapling growth.' },
+            { id: 59, cat: 'farming', name: '!fish', desc: 'Casts fishing rod into water and reels in catch.' },
+            { id: 60, cat: 'farming', name: '!shearSheep', desc: 'Uses shears on nearby adult sheep to harvest wool.' },
+            { id: 61, cat: 'farming', name: '!milkCow', desc: 'Uses empty bucket on nearby cow to collect milk.' },
+            { id: 62, cat: 'farming', name: '!feedAnimal', desc: 'Feeds wheat or carrots to nearby farm animals to breed them.' },
+            { id: 63, cat: 'farming', name: '!leadAnimal', desc: 'Holds wheat/seeds to attract and lead livestock into pen.' },
+            { id: 64, cat: 'farming', name: '!slaughterSurplus', desc: 'Sustainably culls adult farm animals for meat and leather.' },
+            { id: 65, cat: 'farming', name: '!plantSaplings', desc: 'Replants saplings in deforested areas to keep wood sustainable.' },
+            { id: 66, cat: 'farming', name: '!harvestHoney', desc: 'Safely collects honeycomb or honey bottle from beehive.' },
+
+            // Inventory (10)
+            { id: 67, cat: 'inventory', name: '!sortInventory', desc: 'Organizes hotbar and inventory logically for survival.' },
+            { id: 68, cat: 'inventory', name: '!depositAll', desc: 'Stores all gathered blocks and loot into nearest chest.' },
+            { id: 69, cat: 'inventory', name: '!dumpTrash', desc: 'Discards junk items (poisonous potatoes, seeds, rotten flesh).' },
+            { id: 70, cat: 'inventory', name: '!giveItemTo', desc: 'Throws specified item stack to target player.' },
+            { id: 71, cat: 'inventory', name: '!dropAll', desc: 'Drops entire inventory onto ground for player pickup.' },
+            { id: 72, cat: 'inventory', name: '!takeFoodFromChest', desc: 'Withdraws food rations from nearest chest.' },
+            { id: 73, cat: 'inventory', name: '!takeOresFromChest', desc: 'Withdraws raw ores from chest for smelting.' },
+            { id: 74, cat: 'inventory', name: '!fuelFurnace', desc: 'Loads coal, charcoal, or wood into furnace fuel slot.' },
+            { id: 75, cat: 'inventory', name: '!collectNearbyDrops', desc: 'Sweeps 16-block radius and picks up floating dropped items.' },
+            { id: 76, cat: 'inventory', name: '!repairItem', desc: 'Combines two damaged tools in crafting grid to repair.' },
+
+            // Squad (10)
+            { id: 77, cat: 'squad', name: '!regroupSquad', desc: 'Orders all bots to assemble into tight formation.' },
+            { id: 78, cat: 'squad', name: '!squadFormation', desc: 'Positions bots into tactical wedge or perimeter formation.' },
+            { id: 79, cat: 'squad', name: '!assignMiner', desc: 'Designates bot role as automated squad miner.' },
+            { id: 80, cat: 'squad', name: '!assignBuilder', desc: 'Designates bot role as automated squad builder.' },
+            { id: 81, cat: 'squad', name: '!assignGuard', desc: 'Designates bot role as squad bodyguard and escort.' },
+            { id: 82, cat: 'squad', name: '!assignFarmer', desc: 'Designates bot role as crop farmer and food provider.' },
+            { id: 83, cat: 'squad', name: '!shareFood', desc: 'Gives half of food supply to nearest hungry teammate.' },
+            { id: 84, cat: 'squad', name: '!distributeSupplies', desc: 'Divides torches and tools evenly across active squad.' },
+            { id: 85, cat: 'squad', name: '!syncCoordinates', desc: 'Broadcasts exact bot coordinates to team chat.' },
+            { id: 86, cat: 'squad', name: '!assistTeammate', desc: 'Rushes to defend teammate bot under hostile attack.' },
+
+            // Environment (8)
+            { id: 87, cat: 'environment', name: '!torchPerimeter', desc: 'Places torches in a protective ring around base.' },
+            { id: 88, cat: 'environment', name: '!checkLightLevel', desc: 'Measures block light level at feet to prevent mob spawns.' },
+            { id: 89, cat: 'environment', name: '!fillHoles', desc: 'Fills creeper craters and dangerous ground holes with dirt.' },
+            { id: 90, cat: 'environment', name: '!bridgeChasm', desc: 'Constructs 1-block wide walkway across ravine or lava gap.' },
+            { id: 91, cat: 'environment', name: '!sealLava', desc: 'Covers exposed hazardous lava source blocks with cobblestone.' },
+            { id: 92, cat: 'environment', name: '!clearWater', desc: 'Plugs water source blocks to drain flooded area.' },
+            { id: 93, cat: 'environment', name: '!buildLookout', desc: 'Builds an 8-block high lookout tower with ladder and torch.' },
+            { id: 94, cat: 'environment', name: '!findCave', desc: 'Scans terrain for nearest cave entrance or ravine opening.' },
+
+            // Utility (10)
+            { id: 95, cat: 'utility', name: '!openDoor', desc: 'Interacts with and opens wooden door or gate.' },
+            { id: 96, cat: 'utility', name: '!closeDoor', desc: 'Closes wooden door or gate to keep hostiles out.' },
+            { id: 97, cat: 'utility', name: '!pressButton', desc: 'Pushes wooden or stone redstone button.' },
+            { id: 98, cat: 'utility', name: '!pullLever', desc: 'Toggles redstone lever on or off.' },
+            { id: 99, cat: 'utility', name: '!ringBell', desc: 'Strikes village bell to highlight raid hostiles.' },
+            { id: 100, cat: 'utility', name: '!inspectBlock', desc: 'Inspects block type, hardness, and coordinates at crosshair.' }
+        ];
+
+        let current100Category = 'all';
+
+        function render100Commands() {
+            const container = document.getElementById('commands100Container');
+            if (!container) return;
+
+            const searchInput = document.getElementById('search100Input');
+            const query = (searchInput ? searchInput.value.toLowerCase().trim() : '');
+
+            const filtered = COMMANDS_100.filter(cmd => {
+                const matchesCat = (current100Category === 'all' || cmd.cat === current100Category);
+                const matchesSearch = !query || cmd.name.toLowerCase().includes(query) || cmd.desc.toLowerCase().includes(query) || cmd.cat.toLowerCase().includes(query);
+                return matchesCat && matchesSearch;
+            });
+
+            const countLabel = document.getElementById('commandsCountLabel');
+            if (countLabel) {
+                countLabel.textContent = `${filtered.length} / 100 Commands Available`;
+            }
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:30px; color:var(--text-muted); font-size:0.95rem;">No commands found matching "${query}".</div>`;
+                return;
+            }
+
+            const catLabels = {
+                survival: '🍎 Survival',
+                combat: '⚔️ Combat',
+                movement: '🏃 Movement',
+                mining: '⛏️ Mining',
+                building: '🏰 Building',
+                farming: '🌾 Farming',
+                inventory: '🎒 Inventory',
+                squad: '🤝 Squad',
+                environment: '💡 Environment',
+                utility: '⚙️ Utility'
+            };
+
+            container.innerHTML = filtered.map(cmd => `
+                <div class="command-card">
+                    <div>
+                        <div class="cmd-header">
+                            <span class="cmd-badge">${cmd.name}</span>
+                            <span class="cmd-category">${catLabels[cmd.cat] || cmd.cat}</span>
+                        </div>
+                        <p class="cmd-desc" style="margin-top:10px;">${cmd.desc}</p>
+                    </div>
+                    <div style="display:flex; gap:8px; margin-top:8px;">
+                        <button class="btn btn-primary btn-sm" style="flex:1;" onclick="sendSquadCommand('${cmd.name}')">⚡ Run on Squad</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function set100Category(cat, btn) {
+            current100Category = cat;
+            if (btn && btn.parentElement) {
+                Array.from(btn.parentElement.children).forEach(el => {
+                    el.style.borderColor = 'var(--border)';
+                    el.style.background = 'var(--bg-card-hover)';
+                });
+                btn.style.borderColor = 'var(--cyan)';
+                btn.style.background = 'rgba(88,166,255,0.15)';
+            }
+            render100Commands();
+        }
+        window.set100Category = set100Category;
+
+        function filter100Commands() {
+            render100Commands();
+        }
+        window.filter100Commands = filter100Commands;
+
+        function clear100Filter() {
+            const input = document.getElementById('search100Input');
+            if (input) input.value = '';
+            current100Category = 'all';
+            render100Commands();
+        }
+        window.clear100Filter = clear100Filter;
+
+        // Initialize themes and commands on DOM ready
         window.addEventListener('DOMContentLoaded', () => {
             initThemeGrid();
+            render100Commands();
         });
         initThemeGrid();
+        render100Commands();
     </script>
 </body>
 </html>
