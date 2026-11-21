@@ -168,12 +168,21 @@ export class ActionManager {
             this.currentActionFn = null;
             clearTimeout(TIMEOUT);
             this.cancelResume();
+
+            const stackTrace = err?.stack || '';
+            const errStr = err?.toString ? err.toString() : String(err);
+            const isPathCancel = errStr.includes('PathStopped') || errStr.includes('GoalChanged') || err?.name === 'PathStopped' || err?.name === 'GoalChanged';
+
+            if (isPathCancel || this.agent.bot?.interrupt_code) {
+                await this.stop();
+                this.agent.clearBotLogs();
+                return { success: false, message: 'Action interrupted.', interrupted: true, timedout: false };
+            }
+
             console.error("Code execution triggered catch:", err);
             // Log the full stack trace
             console.error(err.stack);
             await this.stop();
-            const stackTrace = err?.stack || '';
-            const errStr = err?.toString ? err.toString() : String(err);
 
             let message = this.getBotOutputSummary() +
                 '!!Code threw exception!!\n' +

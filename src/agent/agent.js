@@ -270,7 +270,7 @@ export class Agent {
         ];
         
         const respondFunc = async (username, message) => {
-            if (message === "") return;
+            if (!message || /^[\s"'`.,!?;:]*$/.test(message)) return;
             if (username === this.name) return;
             if (settings.only_chat_with && settings.only_chat_with.length > 0 && !settings.only_chat_with.includes(username)) return;
             try {
@@ -299,11 +299,11 @@ export class Agent {
             // Never respond to messages originating from other bots to avoid infinite chat loops
             if (convoManager.isOtherAgent(username) || username === this.name) return;
 
-            // Filter out automated server plugins and system announcements (SimpleTpa, Server, Console, etc.) to prevent LLM rate limits
+            // Filter out automated server plugins and system announcements (SimpleTpa, Server, Console, SkinsRestorer, etc.)
             const uLower = String(username || '').toLowerCase();
             const automatedSenders = [
                 'simpletpa', 'server', 'console', 'announcer', 'broadcast', 'automessage', 'system',
-                'essentials', 'cmi', 'rcon', 'admin', 'notice', 'authme', 'chat', 'discord'
+                'essentials', 'cmi', 'rcon', 'notice', 'authme', 'chat', 'discord', 'skinsrestorer', 'skins'
             ];
             if (automatedSenders.some(s => uLower.includes(s))) {
                 return;
@@ -321,7 +321,11 @@ export class Agent {
                 mLower.includes('simpletpa') ||
                 mLower.includes('/tpcancel') ||
                 mLower.includes('teleportation request') ||
-                mLower.includes('sending a teleport request')
+                mLower.includes('sending a teleport request') ||
+                mLower.includes('uploading the skin') ||
+                mLower.includes('this can take a few minutes') ||
+                mLower.includes('skin has been updated') ||
+                mLower.includes('skin updated')
             ) {
                 return;
             }
@@ -803,6 +807,23 @@ export class Agent {
             return true;
         }
 
+        // Direct manual /tpahere execution - strictly manual, bypasses AI completely
+        const tpaHereMatch = lower.match(/^(?:do\s+)?(?:\/)?(?:tpahere|tpa_here|tp_here)(?:\s+([a-zA-Z0-9_]+))?$/i);
+        if (tpaHereMatch) {
+            const target = tpaHereMatch[1] || (source === 'ADMIN' ? 'orbryx' : source);
+            console.log(`[ManualTPA] ${this.name} executing manual /tpahere ${target} (strictly manual, AI bypassed).`);
+            this.bot.chat(`/tpahere ${target}`);
+            this.routeResponse(source, `Sent /tpahere ${target} (manual execution).`);
+            return true;
+        }
+        if (/^(?:teleport\s+here|tp\s+here|tpa\s+here|teleport\s+to\s+here|summon\s+me|summon\s+orbryx|tpahere\s+orbryx)$/i.test(lower)) {
+            const target = lower.includes('orbryx') ? 'orbryx' : (source === 'ADMIN' ? 'orbryx' : source);
+            console.log(`[ManualTPA] ${this.name} executing manual /tpahere ${target} (strictly manual, AI bypassed).`);
+            this.bot.chat(`/tpahere ${target}`);
+            this.routeResponse(source, `Sent /tpahere ${target} (manual execution).`);
+            return true;
+        }
+
         // Direct Minecraft slash commands (e.g. "/tpa orbryx", "do /tpa orbryx", "/home", "/spawn", "/gamemode")
         const slashMatch = (cleanRaw || raw).match(/^(?:do\s+)?(\/[a-zA-Z0-9_-]+(?:\s+.*)?)$/i);
         if (slashMatch) {
@@ -1018,23 +1039,73 @@ export class Agent {
             return true;
         }
 
-        // Universal Squad Gathering Intent (Apples, Logs, Stone, Dirt, Ores, Sand, Andesite, Gravel, etc.)
+        // Direct Solo Chop Trees Intent (Zero AI)
+        if (/^(?:solo\s+)?(?:chop|cut)(?:\s+(?:down\s+)?(?:trees?|wood|logs?))(?:\s+(\d+))?$/i.test(lower) ||
+            /^(?:chop\s+trees?|chop\s+wood|cut\s+wood|cut\s+trees?|solo\s+chop\s+trees?|solo\s+chop\s+wood)$/i.test(lower)) {
+            const countMatch = lower.match(/\b(\d+)\b/);
+            const count = countMatch ? parseInt(countMatch[1], 10) : 64;
+            console.log(`[FastCommand] ${this.name} executing chopTrees(${count}) [solo]`);
+            await executeCommand(this, `!chopTrees(${count})`);
+            this.routeResponse(source, `Chopping trees and harvesting timber (${count} logs).`);
+            return true;
+        }
+
+        // Direct Solo Mining Intent (Zero AI)
+        const soloMineMatch = lower.match(/^solo\s+mine(?:\s+(\d+)\s+stacks?(?:\s+of)?)?(?:\s+([a-zA-Z0-9_]+))?(?:\s+(\d+))?$/i) ||
+                              lower.match(/^(?:solo\s+mining|solo\s+mine)$/i);
+        if (soloMineMatch) {
+            let count = 64;
+            if (soloMineMatch[1]) count = parseInt(soloMineMatch[1], 10) * 64;
+            else if (soloMineMatch[3]) count = parseInt(soloMineMatch[3], 10);
+            const mat = soloMineMatch[2] ? soloMineMatch[2].toLowerCase() : 'stone';
+            if (mat === 'wood' || mat === 'trees' || mat === 'tree' || mat === 'logs') {
+                console.log(`[FastCommand] ${this.name} executing chopTrees(${count}) [solo]`);
+                await executeCommand(this, `!chopTrees(${count})`);
+                this.routeResponse(source, `Chopping trees and harvesting timber (${count} logs).`);
+                return true;
+            }
+            if (mat.includes('diamond')) {
+                console.log(`[FastCommand] ${this.name} executing soloMineDiamonds(${count}) [solo]`);
+                await executeCommand(this, `!soloMineDiamonds(${count})`);
+                this.routeResponse(source, `💎 Solo mining diamonds directly with radar down to Y=-58 (${count} diamonds).`);
+                return true;
+            }
+            if (mat === 'stone' || mat === 'cobblestone' || mat === 'deepslate') {
+                console.log(`[FastCommand] ${this.name} executing soloMineStone(${count}) [solo]`);
+                await executeCommand(this, `!soloMineStone(${count})`);
+                this.routeResponse(source, `Solo excavating stone/cobblestone (${count} blocks).`);
+                return true;
+            }
+            console.log(`[FastCommand] ${this.name} executing soloMine("${mat}", ${count}) [solo]`);
+            await executeCommand(this, `!soloMine("${mat}", ${count})`);
+            this.routeResponse(source, `Solo mining for ${mat} (${count} blocks).`);
+            return true;
+        }
+
+        // Universal Gathering Intent (Apples, Logs, Stone, Dirt, Ores, Sand, Andesite, Gravel, etc.)
         const gatheringIntent = this.parseGatheringIntent(raw);
         if (gatheringIntent) {
             const { rawMat, count, stacks } = gatheringIntent;
             const resolved = this.resolveMaterialIntent(rawMat);
+            const isSquad = lower.includes('squad') || lower.includes('team') || lower.includes('all');
 
             if (resolved.category === 'apple') {
                 console.log(`[FastCommand] ${this.name} executing squadCollectApples(${count})`);
                 await executeCommand(this, `!squadCollectApples(${count})`);
-                this.routeResponse(source, `Collecting apples in squad formation (${count} apples / ${stacks} stacks).`);
+                this.routeResponse(source, `Collecting apples (${count} apples / ${stacks} stacks).`);
                 return true;
             }
 
             if (resolved.category === 'logs') {
-                console.log(`[FastCommand] ${this.name} executing squadMineLogs(${count})`);
-                await executeCommand(this, `!squadMineLogs(${count})`);
-                this.routeResponse(source, `Splitting up in squad teamwork to mine logs (${count} logs / ${stacks} stacks).`);
+                if (isSquad) {
+                    console.log(`[FastCommand] ${this.name} executing squadMineLogs(${count})`);
+                    await executeCommand(this, `!squadMineLogs(${count})`);
+                    this.routeResponse(source, `Splitting up in squad teamwork to mine logs (${count} logs / ${stacks} stacks).`);
+                } else {
+                    console.log(`[FastCommand] ${this.name} executing chopTrees(${count}) [solo]`);
+                    await executeCommand(this, `!chopTrees(${count})`);
+                    this.routeResponse(source, `Chopping trees and gathering timber (${count} logs / ${stacks} stacks).`);
+                }
                 return true;
             }
 
@@ -1046,29 +1117,53 @@ export class Agent {
             }
 
             if (resolved.target === 'diamond_ore' || /diamond/i.test(resolved.target)) {
-                console.log(`[FastCommand] ${this.name} executing squadMineDiamonds(${count})`);
-                await executeCommand(this, `!mineDiamonds(${count})`);
-                this.routeResponse(source, `💎 Descending to diamond level Y=-58 with hazard protection to mine diamonds (${count} diamonds / ${stacks} stacks).`);
+                if (isSquad) {
+                    console.log(`[FastCommand] ${this.name} executing squadMineDiamonds(${count})`);
+                    await executeCommand(this, `!mineDiamonds(${count})`);
+                    this.routeResponse(source, `💎 Squad descending to diamond level Y=-58 with hazard protection (${count} diamonds / ${stacks} stacks).`);
+                } else {
+                    console.log(`[FastCommand] ${this.name} executing soloMineDiamonds(${count}) [solo]`);
+                    await executeCommand(this, `!soloMineDiamonds(${count})`);
+                    this.routeResponse(source, `💎 Solo mining diamonds directly with radar down to Y=-58 (${count} diamonds / ${stacks} stacks).`);
+                }
                 return true;
             }
 
             if (resolved.target === 'cobblestone' || resolved.target === 'stone') {
-                console.log(`[FastCommand] ${this.name} executing squadMineStone(${count})`);
-                await executeCommand(this, `!squadMineStone(${count})`);
-                this.routeResponse(source, `Excavating stone/cobblestone in coordinated squad formation (${count} blocks / ${stacks} stacks).`);
+                if (isSquad) {
+                    console.log(`[FastCommand] ${this.name} executing squadMineStone(${count})`);
+                    await executeCommand(this, `!squadMineStone(${count})`);
+                    this.routeResponse(source, `Excavating stone/cobblestone in squad formation (${count} blocks / ${stacks} stacks).`);
+                } else {
+                    console.log(`[FastCommand] ${this.name} executing soloMineStone(${count}) [solo]`);
+                    await executeCommand(this, `!soloMineStone(${count})`);
+                    this.routeResponse(source, `Solo excavating stone/cobblestone (${count} blocks / ${stacks} stacks).`);
+                }
                 return true;
             }
 
             if (resolved.target.endsWith('_ore')) {
-                console.log(`[FastCommand] ${this.name} executing squadMineOres("${resolved.target}", ${count})`);
-                await executeCommand(this, `!squadMineOres("${resolved.target}", ${count})`);
-                this.routeResponse(source, `Mining ${resolved.target.replace(/_/g, ' ')} with max 64m ore scanning and squad teamwork (${count} ores / ${stacks} stacks).`);
+                if (isSquad) {
+                    console.log(`[FastCommand] ${this.name} executing squadMineOres("${resolved.target}", ${count})`);
+                    await executeCommand(this, `!squadMineOres("${resolved.target}", ${count})`);
+                    this.routeResponse(source, `Mining ${resolved.target.replace(/_/g, ' ')} with squad teamwork (${count} ores / ${stacks} stacks).`);
+                } else {
+                    console.log(`[FastCommand] ${this.name} executing soloMineOres("${resolved.target}", ${count}) [solo]`);
+                    await executeCommand(this, `!soloMineOres("${resolved.target}", ${count})`);
+                    this.routeResponse(source, `Solo extracting ${resolved.target.replace(/_/g, ' ')} veins (${count} ores / ${stacks} stacks).`);
+                }
                 return true;
             }
 
-            console.log(`[FastCommand] ${this.name} executing squadGather("${resolved.target}", ${count})`);
-            await executeCommand(this, `!squadGather("${resolved.target}", ${count})`);
-            this.routeResponse(source, `Executing squad teamwork mining for ${resolved.target} (${count} blocks / ${stacks} stacks).`);
+            if (isSquad) {
+                console.log(`[FastCommand] ${this.name} executing squadGather("${resolved.target}", ${count})`);
+                await executeCommand(this, `!squadGather("${resolved.target}", ${count})`);
+                this.routeResponse(source, `Executing squad teamwork mining for ${resolved.target} (${count} blocks / ${stacks} stacks).`);
+            } else {
+                console.log(`[FastCommand] ${this.name} executing soloMine("${resolved.target}", ${count}) [solo]`);
+                await executeCommand(this, `!soloMine("${resolved.target}", ${count})`);
+                this.routeResponse(source, `Solo mining for ${resolved.target} (${count} blocks / ${stacks} stacks).`);
+            }
             return true;
         }
 
@@ -1624,6 +1719,16 @@ export class Agent {
                     try {
                         const { autoEquipBest, goToPosition, pickupNearbyItems } = await import('./library/skills.js');
                         await autoEquipBest(this.bot);
+
+                        // Track recent death frequency to prevent infinite death loops against camping mobs
+                        if (!this._recentDeaths) this._recentDeaths = [];
+                        const now = Date.now();
+                        this._recentDeaths = this._recentDeaths.filter(t => (now - t) < 60000);
+                        this._recentDeaths.push(now);
+                        if (this._recentDeaths.length >= 3) {
+                            console.log(`[DeathRecovery] ${this.name} died ${this._recentDeaths.length} times in 1 minute. Pausing automatic /back loop to avoid repeatedly feeding camping mobs.`);
+                            return;
+                        }
 
                         // If not killed by a player and items were NOT destroyed, return via /back!
                         if (!killedByPlayer && !itemsDestroyed) {

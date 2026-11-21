@@ -1215,7 +1215,9 @@ export async function placeBlock(bot, blockType, x, y, z, placeOn='bottom', dont
         let goal = new pf.goals.GoalNear(targetBlock.position.x, targetBlock.position.y, targetBlock.position.z, 2);
         let inverted_goal = new pf.goals.GoalInvert(goal);
         bot.pathfinder.setMovements(new pf.Movements(bot));
-        await bot.pathfinder.goto(inverted_goal);
+        try {
+            await bot.pathfinder.goto(inverted_goal);
+        } catch {}
     }
     if (bot.entity.position.distanceTo(targetBlock.position) > 4.5) {
         // too far
@@ -1674,8 +1676,17 @@ export async function goToGoal(bot, goal) {
         return true;
     } catch (err) {
         if (doorCheckInterval) clearInterval(doorCheckInterval);
-        if (err.name === 'PathStopped' || err.name === 'GoalChanged' || err.name === 'Timeout' || (err.message && err.message.includes('Took to long'))) {
-            log(bot, `Path navigation finished: ${err.message || err.name}`);
+        const errStr = String(err?.message || err?.name || err || '');
+        if (
+            err?.name === 'PathStopped' ||
+            err?.name === 'GoalChanged' ||
+            err?.name === 'Timeout' ||
+            errStr.includes('PathStopped') ||
+            errStr.includes('GoalChanged') ||
+            errStr.includes('Timeout') ||
+            errStr.includes('Took to long')
+        ) {
+            log(bot, `Path navigation finished: ${err?.message || err?.name || errStr}`);
             return false;
         }
         throw err;
@@ -2041,9 +2052,24 @@ export async function moveAwayFromEntity(bot, entity, distance=16) {
      **/
     let goal = new pf.goals.GoalFollow(entity, distance);
     let inverted_goal = new pf.goals.GoalInvert(goal);
-    bot.pathfinder.setMovements(new pf.Movements(bot));
-    await bot.pathfinder.goto(inverted_goal);
-    return true;
+    try {
+        bot.pathfinder.setMovements(new pf.Movements(bot));
+        await bot.pathfinder.goto(inverted_goal);
+        return true;
+    } catch (err) {
+        const errStr = String(err?.message || err?.name || err || '');
+        if (
+            err?.name === 'PathStopped' ||
+            err?.name === 'GoalChanged' ||
+            err?.name === 'Timeout' ||
+            errStr.includes('PathStopped') ||
+            errStr.includes('GoalChanged') ||
+            errStr.includes('Timeout')
+        ) {
+            return false;
+        }
+        return false;
+    }
 }
 
 export async function avoidEnemies(bot, distance=16) {
@@ -4272,5 +4298,457 @@ export async function squadMineOres(bot, oreType = 'iron_ore', targetNum = 64) {
     }
     return await squadGatherMaterial(bot, oreType, targetNum);
 }
+
+export async function soloChopTrees(bot, targetNum = 64) {
+    /**
+     * Solo tree chopping and lumberjack work:
+     * - Equips best axe.
+     * - Searches for nearest tree logs up to 48 blocks away.
+     * - Navigates directly to the tree.
+     * - Chops trunk vertically from bottom to top.
+     * - Chops adjacent branches within reach.
+     * - Breaks reachable oak leaves for apple drops.
+     * - Vacuums dropped logs and apples.
+     * - Strictly avoids replanting saplings per standing instructions.
+     * - Repeats until targetNum logs collected or inventory full.
+     */
+    if (!bot?.entity?.position) {
+        log(bot, 'Bot is not fully spawned yet.');
+        return false;
+    }
+
+    log(bot, `[SoloChop] 🪓 Starting solo tree chopping mission (Goal: ${targetNum} logs / ${Math.round(targetNum / 64)} stacks)...`);
+
+    await autoEquipBest(bot);
+    await equipBestToolFor(bot, 'oak_log');
+
+    const ALL_LOG_TYPES = [
+        'oak_log', 'birch_log', 'spruce_log', 'jungle_log', 'acacia_log',
+        'dark_oak_log', 'mangrove_log', 'cherry_log', 'pale_oak_log',
+        'stripped_oak_log', 'stripped_birch_log', 'stripped_spruce_log',
+        'oak_wood', 'birch_wood', 'spruce_wood', 'jungle_wood'
+    ];
+
+    const getLogCount = () => {
+        return bot.inventory.items()
+            .filter(i => i.name.endsWith('_log') || i.name.endsWith('_wood'))
+            .reduce((sum, i) => sum + i.count, 0);
+    };
+
+    const initialLogs = getLogCount();
+    let currentLogs = initialLogs;
+    let treesFelled = 0;
+    const minedPositions = new Set();
+    let searchRadius = 48;
+
+    while (currentLogs < (initialLogs + targetNum) && !bot.interrupt_code) {
+        // Survival check: Eat until full if hungry
+        if (bot.food !== undefined && bot.food <= 17) {
+            try { await eatUntilFull(bot); } catch {}
+        }
+
+        // Self-defense if hostile mob approaches
+        const hostile = world.getNearestEntityWhere(bot, e => mc.isHostile(e) && !isAlly(bot, e), 14);
+        if (hostile) {
+            log(bot, `Pausing chopping to defend against ${hostile.name}.`);
+            await defendSelf(bot, 16);
+            await autoEquipBest(bot);
+            await equipBestToolFor(bot, 'oak_log');
+        }
+
+        // Find nearest tree log that hasn't been mined yet
+        let logs = world.getNearestBlocksWhere(bot, block => {
+            if (!ALL_LOG_TYPES.includes(block.name)) return false;
+            const key = `${block.position.x},${block.position.y},${block.position.z}`;
+            return !minedPositions.has(key);
+        }, searchRadius, 10);
+
+        if (!logs || logs.length === 0) {
+            if (searchRadius < 96) {
+                searchRadius += 24;
+                logs = world.getNearestBlocksWhere(bot, block => {
+                    if (!ALL_LOG_TYPES.includes(block.name)) return false;
+                    const key = `${block.position.x},${block.position.y},${block.position.z}`;
+                    return !minedPositions.has(key);
+                }, searchRadius, 10);
+            }
+        }
+
+        if (!logs || logs.length === 0) {
+            log(bot, `[SoloChop] No reachable trees found within ${searchRadius}m.`);
+            break;
+        }
+
+        const treeLog = logs[0];
+        try {
+            await goToPosition(bot, treeLog.position.x, treeLog.position.y, treeLog.position.z, 2);
+        } catch {}
+
+        // Mine all connected trunk logs from bottom to top
+        let trunkY = treeLog.position.y;
+        while (trunkY <= treeLog.position.y + 8 && !bot.interrupt_code) {
+            const blockAtTrunk = bot.blockAt(new Vec3(treeLog.position.x, trunkY, treeLog.position.z));
+            if (!blockAtTrunk || !ALL_LOG_TYPES.includes(blockAtTrunk.name)) break;
+
+            const posKey = `${blockAtTrunk.position.x},${blockAtTrunk.position.y},${blockAtTrunk.position.z}`;
+            minedPositions.add(posKey);
+
+            await equipBestToolFor(bot, blockAtTrunk.name);
+            try {
+                await bot.dig(blockAtTrunk, true);
+            } catch (digErr) {
+                if (digErr?.message?.includes('Digging aborted')) break;
+            }
+            trunkY++;
+        }
+
+        // Check directly adjacent logs (for thick / branching trees)
+        const nearbyBranches = world.getNearestBlocksWhere(bot, b => {
+            if (!ALL_LOG_TYPES.includes(b.name)) return false;
+            return bot.entity.position.distanceTo(b.position) <= 4.5;
+        }, 5, 8);
+
+        for (const branch of nearbyBranches) {
+            if (bot.interrupt_code) break;
+            const branchKey = `${branch.position.x},${branch.position.y},${branch.position.z}`;
+            if (minedPositions.has(branchKey)) continue;
+            minedPositions.add(branchKey);
+            await equipBestToolFor(bot, branch.name);
+            try { await bot.dig(branch, true); } catch {}
+        }
+
+        treesFelled++;
+
+        // Clear reachable oak leaves for apple drops
+        if (treeLog.name.includes('oak')) {
+            const nearbyLeaves = world.getNearestBlocksWhere(bot, b => (b.name === 'oak_leaves' || b.name === 'dark_oak_leaves') && bot.entity.position.distanceTo(b.position) <= 4.2, 4, 6);
+            for (const leaf of nearbyLeaves) {
+                if (bot.interrupt_code) break;
+                try { await bot.dig(leaf, true); } catch {}
+            }
+        }
+
+        // Vacuum dropped logs and apples
+        try {
+            await pickupNearbyItems(bot, 24, 'apple');
+            await pickupNearbyItems(bot, 24);
+        } catch {}
+
+        currentLogs = getLogCount();
+        log(bot, `[SoloChop] Progress: ${currentLogs - initialLogs}/${targetNum} logs collected (${treesFelled} trees felled).`);
+
+        if (bot.inventory.emptySlotCount() <= 0) {
+            log(bot, `[SoloChop] Inventory is full! Gathered ${currentLogs - initialLogs} logs.`);
+            break;
+        }
+    }
+
+    const gathered = currentLogs - initialLogs;
+    log(bot, `[SoloChop] 🏁 Mission finished! Gathered ${gathered} logs (${treesFelled} trees felled).`);
+    return gathered > 0;
+}
+
+export const chopTrees = soloChopTrees;
+export const soloMineLogs = soloChopTrees;
+export const soloMineWood = soloChopTrees;
+
+export async function soloMineDiamonds(bot, targetNum = 64) {
+    if (!bot?.entity?.position) return false;
+    await autoEquipBest(bot);
+    await equipBestToolFor(bot, 'deepslate_diamond_ore');
+
+    log(bot, `[SoloMine] 🧭 Locking radar onto diamonds (Goal: ${targetNum} diamonds)...`);
+
+    let diamondsMined = 0;
+    let cycles = 0;
+    const maxCycles = 120;
+
+    while (diamondsMined < targetNum && cycles < maxCycles && !bot.interrupt_code) {
+        cycles++;
+
+        if (bot.food !== undefined && bot.food <= 17) {
+            try { await eatUntilFull(bot); } catch {}
+        }
+
+        const hostile = world.getNearestEntityWhere(bot, e => mc.isHostile(e) && !isAlly(bot, e), 14);
+        if (hostile) {
+            await defendSelf(bot, 16);
+            await autoEquipBest(bot);
+            await equipBestToolFor(bot, 'deepslate_diamond_ore');
+        }
+
+        const diamondOres = findNearbyDiamondOres(bot, 128, 40);
+
+        if (diamondOres.length > 0) {
+            diamondOres.sort((a, b) => bot.entity.position.distanceTo(a.position) - bot.entity.position.distanceTo(b.position));
+            const nearestDiamond = diamondOres[0];
+            const dist = Math.round(bot.entity.position.distanceTo(nearestDiamond.position));
+            log(bot, `[SoloMine] 💎 Found diamond vein at [${nearestDiamond.position.x}, ${nearestDiamond.position.y}, ${nearestDiamond.position.z}] (${dist}m away). Mining directly...`);
+
+            const count = await mineDirectlyToTarget(bot, nearestDiamond.position);
+            diamondsMined += (count > 0 ? count : 1);
+            await pickupNearbyItems(bot, 12);
+            continue;
+        }
+
+        const bestY = getBestDiamondYLevel(bot);
+        if (bot.entity.position.y > (bestY + 2)) {
+            log(bot, `[SoloMine] Descending directly towards diamond layer Y=${bestY}...`);
+            await safeStaircaseDown(bot, bestY);
+            continue;
+        }
+
+        log(bot, `[SoloMine] At diamond depth Y=${Math.floor(bot.entity.position.y)}. Strip-mining forward...`);
+        const count = await diamondStripMine(bot, targetNum - diamondsMined, 30);
+        diamondsMined += count;
+    }
+
+    await pickupNearbyItems(bot, 16);
+    log(bot, `[SoloMine] 🏁 Completed solo diamond mining pass. Total diamonds: ${diamondsMined}.`);
+    return diamondsMined > 0;
+}
+
+export async function soloMineStone(bot, targetNum = 64) {
+    if (!bot?.entity?.position) return false;
+    log(bot, `[SoloMine] ⛏️ Starting solo stone mining (Goal: ${targetNum} blocks)...`);
+    await autoEquipBest(bot);
+    await equipBestToolFor(bot, 'stone');
+
+    const STONE_TYPES = [
+        'stone', 'cobblestone', 'deepslate', 'cobbled_deepslate',
+        'andesite', 'diorite', 'granite', 'tuff'
+    ];
+
+    let mined = 0;
+    const minedPositions = new Set();
+    let attempts = 0;
+
+    while (mined < targetNum && attempts < 40 && !bot.interrupt_code) {
+        attempts++;
+
+        if (bot.food !== undefined && bot.food <= 17) {
+            try { await eatUntilFull(bot); } catch {}
+        }
+
+        const hostile = world.getNearestEntityWhere(bot, e => mc.isHostile(e) && !isAlly(bot, e), 14);
+        if (hostile) {
+            await defendSelf(bot, 16);
+            await autoEquipBest(bot);
+            await equipBestToolFor(bot, 'stone');
+        }
+
+        let blocks = world.getNearestBlocksWhere(bot, b => {
+            if (!STONE_TYPES.includes(b.name)) return false;
+            if (b.position.x === Math.floor(bot.entity.position.x) &&
+                b.position.z === Math.floor(bot.entity.position.z) &&
+                b.position.y < Math.floor(bot.entity.position.y)) return false;
+            const key = `${b.position.x},${b.position.y},${b.position.z}`;
+            return !minedPositions.has(key);
+        }, 16, 20);
+
+        if (!blocks || blocks.length === 0) {
+            const forward = bot.entity.position.offset(
+                Math.round(-Math.sin(bot.entity.yaw)),
+                0,
+                Math.round(Math.cos(bot.entity.yaw))
+            );
+            const wallBlock = bot.blockAt(forward);
+            if (wallBlock && STONE_TYPES.includes(wallBlock.name)) {
+                blocks = [wallBlock];
+            } else {
+                break;
+            }
+        }
+
+        for (const blk of blocks) {
+            if (mined >= targetNum || bot.interrupt_code) break;
+            const key = `${blk.position.x},${blk.position.y},${blk.position.z}`;
+            minedPositions.add(key);
+
+            try {
+                if (bot.entity.position.distanceTo(blk.position) > 4.2) {
+                    await goToPosition(bot, blk.position.x, blk.position.y, blk.position.z, 2.5);
+                }
+            } catch {}
+
+            await equipBestToolFor(bot, blk.name);
+            try {
+                await bot.dig(blk, true);
+                mined++;
+            } catch {}
+
+            if (mined % 16 === 0) {
+                await pickupNearbyItems(bot, 12);
+            }
+        }
+    }
+
+    await pickupNearbyItems(bot, 16);
+    log(bot, `[SoloMine] 🏁 Solo stone mining complete. Mined: ${mined} blocks.`);
+    return mined > 0;
+}
+
+export async function soloMineOres(bot, oreType = 'iron_ore', targetNum = 64) {
+    if (!bot?.entity?.position) return false;
+    const lower = String(oreType || '').toLowerCase().trim();
+    if (lower.includes('diamond')) {
+        return await soloMineDiamonds(bot, targetNum);
+    }
+
+    const matDef = resolveMaterialBlock(lower);
+    const targetBlocks = matDef.blocks;
+
+    log(bot, `[SoloMine] ⛏️ Starting solo ore mining for ${targetBlocks[0]} (Goal: ${targetNum} ores)...`);
+    await autoEquipBest(bot);
+    await equipBestToolFor(bot, targetBlocks[0]);
+
+    let oresMined = 0;
+    const minedPositions = new Set();
+    let attempts = 0;
+
+    while (oresMined < targetNum && attempts < 30 && !bot.interrupt_code) {
+        attempts++;
+
+        if (bot.food !== undefined && bot.food <= 17) {
+            try { await eatUntilFull(bot); } catch {}
+        }
+
+        const hostile = world.getNearestEntityWhere(bot, e => mc.isHostile(e) && !isAlly(bot, e), 14);
+        if (hostile) {
+            await defendSelf(bot, 16);
+            await autoEquipBest(bot);
+            await equipBestToolFor(bot, targetBlocks[0]);
+        }
+
+        let ores = world.getNearestBlocksWhere(bot, b => {
+            if (!targetBlocks.includes(b.name)) return false;
+            const key = `${b.position.x},${b.position.y},${b.position.z}`;
+            return !minedPositions.has(key);
+        }, 48, 10);
+
+        if (!ores || ores.length === 0) {
+            log(bot, `[SoloMine] No visible ${targetBlocks[0]} nearby. Excavating forward to expose veins...`);
+            const count = await diamondStripMine(bot, 12, 16);
+            if (count === 0 && attempts > 10) break;
+            continue;
+        }
+
+        for (const oreBlock of ores) {
+            if (oresMined >= targetNum || bot.interrupt_code) break;
+            const key = `${oreBlock.position.x},${oreBlock.position.y},${oreBlock.position.z}`;
+            if (minedPositions.has(key)) continue;
+
+            try {
+                if (bot.entity.position.distanceTo(oreBlock.position) > 4.2) {
+                    await goToPosition(bot, oreBlock.position.x, oreBlock.position.y, oreBlock.position.z, 2.5);
+                }
+            } catch {}
+
+            const veinCount = await mineFullVein(bot, oreBlock, Math.min(16, targetNum - oresMined));
+            oresMined += veinCount;
+            minedPositions.add(key);
+            await pickupNearbyItems(bot, 12);
+        }
+    }
+
+    await pickupNearbyItems(bot, 16);
+    log(bot, `[SoloMine] 🏁 Completed solo ore mining pass for ${targetBlocks[0]}. Total mined: ${oresMined}.`);
+    return oresMined > 0;
+}
+
+export async function soloMine(bot, materialName = 'stone', targetNum = 64) {
+    if (!bot?.entity?.position) return false;
+
+    const lowerMat = String(materialName || '').toLowerCase().trim();
+
+    if (lowerMat === 'wood' || lowerMat === 'log' || lowerMat === 'logs' || lowerMat === 'tree' || lowerMat === 'trees') {
+        return await soloChopTrees(bot, targetNum);
+    }
+
+    if (lowerMat === 'apple' || lowerMat === 'apples' || lowerMat === 'red_apple') {
+        return await squadCollectApples(bot, targetNum);
+    }
+
+    if (lowerMat.includes('diamond')) {
+        return await soloMineDiamonds(bot, targetNum);
+    }
+
+    if (lowerMat === 'cobblestone' || lowerMat === 'stone' || lowerMat === 'deepslate' || lowerMat === 'cobbled_deepslate') {
+        return await soloMineStone(bot, targetNum);
+    }
+
+    if (lowerMat.endsWith('_ore') || lowerMat.includes('ore') || lowerMat === 'iron' || lowerMat === 'coal' || lowerMat === 'gold' || lowerMat === 'copper' || lowerMat === 'lapis' || lowerMat === 'redstone' || lowerMat === 'emerald' || lowerMat === 'netherite' || lowerMat === 'ancient_debris') {
+        return await soloMineOres(bot, lowerMat, targetNum);
+    }
+
+    const matDef = resolveMaterialBlock(lowerMat);
+    const targetBlocks = matDef.blocks;
+
+    log(bot, `[SoloMine] ⛏️ Starting solo mining for ${targetBlocks[0]} (Goal: ${targetNum} blocks / ${Math.round(targetNum / 64)} stacks)...`);
+
+    await autoEquipBest(bot);
+    await equipBestToolFor(bot, targetBlocks[0]);
+
+    const minedPositions = new Set();
+    let mined = 0;
+    let attempts = 0;
+
+    while (mined < targetNum && attempts < 40 && !bot.interrupt_code) {
+        attempts++;
+
+        if (bot.food !== undefined && bot.food <= 17) {
+            try { await eatUntilFull(bot); } catch {}
+        }
+
+        const hostile = world.getNearestEntityWhere(bot, e => mc.isHostile(e) && !isAlly(bot, e), 14);
+        if (hostile) {
+            log(bot, `Pausing mining to defend against ${hostile.name}.`);
+            await defendSelf(bot, 16);
+            await autoEquipBest(bot);
+            await equipBestToolFor(bot, targetBlocks[0]);
+        }
+
+        let blocks = world.getNearestBlocksWhere(bot, b => {
+            if (!targetBlocks.includes(b.name)) return false;
+            const key = `${b.position.x},${b.position.y},${b.position.z}`;
+            return !minedPositions.has(key);
+        }, 32, 10);
+
+        if (!blocks || blocks.length === 0) {
+            log(bot, `No reachable ${targetBlocks[0]} found within 32 blocks.`);
+            break;
+        }
+
+        for (const targetBlock of blocks) {
+            if (mined >= targetNum || bot.interrupt_code) break;
+
+            const key = `${targetBlock.position.x},${targetBlock.position.y},${targetBlock.position.z}`;
+            minedPositions.add(key);
+
+            try {
+                if (bot.entity.position.distanceTo(targetBlock.position) > 4.2) {
+                    await goToPosition(bot, targetBlock.position.x, targetBlock.position.y, targetBlock.position.z, 2.5);
+                }
+            } catch {}
+
+            await equipBestToolFor(bot, targetBlock.name);
+            try {
+                await bot.dig(targetBlock, true);
+                mined++;
+            } catch {}
+
+            if (mined % 16 === 0) {
+                await pickupNearbyItems(bot, 12);
+            }
+        }
+    }
+
+    await pickupNearbyItems(bot, 16);
+    log(bot, `[SoloMine] 🏁 Finished solo mining. Gathered ${mined} blocks.`);
+    return mined > 0;
+}
+
+export const soloMineBlock = soloMine;
+
 
 

@@ -19,7 +19,7 @@ export async function handleOfflineCommand(agent, source, raw) {
     if (/^(?:help|commands|cmd|cmds|offline\s+help|\?)$/i.test(lower)) {
         agent.routeResponse(
             source,
-            `[Offline Commands] Categories: mine, farm, craft, smelt, build, defend, follow, inv, status, sleep, fish, /back, /tpa orbryx, !stop. Type any command or '!help [topic]' for details!`
+            `[Offline Commands] Categories: mine, chop trees, solo mine, farm, craft, smelt, build, defend, follow, inv, status, sleep, fish, /back, /tpa orbryx, /tpahere orbryx, !stop. Type any command or '!help [topic]' for details!`
         );
         return true;
     }
@@ -31,13 +31,13 @@ export async function handleOfflineCommand(agent, source, raw) {
         const queryMatch = lower.match(/^(?:tab|suggest|complete|autocomplete)(?:\s+(.*))?$/i);
         const q = (queryMatch && queryMatch[1]) ? queryMatch[1].trim().toLowerCase() : '';
         const commandPool = [
-            'mine diamonds', 'mine 2 stacks of diamonds', 'mine stack of diamond',
-            'dig to diamond level', 'max ore scan', 'mine 3 stacks of stone',
-            'mine 2 stacks of wood', 'mine stack of iron', 'mine stack of gold',
-            'collect apples', 'squad mine diamonds', 'squad mine stone',
-            'squad mine wood', 'squad mine ores', '/tpa orbryx', '/back',
-            'follow orbryx', 'defend the area', 'auto equip', 'craft wooden_pickaxe',
-            'build dirt shelter', 'inv', 'status', 'eat', 'sleep', 'stop', 'stay'
+            'mine diamonds', 'mine 2 stacks of diamonds', 'chop trees', 'solo mine diamonds',
+            'solo mine stone', 'solo mine wood', 'dig to diamond level', 'max ore scan',
+            'mine 3 stacks of stone', 'mine 2 stacks of wood', 'mine stack of iron',
+            'collect apples', 'squad mine diamonds', 'squad mine stone', 'squad mine wood',
+            'squad mine ores', '/tpa orbryx', '/tpahere orbryx', '/back', 'follow orbryx',
+            'defend the area', 'auto equip', 'craft wooden_pickaxe', 'build dirt shelter',
+            'inv', 'status', 'eat', 'sleep', 'stop', 'stay'
         ];
         const matches = q ? commandPool.filter(c => c.includes(q)) : commandPool.slice(0, 6);
         const top = matches.length > 0 ? matches.slice(0, 6) : commandPool.slice(0, 6);
@@ -290,60 +290,134 @@ export async function handleOfflineCommand(agent, source, raw) {
     }
 
     // -------------------------------------------------------------
-    // 8. MINING & EXCAVATION (Zero-AI Offline Squad Teamwork)
+    // 8. MINING & EXCAVATION (Solo & Squad Teamwork)
     // -------------------------------------------------------------
+    // Direct Solo Chop Trees Intent (Zero AI)
+    if (/^(?:solo\s+)?(?:chop|cut)(?:\s+(?:down\s+)?(?:trees?|wood|logs?))(?:\s+(\d+))?$/i.test(lower) ||
+        /^(?:chop\s+trees?|chop\s+wood|cut\s+wood|cut\s+trees?|solo\s+chop\s+trees?|solo\s+chop\s+wood)$/i.test(lower)) {
+        const countMatch = lower.match(/\b(\d+)\b/);
+        const count = countMatch ? parseInt(countMatch[1], 10) : 64;
+        agent.routeResponse(source, `🪓 Commencing solo tree chopping with axe (${count} logs)...`);
+        const res = await executeCommand(agent, `!chopTrees(${count})`);
+        agent.routeResponse(source, res || 'Completed solo tree chopping.');
+        return true;
+    }
+
+    // Direct Solo Mining Intent (Zero AI)
+    const soloMiningMatch = lower.match(/^solo\s+mine(?:\s+(\d+)\s+stacks?(?:\s+of)?)?(?:\s+([a-zA-Z0-9_]+))?(?:\s+(\d+))?$/i) ||
+                           lower.match(/^(?:solo\s+mining|solo\s+mine)$/i);
+    if (soloMiningMatch) {
+        let count = 64;
+        if (soloMiningMatch[1]) count = parseInt(soloMiningMatch[1], 10) * 64;
+        else if (soloMiningMatch[3]) count = parseInt(soloMiningMatch[3], 10);
+        const mat = soloMiningMatch[2] ? soloMiningMatch[2].toLowerCase() : 'stone';
+        if (mat === 'wood' || mat === 'trees' || mat === 'tree' || mat === 'logs') {
+            agent.routeResponse(source, `🪓 Commencing solo tree chopping with axe (${count} logs)...`);
+            const res = await executeCommand(agent, `!chopTrees(${count})`);
+            agent.routeResponse(source, res || 'Completed solo tree chopping.');
+            return true;
+        }
+        if (mat.includes('diamond')) {
+            agent.routeResponse(source, `💎 Commencing solo diamond mining pass (${count} diamonds)...`);
+            const res = await executeCommand(agent, `!soloMineDiamonds(${count})`);
+            agent.routeResponse(source, res || 'Completed solo diamond mining.');
+            return true;
+        }
+        if (mat === 'stone' || mat === 'cobblestone' || mat === 'deepslate') {
+            agent.routeResponse(source, `⛏️ Commencing solo stone mining (${count} blocks)...`);
+            const res = await executeCommand(agent, `!soloMineStone(${count})`);
+            agent.routeResponse(source, res || 'Completed solo stone mining.');
+            return true;
+        }
+        agent.routeResponse(source, `⛏️ Commencing solo mining for ${mat} (${count} blocks)...`);
+        const res = await executeCommand(agent, `!soloMine("${mat}", ${count})`);
+        agent.routeResponse(source, res || `Completed solo mining for ${mat}.`);
+        return true;
+    }
+
     const offlineMiningIntent = typeof agent.parseGatheringIntent === 'function' ? agent.parseGatheringIntent(raw) : null;
     if (offlineMiningIntent) {
         const { rawMat, count, stacks } = offlineMiningIntent;
         const resolved = typeof agent.resolveMaterialIntent === 'function'
             ? agent.resolveMaterialIntent(rawMat)
             : { category: 'material', target: rawMat };
+        const isSquad = lower.includes('squad') || lower.includes('team') || lower.includes('all');
 
         if (resolved.target === 'diamond_ore' || /diamond/i.test(resolved.target)) {
-            agent.routeResponse(source, `💎 Commencing diamond expedition: descending to Y=-58 with hazard protection and squad roles (${count} diamonds / ${stacks} stacks)...`);
-            const res = await executeCommand(agent, `!mineDiamonds(${count})`);
-            agent.routeResponse(source, res || 'Completed diamond mining pass.');
+            if (isSquad) {
+                agent.routeResponse(source, `💎 Commencing squad diamond expedition: descending to Y=-58 with hazard protection (${count} diamonds / ${stacks} stacks)...`);
+                const res = await executeCommand(agent, `!mineDiamonds(${count})`);
+                agent.routeResponse(source, res || 'Completed diamond mining pass.');
+            } else {
+                agent.routeResponse(source, `💎 Commencing solo diamond mining pass directly with radar (${count} diamonds / ${stacks} stacks)...`);
+                const res = await executeCommand(agent, `!soloMineDiamonds(${count})`);
+                agent.routeResponse(source, res || 'Completed solo diamond mining.');
+            }
             return true;
         }
 
         if (resolved.category === 'apple') {
-            agent.routeResponse(source, `🍎 Collecting apples in squad formation (${count} apples / ${stacks} stacks)...`);
+            agent.routeResponse(source, `🍎 Collecting apples (${count} apples / ${stacks} stacks)...`);
             const res = await executeCommand(agent, `!squadCollectApples(${count})`);
             agent.routeResponse(source, res || 'Completed apple collection pass.');
             return true;
         }
 
         if (resolved.category === 'logs') {
-            agent.routeResponse(source, `🪵 Squad logging timber and collecting apples (${count} logs / ${stacks} stacks, no sapling replanting)...`);
-            const res = await executeCommand(agent, `!squadMineWood(${count})`);
-            agent.routeResponse(source, res || 'Squad timber logging completed.');
+            if (isSquad) {
+                agent.routeResponse(source, `🪵 Squad logging timber and collecting apples (${count} logs / ${stacks} stacks, no sapling replanting)...`);
+                const res = await executeCommand(agent, `!squadMineWood(${count})`);
+                agent.routeResponse(source, res || 'Squad timber logging completed.');
+            } else {
+                agent.routeResponse(source, `🪓 Chopping trees and harvesting timber (${count} logs / ${stacks} stacks, no sapling replanting)...`);
+                const res = await executeCommand(agent, `!chopTrees(${count})`);
+                agent.routeResponse(source, res || 'Tree chopping completed.');
+            }
             return true;
         }
 
         if (resolved.category === 'food') {
-            agent.routeResponse(source, `🌾 Harvesting and farming crops in squad sectors...`);
+            agent.routeResponse(source, `🌾 Harvesting and farming crops...`);
             const res = await executeCommand(agent, '!squadFarmCrops');
             agent.routeResponse(source, res || 'Harvested and farmed crops.');
             return true;
         }
 
         if (resolved.target === 'cobblestone' || resolved.target === 'stone') {
-            agent.routeResponse(source, `⛏️ Squad quarrying stone with guard & torch teamwork (${count} blocks / ${stacks} stacks)...`);
-            const res = await executeCommand(agent, `!squadMineStone(${count})`);
-            agent.routeResponse(source, res || 'Squad stone quarrying completed.');
+            if (isSquad) {
+                agent.routeResponse(source, `⛏️ Squad quarrying stone with guard & torch teamwork (${count} blocks / ${stacks} stacks)...`);
+                const res = await executeCommand(agent, `!squadMineStone(${count})`);
+                agent.routeResponse(source, res || 'Squad stone quarrying completed.');
+            } else {
+                agent.routeResponse(source, `⛏️ Solo mining stone/cobblestone (${count} blocks / ${stacks} stacks)...`);
+                const res = await executeCommand(agent, `!soloMineStone(${count})`);
+                agent.routeResponse(source, res || 'Solo stone mining completed.');
+            }
             return true;
         }
 
         if (resolved.target.endsWith('_ore') || resolved.target === 'ancient_debris') {
-            agent.routeResponse(source, `⛏️ Squad extracting ${resolved.target.replace(/_/g, ' ')} veins with max 64m scanning (${count} ores / ${stacks} stacks)...`);
-            const res = await executeCommand(agent, `!squadMineOres("${resolved.target}", ${count})`);
-            agent.routeResponse(source, res || 'Squad ore mining completed.');
+            if (isSquad) {
+                agent.routeResponse(source, `⛏️ Squad extracting ${resolved.target.replace(/_/g, ' ')} veins with max 64m scanning (${count} ores / ${stacks} stacks)...`);
+                const res = await executeCommand(agent, `!squadMineOres("${resolved.target}", ${count})`);
+                agent.routeResponse(source, res || 'Squad ore mining completed.');
+            } else {
+                agent.routeResponse(source, `⛏️ Solo extracting ${resolved.target.replace(/_/g, ' ')} veins (${count} ores / ${stacks} stacks)...`);
+                const res = await executeCommand(agent, `!soloMineOres("${resolved.target}", ${count})`);
+                agent.routeResponse(source, res || 'Solo ore mining completed.');
+            }
             return true;
         }
 
-        agent.routeResponse(source, `⛏️ Executing squad teamwork mining for ${resolved.target} (${count} blocks / ${stacks} stacks)...`);
-        const res = await executeCommand(agent, `!squadGather("${resolved.target}", ${count})`);
-        agent.routeResponse(source, res || `Completed mining pass for ${resolved.target}.`);
+        if (isSquad) {
+            agent.routeResponse(source, `⛏️ Executing squad teamwork mining for ${resolved.target} (${count} blocks / ${stacks} stacks)...`);
+            const res = await executeCommand(agent, `!squadGather("${resolved.target}", ${count})`);
+            agent.routeResponse(source, res || `Completed mining pass for ${resolved.target}.`);
+        } else {
+            agent.routeResponse(source, `⛏️ Executing solo mining for ${resolved.target} (${count} blocks / ${stacks} stacks)...`);
+            const res = await executeCommand(agent, `!soloMine("${resolved.target}", ${count})`);
+            agent.routeResponse(source, res || `Completed solo mining for ${resolved.target}.`);
+        }
         return true;
     }
 
@@ -725,8 +799,31 @@ export async function handleOfflineCommand(agent, source, raw) {
     }
 
     // -------------------------------------------------------------
-    // 14. NAVIGATION & GESTURES
+    // 14. NAVIGATION, TELEPORTATION & GESTURES
     // -------------------------------------------------------------
+    const tpaMatch = lower.match(/^(?:do\s+)?(?:\/)?tpa(?:\s+([a-zA-Z0-9_]+))?$/i);
+    if (tpaMatch) {
+        const target = tpaMatch[1] || 'orbryx';
+        bot.chat(`/tpa ${target}`);
+        agent.routeResponse(source, `Sent /tpa ${target} (manual execution).`);
+        return true;
+    }
+
+    const tpaHereMatch = lower.match(/^(?:do\s+)?(?:\/)?(?:tpahere|tpa_here|tp_here)(?:\s+([a-zA-Z0-9_]+))?$/i);
+    if (tpaHereMatch) {
+        const target = tpaHereMatch[1] || (source === 'ADMIN' ? 'orbryx' : source);
+        bot.chat(`/tpahere ${target}`);
+        agent.routeResponse(source, `Sent /tpahere ${target} (manual execution).`);
+        return true;
+    }
+
+    if (/^(?:teleport\s+here|tp\s+here|tpa\s+here|summon\s+me|summon\s+orbryx|tpahere\s+orbryx)$/i.test(lower)) {
+        const target = lower.includes('orbryx') ? 'orbryx' : (source === 'ADMIN' ? 'orbryx' : source);
+        bot.chat(`/tpahere ${target}`);
+        agent.routeResponse(source, `Sent /tpahere ${target} (manual execution).`);
+        return true;
+    }
+
     if (/^(?:lead\s+way|guide\s+me)$/i.test(lower)) {
         const res = await executeCommand(agent, '!leadWay');
         agent.routeResponse(source, res || 'Leading the way forward.');

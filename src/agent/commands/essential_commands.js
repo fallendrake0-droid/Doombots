@@ -472,6 +472,17 @@ export const essentialCommandsList = [
         }
     },
     {
+        name: '!tpahere',
+        description: 'Send /tpahere teleport request summoning player orbryx or specified player to bot.',
+        params: {
+            'player': { type: 'string', description: 'Target player name to summon (default: orbryx)' }
+        },
+        perform: async function(agent, player = 'orbryx') {
+            agent.bot.chat(`/tpahere ${player}`);
+            return `Dispatched /tpahere ${player} to Minecraft server.`;
+        }
+    },
+    {
         name: '!stopMovement',
         description: 'Immediately stop pathfinding, jumping, and clear navigation goals.',
         perform: async function(agent) {
@@ -1291,6 +1302,86 @@ export const essentialCommandsList = [
         perform: async function(agent, oreType = 'iron_ore', count = 64) {
             await skills.squadMineOres(agent.bot, oreType, count);
             return `Squad ore mining completed for ${oreType} (goal: ${count}).`;
+        }
+    },
+    {
+        name: '!chopTrees',
+        description: 'Solo tree chopping and timber harvesting (gathers logs and apples without replanting saplings).',
+        params: {
+            'count': { type: 'int', description: 'Target log count (default: 64)' }
+        },
+        perform: async function(agent, count = 64) {
+            const ok = await skills.soloChopTrees(agent.bot, count);
+            return ok ? `Solo tree chopping completed for ${count} logs.` : `No reachable trees found.`;
+        }
+    },
+    {
+        name: '!soloChopTrees',
+        description: 'Solo tree chopping and timber harvesting (alias for !chopTrees).',
+        params: {
+            'count': { type: 'int', description: 'Target log count (default: 64)' }
+        },
+        perform: async function(agent, count = 64) {
+            const ok = await skills.soloChopTrees(agent.bot, count);
+            return ok ? `Solo tree chopping completed for ${count} logs.` : `No reachable trees found.`;
+        }
+    },
+    {
+        name: '!soloMine',
+        description: 'Solo mining for any ore, stone, or resource without requiring squad teammates.',
+        params: {
+            'material': { type: 'string', description: 'Material or ore to mine (e.g. diamonds, wood, iron, stone)' },
+            'count': { type: 'int', description: 'Target count (default: 64)' }
+        },
+        perform: async function(agent, material = 'stone', count = 64) {
+            const ok = await skills.soloMine(agent.bot, material, count);
+            return ok ? `Solo mining pass completed for ${material} (goal: ${count}).` : `Could not find reachable ${material}.`;
+        }
+    },
+    {
+        name: '!soloMineBlock',
+        description: 'Solo mining for any block or ore without requiring squad teammates.',
+        params: {
+            'material': { type: 'string', description: 'Material or ore to mine' },
+            'count': { type: 'int', description: 'Target count (default: 64)' }
+        },
+        perform: async function(agent, material = 'stone', count = 64) {
+            const ok = await skills.soloMine(agent.bot, material, count);
+            return ok ? `Solo mining pass completed for ${material} (goal: ${count}).` : `Could not find reachable ${material}.`;
+        }
+    },
+    {
+        name: '!soloMineDiamonds',
+        description: 'Solo diamond mining pass with direct radar and Y=-58 strip mining.',
+        params: {
+            'count': { type: 'int', description: 'Target diamond count (default: 64)' }
+        },
+        perform: async function(agent, count = 64) {
+            const ok = await skills.soloMineDiamonds(agent.bot, count);
+            return ok ? `Solo diamond mining completed (goal: ${count}).` : `Finished diamond excavation pass.`;
+        }
+    },
+    {
+        name: '!soloMineStone',
+        description: 'Solo quarrying and excavation of stone/cobblestone.',
+        params: {
+            'count': { type: 'int', description: 'Target stone count (default: 64)' }
+        },
+        perform: async function(agent, count = 64) {
+            const ok = await skills.soloMineStone(agent.bot, count);
+            return ok ? `Solo stone mining completed for ${count} stone.` : `Finished stone excavation pass.`;
+        }
+    },
+    {
+        name: '!soloMineOres',
+        description: 'Solo ore extraction with full vein mining.',
+        params: {
+            'oreType': { type: 'string', description: 'Ore type (default: iron_ore)' },
+            'count': { type: 'int', description: 'Target ore count (default: 64)' }
+        },
+        perform: async function(agent, oreType = 'iron_ore', count = 64) {
+            const ok = await skills.soloMineOres(agent.bot, oreType, count);
+            return ok ? `Solo ore mining completed for ${oreType} (goal: ${count}).` : `Finished ore mining pass.`;
         }
     },
     {

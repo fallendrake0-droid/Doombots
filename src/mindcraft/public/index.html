@@ -1014,6 +1014,9 @@
             <span class="chip-label">⚡ Instant Actions:</span>
             <button class="chip-btn" onclick="sendSquadCommand('skin')" style="border-color: rgba(220, 38, 38, 0.6); color: #f87171; font-weight: bold;">🛡️ Red Knight Skin</button>
             <button class="chip-btn" onclick="sendSquadCommand('/tpa orbryx')">📍 /tpa orbryx</button>
+            <button class="chip-btn" onclick="sendSquadCommand('/tpahere orbryx')">📍 /tpahere orbryx</button>
+            <button class="chip-btn" onclick="sendSquadCommand('chop trees')">🪓 Chop Trees (Solo)</button>
+            <button class="chip-btn" onclick="sendSquadCommand('solo mine diamonds')">💎 Solo Mine Diamonds</button>
             <button class="chip-btn" onclick="sendSquadCommand('mine diamonds')">💎 Mine Diamonds (Y=-58)</button>
             <button class="chip-btn" onclick="sendSquadCommand('max ore scan')">🔍 Max Ore Scan (64m)</button>
             <button class="chip-btn" onclick="sendSquadCommand('mine 3 stacks of stone')">⛏️ Mine 3 Stacks Stone</button>
@@ -1198,7 +1201,9 @@
                         <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('defend the area')">⚔️ Defend Area</button>
                         <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('follow orbryx')">🏃 Follow orbryx</button>
                         <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('/tpa orbryx')">📍 /tpa orbryx</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('/tpahere orbryx')">📍 /tpahere orbryx</button>
                         <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('/back')">🔄 /back</button>
+                        <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('chop trees')">🪓 Chop Trees</button>
                         <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('auto equip')">🛡️ Auto Best Gear</button>
                         <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('eat')">🍗 Eat Food</button>
                         <button class="btn btn-red btn-sm" onclick="sendSquadCommand('stop')">🛑 Emergency Stop</button>
@@ -1333,6 +1338,7 @@
                     <button class="btn btn-primary btn-sm" onclick="sendSquadCommand('defend orbryx')">🛡️ Defend & Patrol orbryx</button>
                     <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('follow orbryx')">🏃 Follow & Escort orbryx</button>
                     <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('do /tpa orbryx')">⚡ Squad TPA (/tpa orbryx)</button>
+                    <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('do /tpahere orbryx')">⚡ Squad TPAHere (/tpahere orbryx)</button>
                     <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('give food to orbryx')">🍞 Supply Food</button>
                     <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('give armor to orbryx')">⚔️ Supply Armor</button>
                     <button class="btn btn-neutral btn-sm" onclick="sendSquadCommand('give logs to orbryx')">🪵 Supply Wood</button>
@@ -1477,6 +1483,7 @@
                         <strong style="color:var(--cyan);">Teleport & Navigation:</strong><br>
                         <code>do /back</code> - Teleports to last death location & retrieves loot<br>
                         <code>do /tpa orbryx</code> - Sends manual /tpa to player (bypasses AI)<br>
+                        <code>do /tpahere orbryx</code> - Sends manual /tpahere to player (bypasses AI)<br>
                         <code>follow me</code> - Follows you continuously<br>
                         <code>!goToPlayer orbryx</code> - Navigates to player<br>
                         <code>!stay(-1)</code> - Keeps bot in place
@@ -1507,7 +1514,7 @@
                         <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;">
                             <code>inv</code> <code>status</code> <code>help</code> <code>eat</code> <code>come here</code> <code>look at me</code> <code>pickup</code> <code>drop all</code>
                             <code>craft pickaxe</code> <code>craft sword</code> <code>craft crafting_table</code> <code>craft furnace</code> <code>craft torches</code> <code>craft shield</code>
-                            <code>smelt iron</code> <code>cook food</code> <code>build shelter</code> <code>place torch</code> <code>attack zombie</code> <code>mine 64 stone</code> <code>mine logs 32</code> <code>farm crops</code> <code>defend</code> <code>/back</code> <code>do /tpa orbryx</code>
+                            <code>smelt iron</code> <code>cook food</code> <code>build shelter</code> <code>place torch</code> <code>attack zombie</code> <code>mine 64 stone</code> <code>mine logs 32</code> <code>chop trees</code> <code>solo mine</code> <code>farm crops</code> <code>defend</code> <code>/back</code> <code>do /tpa orbryx</code> <code>do /tpahere orbryx</code>
                         </div>
                     </div>
                 </div>
@@ -2865,6 +2872,9 @@
 
             // Movement & TPA (Movement)
             { name: '/tpa orbryx', cat: 'movement', desc: 'Strictly manual /tpa teleport request sent to permanent ally orbryx (zero AI).' },
+            { name: '/tpahere orbryx', cat: 'movement', desc: 'Strictly manual /tpahere summon request sent to permanent ally orbryx (zero AI).' },
+            { name: 'chop trees', cat: 'gathering', desc: 'Solo tree chopping and timber harvesting with axe.' },
+            { name: 'solo mine', cat: 'mining', desc: 'Solo mining for diamonds, ores, or stone without squad dispersal.' },
             { name: '/back', cat: 'movement', desc: 'Executes /back command on respawn to recover death point items safely.' },
             { name: 'follow orbryx', cat: 'movement', desc: 'Locks onto permanent ally orbryx and maintains tactical escort formation.' },
             { name: 'come here', cat: 'movement', desc: 'Pathfinds directly to the commanding player and stands beside them.' },
