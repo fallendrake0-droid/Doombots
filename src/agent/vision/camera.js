@@ -1,9 +1,4 @@
-import { Viewer } from 'prismarine-viewer/viewer/lib/viewer.js';
-import { WorldView } from 'prismarine-viewer/viewer/lib/worldView.js';
-import { getBufferFromStream } from 'prismarine-viewer/viewer/lib/simpleUtils.js';
-
 import THREE from 'three';
-import { createCanvas } from 'node-canvas-webgl/lib/index.js';
 import fs from 'fs/promises';
 import { Vec3 } from 'vec3';
 import { EventEmitter } from 'events';
@@ -11,10 +6,34 @@ import { EventEmitter } from 'events';
 import worker_threads from 'worker_threads';
 globalThis.Worker = worker_threads.Worker;
 
+let Viewer = null;
+let WorldView = null;
+let getBufferFromStream = null;
+try {
+    const viewerMod = await import('prismarine-viewer/viewer/lib/viewer.js').catch(() => null);
+    Viewer = viewerMod?.Viewer || null;
+    const worldViewMod = await import('prismarine-viewer/viewer/lib/worldView.js').catch(() => null);
+    WorldView = worldViewMod?.WorldView || null;
+    const utilsMod = await import('prismarine-viewer/viewer/lib/simpleUtils.js').catch(() => null);
+    getBufferFromStream = utilsMod?.getBufferFromStream || null;
+} catch {
+    // optional canvas dependencies not installed
+}
+
+let createCanvas = null;
+try {
+    const canvasMod = await import('node-canvas-webgl/lib/index.js').catch(() => null);
+    createCanvas = canvasMod?.createCanvas || null;
+} catch {
+    createCanvas = null;
+}
 
 export class Camera extends EventEmitter {
     constructor (bot, fp) {
         super();
+        if (!createCanvas || !Viewer || !WorldView) {
+            throw new Error("Optional headless canvas dependencies ('node-canvas-webgl' or 'canvas') are not installed. Headless bot camera is disabled.");
+        }
         this.bot = bot;
         this.fp = fp;
         this.viewDistance = 12;
@@ -25,7 +44,7 @@ export class Camera extends EventEmitter {
         this.viewer = new Viewer(this.renderer);
         this._init().then(() => {
             this.emit('ready');
-        })
+        });
     }
   
     async _init () {

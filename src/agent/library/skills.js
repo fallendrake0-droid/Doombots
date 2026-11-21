@@ -673,67 +673,71 @@ export async function defendSelf(bot, range=12) {
     bot.modes.pause('self_preservation');
     let attacked = false;
 
-    // Equip best armor, off-hand shield, and top weapon
-    await autoEquipBest(bot);
-    await equipHighestAttack(bot);
-
-    const isAlive = (e) => e && e.isValid && (e.health === undefined || e.health > 0);
-    let enemy = world.getNearestEntityWhere(bot, entity => mc.isHostile(entity) && isAlive(entity), range);
-
-    while (enemy && isAlive(enemy) && !bot.interrupt_code) {
+    try {
+        // Equip best armor, off-hand shield, and top weapon
+        await autoEquipBest(bot);
         await equipHighestAttack(bot);
-        attacked = true;
 
-        const dist = bot.entity.position.distanceTo(enemy.position);
+        const isAlive = (e) => e && e.isValid && (e.health === undefined || e.health > 0);
+        let enemy = world.getNearestEntityWhere(bot, entity => mc.isHostile(entity) && isAlive(entity), range);
 
-        // Creeper survival tactic: Hit then back up immediately to prevent detonation
-        if (enemy.name === 'creeper') {
-            if (dist <= 3.8) {
-                try {
-                    await bot.lookAt(enemy.position.offset(0, (enemy.height || 1.8) * 0.75, 0), true);
-                    bot.attack(enemy);
-                } catch {}
-                // Sprint backward 4 blocks to reset creeper fuse
-                try {
-                    bot.setControlState('back', true);
-                    bot.setControlState('sprint', true);
-                    setTimeout(() => bot.clearControlStates(), 450);
-                } catch {}
-            } else if (dist <= 5.5) {
-                // Raise shield if in off-hand
+        while (enemy && isAlive(enemy) && !bot.interrupt_code) {
+            await equipHighestAttack(bot);
+            attacked = true;
+
+            const dist = bot.entity.position.distanceTo(enemy.position);
+
+            // Creeper survival tactic: Hit then back up immediately to prevent detonation
+            if (enemy.name === 'creeper') {
+                if (dist <= 3.8) {
+                    try {
+                        await bot.lookAt(enemy.position.offset(0, (enemy.height || 1.8) * 0.75, 0), true);
+                        bot.attack(enemy);
+                    } catch {}
+                    // Sprint backward 4 blocks to reset creeper fuse
+                    try {
+                        bot.setControlState('back', true);
+                        bot.setControlState('sprint', true);
+                        setTimeout(() => bot.clearControlStates(), 450);
+                    } catch {}
+                } else if (dist <= 5.5) {
+                    // Raise shield if in off-hand
+                    try { bot.activateItem(true); } catch {}
+                }
+            } else {
+                // Close-range melee attack for other hostiles (zombies, skeletons, spiders)
+                if (dist <= 3.8) {
+                    try {
+                        await bot.lookAt(enemy.position.offset(0, (enemy.height || 1.8) * 0.75, 0), true);
+                        bot.attack(enemy);
+                    } catch {}
+                }
+            }
+
+            // Low health survival safeguard: block with shield & eat
+            if (bot.health < 6) {
                 try { bot.activateItem(true); } catch {}
+                if (bot.autoEat && typeof bot.autoEat.eat === 'function') {
+                    try { await bot.autoEat.eat(true); } catch {}
+                }
             }
-        } else {
-            // Close-range melee attack for other hostiles (zombies, skeletons, spiders)
-            if (dist <= 3.8) {
-                try {
-                    await bot.lookAt(enemy.position.offset(0, (enemy.height || 1.8) * 0.75, 0), true);
-                    bot.attack(enemy);
-                } catch {}
-            }
+
+            // Engage PVP pathfinding towards enemy
+            try {
+                bot.pvp.attack(enemy);
+            } catch {}
+
+            await new Promise(resolve => setTimeout(resolve, 250));
+
+            // Re-check for nearest active hostile mob
+            enemy = world.getNearestEntityWhere(bot, entity => mc.isHostile(entity) && isAlive(entity), range);
         }
-
-        // Low health survival safeguard: block with shield & eat
-        if (bot.health < 6) {
-            try { bot.activateItem(true); } catch {}
-            if (bot.autoEat && typeof bot.autoEat.eat === 'function') {
-                try { await bot.autoEat.eat(true); } catch {}
-            }
-        }
-
-        // Engage PVP pathfinding towards enemy
-        try {
-            bot.pvp.attack(enemy);
-        } catch {}
-
-        await new Promise(resolve => setTimeout(resolve, 250));
-
-        // Re-check for nearest active hostile mob
-        enemy = world.getNearestEntityWhere(bot, entity => mc.isHostile(entity) && isAlive(entity), range);
+    } finally {
+        try { bot.pvp?.stop(); } catch {}
+        bot.modes.unpause('self_defense');
+        bot.modes.unpause('cowardice');
+        bot.modes.unpause('self_preservation');
     }
-
-    try { bot.pvp.stop(); } catch {}
-    bot.modes.unpause('self_preservation');
 
     if (attacked) {
         log(bot, `Successfully defended self.`);
@@ -3237,9 +3241,11 @@ export async function squadGatherMaterial(bot, materialName, targetNum = 64) {
             const posKey = `${block.position.x},${block.position.y},${block.position.z}`;
             if (minedPositions.has(posKey)) continue;
 
-            // Partition blocks across miners using 3D coordinate hash
-            const coordHash = Math.abs(block.position.x ^ block.position.z ^ block.position.y);
-            if ((coordHash % 3) !== (botIndex % 3)) continue;
+            // Partition blocks across miners when multiple blocks are available
+            if (blocks.length > 3) {
+                const coordHash = Math.abs(block.position.x ^ block.position.z ^ block.position.y);
+                if ((coordHash % 3) !== (botIndex % 3)) continue;
+            }
 
             minedPositions.add(posKey);
 

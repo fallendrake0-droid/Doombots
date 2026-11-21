@@ -124,14 +124,14 @@ export class SelfPrompter {
         this.interrupt = true;
         if (stop_action)
             await this.agent.actions.stop();
-        this.stopLoop();
+        await this.stopLoop();
         this.state = STOPPED;
     }
 
     async pause() {
         this.interrupt = true;
         await this.agent.actions.stop();
-        this.stopLoop();
+        await this.stopLoop();
         this.state = PAUSED;
     }
 

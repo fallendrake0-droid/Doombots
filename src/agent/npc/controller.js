@@ -14,7 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 
-export class NPCContoller {
+export class NPCController {
     constructor(agent) {
         this.agent = agent;
         this.data = NPCData.fromObject(agent.prompter.profile.npc);
@@ -306,3 +306,5 @@ export class NPCContoller {
         };
     }
 }
+
+export { NPCController as NPCContoller };

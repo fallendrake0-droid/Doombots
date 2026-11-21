@@ -162,7 +162,9 @@ export function getSchematicsCatalog() {
 
 export function getProceduralSchematic(id) {
     const catalog = getSchematicsCatalog();
+    if (!catalog || catalog.length === 0) return null;
     const item = catalog.find(c => c.id === id) || catalog[0];
+    if (!item) return null;
     const blocks = generateProceduralBlocks(item.type, item.w, item.l, item.h, item.material, item.pillar);
     return {
         name: item.id,

@@ -98,6 +98,8 @@ export function createMindServer(host_public = false, port = 8080) {
             const candidates = [];
             if (preferred && preferred !== 'auto') candidates.push(preferred);
             candidates.push('1.21.8');
+            candidates.push('1.21.4');
+            candidates.push('1.21.1');
 
             // Lazy import to avoid ESM/CJS conflicts
             const mod = await import('minecraft-assets');
@@ -362,6 +364,7 @@ function agentsStatusUpdate(socket) {
     if (!socket) {
         socket = io;
     }
+    if (!socket) return;
     let agents = [];
     for (let agentName in agent_connections) {
         const conn = agent_connections[agentName];
@@ -407,8 +410,11 @@ function addListener(listener_socket) {
 }
 
 function removeListener(listener_socket) {
-    agent_listeners.splice(agent_listeners.indexOf(listener_socket), 1);
-    if (agent_listeners.length === 0) {
+    const idx = agent_listeners.indexOf(listener_socket);
+    if (idx !== -1) {
+        agent_listeners.splice(idx, 1);
+    }
+    if (agent_listeners.length === 0 && listenerInterval) {
         clearInterval(listenerInterval);
         listenerInterval = null;
     }

@@ -227,7 +227,7 @@ const modes_list = [
         noticed_at: -1,
         update: async function (agent) {
             let item = world.getNearestEntityWhere(agent.bot, entity => entity.name === 'item', 8);
-            let empty_inv_slots = agent.bot.inventory.emptySlotCount();
+            let empty_inv_slots = agent.bot.inventory ? agent.bot.inventory.emptySlotCount() : 0;
             if (item && item !== this.prev_item && await world.isClearPath(agent.bot, item) && empty_inv_slots > 1) {
                 if (this.noticed_at === -1) {
                     this.noticed_at = Date.now();

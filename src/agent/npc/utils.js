@@ -119,8 +119,10 @@ export function itemSatisfied(bot, item, quantity=1) {
 
 
 export function rotateXZ(x, z, orientation, sizex, sizez) {
-    if (orientation === 0) return [x, z];
-    if (orientation === 1) return [z, sizex-x-1];
-    if (orientation === 2) return [sizex-x-1, sizez-z-1];
-    if (orientation === 3) return [sizez-z-1, x];
+    const o = ((orientation % 4) + 4) % 4;
+    if (o === 0) return [x, z];
+    if (o === 1) return [z, sizex - x - 1];
+    if (o === 2) return [sizex - x - 1, sizez - z - 1];
+    if (o === 3) return [sizez - z - 1, x];
+    return [x, z];
 }

@@ -376,7 +376,7 @@ export class Prompter {
             return;
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         let logEntry;
-        let task_id = this.agent.task.task_id;
+        let task_id = this.agent.task?.task_id;
         if (task_id == null) {
             logEntry = `[${timestamp}] \nPrompt:\n${prompt}\n\nConversation:\n${JSON.stringify(messages, null, 2)}\n\nResponse:\n${generation}\n\n`;
         } else {
@@ -387,7 +387,7 @@ export class Prompter {
     }
 
     async _saveToFile(logFile, logEntry) {
-        let task_id = this.agent.task.task_id;
+        let task_id = this.agent.task?.task_id;
         let logDir;
         if (task_id == null) {
             logDir = path.join(__dirname, `../../bots/${this.agent.name}/logs`);

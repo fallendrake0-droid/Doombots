@@ -7,7 +7,7 @@ import { initModes } from './modes.js';
 import { initBot } from '../utils/mcdata.js';
 import { containsCommand, commandExists, executeCommand, truncCommandMessage, isAction, blacklistCommands } from './commands/index.js';
 import { ActionManager } from './action_manager.js';
-import { NPCContoller } from './npc/controller.js';
+import { NPCController } from './npc/controller.js';
 import { MemoryBank } from './memory_bank.js';
 import { SelfPrompter } from './self_prompter.js';
 import convoManager from './conversation.js';
@@ -45,7 +45,7 @@ export class Agent {
         
         this.history = new History(this);
         this.coder = new Coder(this);
-        this.npc = new NPCContoller(this);
+        this.npc = new NPCController(this);
         this.memory_bank = new MemoryBank();
         this.self_prompter = new SelfPrompter(this);
         convoManager.initAgent(this);
@@ -425,6 +425,17 @@ export class Agent {
         }
 
         const lower = trimmed.toLowerCase();
+
+        // First check for explicit multi-clause commands preserving user counts/stacks
+        if (lower.includes(' and ') || lower.includes(';') || (lower.includes(',') && !lower.startsWith('!'))) {
+            const parts = lower.split(/\s*(?:and|;|,)\s*/i).map(p => p.trim()).filter(p => p.length > 2);
+            const actionVerbs = ['get', 'mine', 'chop', 'gather', 'farm', 'defend', 'guard', 'hunt', 'build', 'craft', 'follow', 'escort', 'bridge', 'collect', 'dig', 'pick'];
+            const validParts = parts.filter(p => actionVerbs.some(v => p.startsWith(v)));
+            if (validParts.length >= 2) {
+                return validParts;
+            }
+        }
+
         const goalKeywords = [
             { regex: /\b(?:(?:get|mine|chop|gather|harvest)\s+)?(?:logs?|wood|trees?)\b/i, task: 'mine logs 384' },
             { regex: /\b(?:(?:get|gather|collect)\s+)?apples?\b/i, task: 'collect apples' },
@@ -449,15 +460,6 @@ export class Agent {
 
         if (detected.length >= 2) {
             return detected;
-        }
-
-        if (lower.includes(' and ') || lower.includes(';') || (lower.includes(',') && !lower.startsWith('!'))) {
-            const parts = lower.split(/\s*(?:and|;|,)\s*/i).map(p => p.trim()).filter(p => p.length > 2);
-            const actionVerbs = ['get', 'mine', 'chop', 'gather', 'farm', 'defend', 'guard', 'hunt', 'build', 'craft', 'follow', 'escort', 'bridge'];
-            const validParts = parts.filter(p => actionVerbs.some(v => p.startsWith(v)));
-            if (validParts.length >= 2) {
-                return validParts;
-            }
         }
 
         return [];
@@ -595,6 +597,11 @@ export class Agent {
         if (m === 'ancient_debris' || m === 'debris' || m === 'netherite') return { category: 'material', target: 'ancient_debris' };
         if (m === 'ores' || m === 'ore') return { category: 'material', target: 'iron_ore' };
 
+        // Crops & Farm food
+        if (m === 'wheat' || m === 'carrot' || m === 'carrots' || m === 'potato' || m === 'potatoes' || m === 'beetroot' || m === 'crops' || m === 'food') {
+            return { category: 'food', target: m };
+        }
+
         return { category: 'material', target: m };
     }
 
@@ -648,6 +655,13 @@ export class Agent {
                 console.log(`[FastCommand] ${this.name} executing squadMineLogs(${count})`);
                 await executeCommand(this, `!squadMineLogs(${count})`);
                 this.routeResponse(source, `Splitting up in squad teamwork to mine logs (${count} logs / ${stacks} stacks).`);
+                return true;
+            }
+
+            if (resolved.category === 'food') {
+                console.log(`[FastCommand] ${this.name} executing squadFarmCrops`);
+                await executeCommand(this, `!squadFarmCrops`);
+                this.routeResponse(source, `Harvesting and farming crops in squad sectors.`);
                 return true;
             }
 

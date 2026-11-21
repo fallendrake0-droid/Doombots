@@ -73,7 +73,7 @@ export class AgentProcess {
                     const delayMs = Math.min(baseDelay + (count_id * 4000), 45000);
                     console.log(`[AgentProcess] Reconnecting in ${delayMs / 1000}s (attempt ${this.retryCount}/${MAX_RETRIES}${isThrottled ? ' - throttle backoff' : ''})...`);
                     setTimeout(() => {
-                        this.start(true, 'Agent process restarted.', count_id, this.port);
+                        this.start(true, 'Agent process restarted.', count_id);
                     }, delayMs);
                 } else {
                     console.error(`[AgentProcess] Stopped reconnecting after ${MAX_RETRIES} failed attempts.`);

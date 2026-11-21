@@ -19,6 +19,9 @@ export class BuildGoal {
 
     async executeNext(goal, position=null, orientation=null) {
         let missing = {};
+        if (!goal || !goal.blocks || !goal.blocks[0] || !goal.blocks[0][0]) {
+            return { missing: missing, acted: false, position: null, orientation: orientation };
+        }
         let acted = false;
         let sizex = goal.blocks[0][0].length;
         let sizez = goal.blocks[0].length;
