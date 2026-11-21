@@ -24,6 +24,30 @@ export async function handleOfflineCommand(agent, source, raw) {
     }
 
     // -------------------------------------------------------------
+    // MINECRAFT IN-GAME TAB SUGGEST & AUTOCOMPLETE
+    // -------------------------------------------------------------
+    if (/^(?:tab|suggest|complete|autocomplete)(?:\s+(.*))?$/i.test(lower)) {
+        const queryMatch = lower.match(/^(?:tab|suggest|complete|autocomplete)(?:\s+(.*))?$/i);
+        const q = (queryMatch && queryMatch[1]) ? queryMatch[1].trim().toLowerCase() : '';
+        const commandPool = [
+            'mine diamonds', 'mine 2 stacks of diamonds', 'mine stack of diamond',
+            'dig to diamond level', 'max ore scan', 'mine 3 stacks of stone',
+            'mine 2 stacks of wood', 'mine stack of iron', 'mine stack of gold',
+            'collect apples', 'squad mine diamonds', 'squad mine stone',
+            'squad mine wood', 'squad mine ores', '/tpa orbryx', '/back',
+            'follow orbryx', 'defend the area', 'auto equip', 'craft wooden_pickaxe',
+            'build dirt shelter', 'inv', 'status', 'eat', 'sleep', 'stop', 'stay'
+        ];
+        const matches = q ? commandPool.filter(c => c.includes(q)) : commandPool.slice(0, 6);
+        const top = matches.length > 0 ? matches.slice(0, 6) : commandPool.slice(0, 6);
+        agent.routeResponse(
+            source,
+            `[Tab Suggestions] ${top.map((c, i) => `${i + 1}. ${c}`).join(' • ')} (Say any command to execute!)`
+        );
+        return true;
+    }
+
+    // -------------------------------------------------------------
     // 2. INVENTORY & EQUIPMENT INSPECTION
     // -------------------------------------------------------------
     if (/^(?:inv|inventory|items|what\s+do\s+you\s+have|check\s+inventory|show\s+inventory|my\s+items)$/i.test(lower)) {

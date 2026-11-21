@@ -50,9 +50,21 @@ export function createMindServer(host_public = false, port = 8080) {
     server = http.createServer(app);
     io = new Server(server);
 
+    // Disable caching for fresh browser updates
+    app.use((req, res, next) => {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Surrogate-Control', 'no-store');
+        next();
+    });
+
     // Serve static files
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
-    app.use(express.static(path.join(__dirname, 'public')));
+    app.use(express.static(path.join(__dirname, 'public'), {
+        etag: false,
+        maxAge: 0
+    }));
 
     // Direct route to open bot's 3D viewer
     app.get('/viewer/:agent', (req, res) => {
