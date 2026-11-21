@@ -1,6 +1,6 @@
 {
     "name": "doombots",
-    "description": "Autonomous AI Minecraft Agent Platform with Collaborative Squad Operations, 2D Mario Side-View Live Stream, Smart /back Death Recovery with Lava/Hazard/PVP Protections, and 4GB RAM Low-Spec Optimization",
+    "description": "Autonomous AI Minecraft Agent Platform with Collaborative Squad Operations, 2D Mario Side-View Live Stream, Smart /back Death Recovery, Manual /tpa Teleport Execution (No AI), and 4GB RAM Low-Spec Optimization",
     "version": "1.0.0",
     "type": "module",
     "dependencies": {

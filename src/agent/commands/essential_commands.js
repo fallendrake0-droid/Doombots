@@ -983,8 +983,11 @@ export const essentialCommandsList = [
         name: '!regroupSquad',
         description: 'Order all bots to assemble into tight formation at leader position.',
         perform: async function(agent) {
-            agent.bot.chat('/tpa orbryx');
-            return 'Dispatched regroup command.';
+            const player = world.getNearestPlayer(agent.bot, 32);
+            if (player?.position) {
+                await skills.goToPosition(agent.bot, player.position.x, player.position.y, player.position.z, 3);
+            }
+            return 'Regrouped squad at leader position.';
         }
     },
     {

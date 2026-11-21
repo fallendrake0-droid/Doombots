@@ -1785,8 +1785,7 @@ export async function goToPlayer(bot, username, distance=3) {
     const playerObj = getPlayer(bot, username);
     const player = playerObj?.entity;
     if (!player) {
-        log(bot, `Player ${username} is not in visual range. Sending /tpa ${username}...`);
-        try { bot.chat(`/tpa ${username}`); } catch {}
+        log(bot, `Player ${username} is not in visual range.`);
         return false;
     }
 

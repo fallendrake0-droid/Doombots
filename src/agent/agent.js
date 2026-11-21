@@ -609,6 +609,23 @@ export class Agent {
         if (!raw || typeof raw !== 'string') return false;
         const lower = raw.toLowerCase().trim();
 
+        // Direct manual /tpa execution - strictly manual, bypasses AI completely
+        const tpaMatch = lower.match(/^(?:do\s+)?(?:\/)?tpa(?:\s+([a-zA-Z0-9_]+))?$/i);
+        if (tpaMatch) {
+            const target = tpaMatch[1] || 'orbryx';
+            console.log(`[ManualTPA] ${this.name} executing manual /tpa ${target} (strictly manual, AI bypassed).`);
+            this.bot.chat(`/tpa ${target}`);
+            this.routeResponse(source, `Sent /tpa ${target} (manual execution).`);
+            return true;
+        }
+        if (/^(?:teleport\s+to\s+me|tp\s+to\s+me|tpa\s+to\s+me|tpa\s+to\s+orbryx)$/i.test(lower)) {
+            const target = lower.includes('orbryx') ? 'orbryx' : (source === 'ADMIN' ? 'orbryx' : source);
+            console.log(`[ManualTPA] ${this.name} executing manual /tpa ${target} (strictly manual, AI bypassed).`);
+            this.bot.chat(`/tpa ${target}`);
+            this.routeResponse(source, `Sent /tpa ${target} (manual execution).`);
+            return true;
+        }
+
         // Direct Minecraft slash commands (e.g. "/tpa orbryx", "do /tpa orbryx", "/home", "/spawn", "/gamemode")
         const slashMatch = raw.match(/^(?:do\s+)?(\/[a-zA-Z0-9_-]+(?:\s+.*)?)$/i);
         if (slashMatch) {
