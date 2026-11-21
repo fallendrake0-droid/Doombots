@@ -322,6 +322,27 @@ export const actionsList = [
         }, false, 20)
     },
     {
+        name: '!squadGather',
+        description: 'Coordinate with squadmates in teamwork to mine or gather any material (stone, dirt, sand, gravel, andesite, ores, obsidian, etc.) for specified count or stacks.',
+        params: {
+            'material': { type: 'string', description: 'Name of the material to mine/gather (e.g. stone, dirt, sand, gravel, andesite, iron_ore, diamond_ore).' },
+            'targetNum': { type: 'int', description: 'Total number of items/blocks to collect (e.g. 64 for 1 stack, 128 for 2 stacks).', domain: [1, Number.MAX_SAFE_INTEGER], optional: true }
+        },
+        perform: runAsAction(async (agent, material, targetNum = 64) => {
+            await skills.squadGatherMaterial(agent.bot, material, targetNum || 64);
+        }, false, 30)
+    },
+    {
+        name: '!squadCollectApples',
+        description: 'Coordinate with squadmates to collect apples from ground drops and oak leaves.',
+        params: {
+            'targetNum': { type: 'int', description: 'Number of apples to collect (default: 64 for 1 stack).', domain: [1, Number.MAX_SAFE_INTEGER], optional: true }
+        },
+        perform: runAsAction(async (agent, targetNum = 64) => {
+            await skills.squadCollectApples(agent.bot, targetNum || 64);
+        }, false, 20)
+    },
+    {
         name: '!squadFarmCrops',
         description: 'Coordinate with squad to harvest mature crops and replant seeds across farm sectors.',
         params: {},

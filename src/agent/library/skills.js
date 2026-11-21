@@ -171,21 +171,38 @@ export async function equipBestToolFor(bot, blockName) {
 
     const items = bot.inventory.items();
     let bestTool = null;
-    let maxTier = 0;
-    const isWood = blockName.includes('log') || blockName.includes('wood') || blockName.includes('plank');
-    const isStone = blockName.includes('stone') || blockName.includes('ore') || blockName.includes('deepslate') || blockName.includes('cobblestone');
-    const isDirt = blockName.includes('dirt') || blockName.includes('grass') || blockName.includes('sand') || blockName.includes('gravel');
+    let maxScore = -1;
+    const isWood = blockName.includes('log') || blockName.includes('wood') || blockName.includes('plank') || blockName.includes('stem');
+    const isStone = blockName.includes('stone') || blockName.includes('ore') || blockName.includes('deepslate') || 
+                    blockName.includes('cobble') || blockName.includes('andesite') || blockName.includes('diorite') || 
+                    blockName.includes('granite') || blockName.includes('tuff') || blockName.includes('calcite') || 
+                    blockName.includes('basalt') || blockName.includes('blackstone') || blockName.includes('obsidian') || 
+                    blockName.includes('sandstone') || blockName.includes('netherrack') || blockName.includes('end_stone') || 
+                    blockName.includes('dripstone') || blockName.includes('prismarine') || blockName.includes('terracotta') ||
+                    blockName.includes('brick');
+    const isDirt = blockName.includes('dirt') || blockName.includes('grass') || blockName.includes('sand') || 
+                   blockName.includes('gravel') || blockName.includes('clay') || blockName.includes('mud') || 
+                   blockName.includes('soil') || blockName.includes('podzol') || blockName.includes('mycelium');
+    const isLeaves = blockName.includes('leaves');
 
-    const targetSuffix = isWood ? '_axe' : (isStone ? '_pickaxe' : (isDirt ? '_shovel' : ''));
+    const targetSuffix = isWood ? '_axe' : (isStone ? '_pickaxe' : (isDirt ? '_shovel' : (isLeaves ? '_shears' : '')));
     if (!targetSuffix) return;
 
     for (const item of items) {
-        if (item.name.endsWith(targetSuffix)) {
+        if (item.name.endsWith(targetSuffix) || (isLeaves && item.name === 'shears')) {
+            let score = 0;
             for (const [mat, tier] of Object.entries(ARMOR_TIERS)) {
-                if (item.name.startsWith(mat) && tier > maxTier) {
-                    maxTier = tier;
-                    bestTool = item;
+                if (item.name.startsWith(mat)) {
+                    score = tier * 10;
+                    break;
                 }
+            }
+            if (typeof getEnchantmentWeight === 'function') {
+                score += getEnchantmentWeight(item);
+            }
+            if (score > maxScore) {
+                maxScore = score;
+                bestTool = item;
             }
         }
     }
@@ -903,36 +920,64 @@ export async function collectBlock(bot, blockType, num=1, exclude=null) {
     }
 }
 
-export async function pickupNearbyItems(bot) {
+export async function pickupNearbyItems(bot, distance = 24, priorityItem = null) {
     /**
-     * Pick up all nearby items.
+     * Pick up nearby items within radius, prioritizing specific items (e.g. apples, ores) if specified.
      * @param {MinecraftBot} bot, reference to the minecraft bot.
-     * @returns {Promise<boolean>} true if the items were picked up, false otherwise.
-     * @example
-     * await skills.pickupNearbyItems(bot);
-     **/
+     * @param {number} distance, search radius (default: 24).
+     * @param {string} priorityItem, optional item name to prioritize first (e.g. 'apple').
+     * @returns {Promise<boolean>} true if items were picked up.
+     */
     if (!bot?.entity?.position) return false;
-    const distance = 8;
-    const getNearestItem = bot => {
-        if (!bot?.entity?.position) return null;
-        return bot.nearestEntity(entity => entity && entity.name === 'item' && entity.position && bot.entity.position.distanceTo(entity.position) < distance);
-    };
-    let nearestItem = getNearestItem(bot);
-    let pickedUp = 0;
-    while (nearestItem) {
-        let movements = new pf.Movements(bot);
-        movements.canDig = false;
-        bot.pathfinder.setMovements(movements);
-        await goToGoal(bot, new pf.goals.GoalFollow(nearestItem, 1));
-        await new Promise(resolve => setTimeout(resolve, 200));
-        let prev = nearestItem;
-        nearestItem = getNearestItem(bot);
-        if (prev === nearestItem) {
-            break;
+
+    const getNearbyItems = (bot, maxDist) => {
+        if (!bot?.entity?.position) return [];
+        const items = [];
+        for (const id in bot.entities) {
+            const e = bot.entities[id];
+            if (!e || e.name !== 'item' || !e.position) continue;
+            const d = bot.entity.position.distanceTo(e.position);
+            if (d > maxDist) continue;
+            const dropped = typeof e.getDroppedItem === 'function' ? e.getDroppedItem() : null;
+            const itemName = dropped?.name || null;
+            items.push({ entity: e, distance: d, name: itemName });
         }
+        items.sort((a, b) => {
+            if (priorityItem) {
+                const aMatch = a.name === priorityItem ? 0 : 1;
+                const bMatch = b.name === priorityItem ? 0 : 1;
+                if (aMatch !== bMatch) return aMatch - bMatch;
+            }
+            return a.distance - b.distance;
+        });
+        return items.map(i => i.entity);
+    };
+
+    let items = getNearbyItems(bot, distance);
+    let pickedUp = 0;
+    let cycles = 0;
+
+    while (items.length > 0 && cycles < 30 && !bot.interrupt_code) {
+        const targetItem = items[0];
+        if (!targetItem || !targetItem.position) break;
+
+        const movements = configureMovements(bot, new pf.Movements(bot), false);
+        bot.pathfinder.setMovements(movements);
+
+        try {
+            await goToGoal(bot, new pf.goals.GoalNear(targetItem.position.x, targetItem.position.y, targetItem.position.z, 1));
+        } catch {}
+
+        await new Promise(resolve => setTimeout(resolve, 150));
         pickedUp++;
+        cycles++;
+
+        items = getNearbyItems(bot, distance);
     }
-    log(bot, `Picked up ${pickedUp} items.`);
+
+    if (pickedUp > 0) {
+        log(bot, `Picked up nearby items (${pickedUp} collection steps).`);
+    }
     return true;
 }
 
@@ -2658,8 +2703,19 @@ export async function squadMineLogs(bot, targetNum = 384) {
         }
 
         treesFelled++;
-        // Collect all dropped logs and saplings
-        try { await pickupNearbyItems(bot); } catch {}
+        // Also shake down reachable oak leaves to drop apples
+        if (treeLog.name.includes('oak')) {
+            const nearbyLeaves = world.getNearestBlocksWhere(bot, b => (b.name === 'oak_leaves' || b.name === 'dark_oak_leaves') && bot.entity.position.distanceTo(b.position) <= 4.2, 4, 6);
+            for (const leaf of nearbyLeaves) {
+                if (bot.interrupt_code) break;
+                try { await bot.dig(leaf, true); } catch {}
+            }
+        }
+        // Collect all dropped logs and vacuum dropped apples
+        try { 
+            await pickupNearbyItems(bot, 28, 'apple');
+            await pickupNearbyItems(bot, 28); 
+        } catch {}
 
         currentLogs = getLogCount();
         if (treesFelled % 2 === 0) {
@@ -2790,84 +2846,416 @@ export async function squadMineStone(bot, targetNum = 64) {
      * Teamwork quarrying: miners partition stone blocks by sector offset, place torches to prevent spawns,
      * and guards watch for creepers/zombies.
      */
-    if (!bot?.entity?.position) return false;
-    await autoEquipBest(bot);
-    await equipBestToolFor(bot, 'cobblestone');
-
-    const nameMatch = bot.username.match(/\d+$/);
-    const botIndex = nameMatch ? (parseInt(nameMatch[0], 10) - 1) : 0;
-
-    log(bot, `[SquadMining] Bot ${bot.username} starting coordinated stone mining (Role: ${botIndex === 4 ? 'Sentinel Guard' : (botIndex === 3 ? 'Torcher & Logistics' : 'Vein Miner')})...`);
-
-    // If sentinel guard role, patrol and eliminate threats
-    if (botIndex === 4) {
-        let elapsed = 0;
-        while (elapsed < 30000 && !bot.interrupt_code) {
-            const hostile = world.getNearestEntityWhere(bot, e => mc.isHostile(e), 18);
-            if (hostile) {
-                await attackEntity(bot, hostile, true);
-            }
-            await new Promise(r => setTimeout(r, 1000));
-            elapsed += 1000;
-        }
-        return true;
-    }
-
-    const stoneBlocks = world.getNearestBlocksWhere(bot, b => {
-        return (b.name === 'stone' || b.name === 'cobblestone' || b.name === 'deepslate' || b.name === 'andesite' || b.name === 'diorite' || b.name === 'granite');
-    }, 24, 30);
-
-    let mined = 0;
-    for (let i = 0; i < stoneBlocks.length && mined < targetNum && !bot.interrupt_code; i++) {
-        // Partition blocks modulo 3 across the miners
-        if ((i % 3) !== (botIndex % 3)) continue;
-
-        const block = stoneBlocks[i];
-        try {
-            await equipBestToolFor(bot, block.name);
-            await bot.dig(block, true);
-            mined++;
-            if (mined % 5 === 0) {
-                await autoLight(bot);
-                await pickupNearbyItems(bot);
-            }
-        } catch {}
-    }
-
-    await pickupNearbyItems(bot);
-    log(bot, `[SquadMining] Finished mining ${mined} stone.`);
-    return mined > 0;
+    return await squadGatherMaterial(bot, 'cobblestone', targetNum);
 }
 
 export async function squadMineOres(bot, oreType = 'iron_ore', targetNum = 16) {
     /**
      * Teamwork ore mining: bots scan for ores and partition targets without goal conflicts.
      */
+    return await squadGatherMaterial(bot, oreType, targetNum);
+}
+
+export function resolveMaterialBlock(raw) {
+    const m = String(raw || '').toLowerCase().replace(/[\s\-]+/g, '_').replace(/^raw_/, '').trim();
+
+    // Earth & soils
+    if (m === 'dirt' || m === 'grass' || m === 'grass_block' || m === 'soil' || m === 'earth') {
+        return { blocks: ['dirt', 'grass_block', 'coarse_dirt', 'rooted_dirt', 'mud'], tool: 'shovel' };
+    }
+    if (m === 'mud' || m === 'packed_mud') {
+        return { blocks: ['mud', 'packed_mud', 'mud_bricks'], tool: 'shovel' };
+    }
+    if (m === 'clay' || m === 'clay_ball' || m === 'clay_balls') {
+        return { blocks: ['clay'], tool: 'shovel' };
+    }
+    if (m === 'soul_sand' || m === 'soul_soil') {
+        return { blocks: ['soul_sand', 'soul_soil'], tool: 'shovel' };
+    }
+
+    // Sand & Gravel & Flint
+    if (m === 'sand' || m === 'red_sand') {
+        return { blocks: ['sand', 'red_sand'], tool: 'shovel' };
+    }
+    if (m === 'gravel' || m === 'flint') {
+        return { blocks: ['gravel'], tool: 'shovel' };
+    }
+
+    // Common Stone & Cobblestone
+    if (m === 'stone' || m === 'cobblestone' || m === 'cobble' || m === 'rocks') {
+        return { blocks: ['stone', 'cobblestone', 'deepslate', 'cobbled_deepslate'], tool: 'pickaxe' };
+    }
+    if (m === 'deepslate' || m === 'cobbled_deepslate') {
+        return { blocks: ['deepslate', 'cobbled_deepslate'], tool: 'pickaxe' };
+    }
+
+    // Mineral Stones
+    if (m === 'andesite' || m === 'polished_andesite') {
+        return { blocks: ['andesite', 'polished_andesite'], tool: 'pickaxe' };
+    }
+    if (m === 'diorite' || m === 'polished_diorite') {
+        return { blocks: ['diorite', 'polished_diorite'], tool: 'pickaxe' };
+    }
+    if (m === 'granite' || m === 'polished_granite') {
+        return { blocks: ['granite', 'polished_granite'], tool: 'pickaxe' };
+    }
+    if (m === 'tuff') {
+        return { blocks: ['tuff', 'deepslate'], tool: 'pickaxe' };
+    }
+    if (m === 'calcite') {
+        return { blocks: ['calcite'], tool: 'pickaxe' };
+    }
+    if (m === 'dripstone' || m === 'dripstone_block' || m === 'pointed_dripstone') {
+        return { blocks: ['dripstone_block', 'pointed_dripstone'], tool: 'pickaxe' };
+    }
+    if (m === 'basalt' || m === 'blackstone' || m === 'smooth_basalt') {
+        return { blocks: ['basalt', 'blackstone', 'smooth_basalt'], tool: 'pickaxe' };
+    }
+    if (m === 'obsidian' || m === 'crying_obsidian') {
+        return { blocks: ['obsidian', 'crying_obsidian'], tool: 'pickaxe' };
+    }
+    if (m === 'sandstone' || m === 'red_sandstone') {
+        return { blocks: ['sandstone', 'red_sandstone'], tool: 'pickaxe' };
+    }
+    if (m === 'netherrack') {
+        return { blocks: ['netherrack'], tool: 'pickaxe' };
+    }
+    if (m === 'end_stone' || m === 'endstone') {
+        return { blocks: ['end_stone'], tool: 'pickaxe' };
+    }
+
+    // Ores
+    if (m === 'iron' || m === 'iron_ore') {
+        return { blocks: ['iron_ore', 'deepslate_iron_ore'], tool: 'pickaxe' };
+    }
+    if (m === 'coal' || m === 'coal_ore') {
+        return { blocks: ['coal_ore', 'deepslate_coal_ore'], tool: 'pickaxe' };
+    }
+    if (m === 'copper' || m === 'copper_ore') {
+        return { blocks: ['copper_ore', 'deepslate_copper_ore'], tool: 'pickaxe' };
+    }
+    if (m === 'gold' || m === 'gold_ore') {
+        return { blocks: ['gold_ore', 'deepslate_gold_ore', 'nether_gold_ore'], tool: 'pickaxe' };
+    }
+    if (m === 'diamond' || m === 'diamonds' || m === 'diamond_ore') {
+        return { blocks: ['diamond_ore', 'deepslate_diamond_ore'], tool: 'pickaxe' };
+    }
+    if (m === 'redstone' || m === 'redstone_ore') {
+        return { blocks: ['redstone_ore', 'deepslate_redstone_ore'], tool: 'pickaxe' };
+    }
+    if (m === 'lapis' || m === 'lapis_ore' || m === 'lapis_lazuli') {
+        return { blocks: ['lapis_ore', 'deepslate_lapis_ore'], tool: 'pickaxe' };
+    }
+    if (m === 'emerald' || m === 'emeralds' || m === 'emerald_ore') {
+        return { blocks: ['emerald_ore', 'deepslate_emerald_ore'], tool: 'pickaxe' };
+    }
+    if (m === 'quartz' || m === 'nether_quartz' || m === 'nether_quartz_ore') {
+        return { blocks: ['nether_quartz_ore'], tool: 'pickaxe' };
+    }
+    if (m === 'ancient_debris' || m === 'debris' || m === 'netherite') {
+        return { blocks: ['ancient_debris'], tool: 'pickaxe' };
+    }
+    if (m === 'ores' || m === 'ore') {
+        return {
+            blocks: [
+                'iron_ore', 'deepslate_iron_ore',
+                'coal_ore', 'deepslate_coal_ore',
+                'copper_ore', 'deepslate_copper_ore',
+                'gold_ore', 'deepslate_gold_ore',
+                'diamond_ore', 'deepslate_diamond_ore',
+                'redstone_ore', 'deepslate_redstone_ore',
+                'lapis_ore', 'deepslate_lapis_ore'
+            ],
+            tool: 'pickaxe'
+        };
+    }
+
+    return { blocks: [m], tool: 'pickaxe' };
+}
+
+export async function squadCollectApples(bot, targetNum = 64) {
+    /**
+     * Coordinated squad apple harvesting:
+     * - Sweeps for fallen apple drops across oak/dark oak forests.
+     * - Disperses miners to break oak leaves overhead/around trees to accelerate apple drops.
+     * - Sentinel guard (Bot 5) protects against hostiles.
+     * - Continues until targetNum apples are collected in inventory.
+     */
     if (!bot?.entity?.position) return false;
+    log(bot, `Starting squad apple collection mission (Target: ${targetNum} apples / ${Math.round(targetNum / 64)} stacks)...`);
+
     await autoEquipBest(bot);
-    await equipBestToolFor(bot, oreType);
 
     const nameMatch = bot.username.match(/\d+$/);
     const botIndex = nameMatch ? (parseInt(nameMatch[0], 10) - 1) : 0;
 
-    const ores = world.getNearestBlocksWhere(bot, b => b.name.includes(oreType.replace(/deepslate_/, '')), 32, 20);
-    if (!ores || ores.length === 0) {
-        log(bot, `[SquadMining] No ${oreType} veins found nearby.`);
-        return false;
+    // Sentinel Guard Role (Bot 5): Protect gatherers from mobs
+    if (botIndex === 4) {
+        log(bot, `[SquadCombat] ${bot.username} taking position as Combat Sentinel: protecting apple collectors.`);
+        let guardCycles = 0;
+        while (guardCycles < 30 && !bot.interrupt_code) {
+            const threat = world.getNearestEntityWhere(bot, e => mc.isHostile(e) && !isAlly(bot, e), 22);
+            if (threat) {
+                await squadMutualProtection(bot, threat, 24);
+            }
+            await new Promise(r => setTimeout(r, 1000));
+            guardCycles++;
+        }
+        return true;
     }
 
-    let mined = 0;
-    for (let i = 0; i < ores.length && mined < targetNum && !bot.interrupt_code; i++) {
-        if ((i % 5) !== botIndex) continue; // Each bot gets unique ore block
-        const oreBlock = ores[i];
-        try {
-            await goToPosition(bot, oreBlock.position.x, oreBlock.position.y, oreBlock.position.z, 2);
-            await equipBestToolFor(bot, oreBlock.name);
-            await bot.dig(oreBlock, true);
-            mined++;
-        } catch {}
+    const getAppleCount = () => {
+        return bot.inventory.items()
+            .filter(i => i.name === 'apple')
+            .reduce((sum, i) => sum + i.count, 0);
+    };
+
+    const initialApples = getAppleCount();
+    let currentApples = initialApples;
+
+    // 1. Vacuum any dropped apples on the ground
+    await pickupNearbyItems(bot, 32, 'apple');
+    currentApples = getAppleCount();
+    if (currentApples >= initialApples + targetNum) {
+        log(bot, `Mission accomplished! Gathered ${currentApples} apples.`);
+        return true;
     }
-    await pickupNearbyItems(bot);
+
+    // Disperse squad to different oak trees/leaves
+    const angle = (botIndex * 2 * Math.PI) / 4;
+    const dispersionDist = 12 + (botIndex * 6);
+    const anchor = bot.entity.position.offset(
+        Math.cos(angle) * dispersionDist,
+        0,
+        Math.sin(angle) * dispersionDist
+    );
+    try { await goToPosition(bot, anchor.x, anchor.y, anchor.z, 3); } catch {}
+
+    const brokenLeaves = new Set();
+    let cycles = 0;
+
+    while (currentApples < (initialApples + targetNum) && cycles < 40 && !bot.interrupt_code) {
+        cycles++;
+
+        // Survival check: Eat if hungry
+        if (bot.food !== undefined && bot.food < 16 && bot.autoEat && typeof bot.autoEat.eat === 'function') {
+            try { await bot.autoEat.eat(true); } catch {}
+        }
+
+        // Mutual defense
+        const hostile = world.getNearestEntityWhere(bot, e => mc.isHostile(e) && !isAlly(bot, e), 16);
+        if (hostile) {
+            await squadMutualProtection(bot, hostile, 20);
+        }
+
+        // 1. Vacuum any dropped apples
+        await pickupNearbyItems(bot, 28, 'apple');
+        currentApples = getAppleCount();
+        if (currentApples >= initialApples + targetNum) break;
+
+        // 2. Find oak leaves to break (oak_leaves and dark_oak_leaves drop apples)
+        const oakLeaves = world.getNearestBlocksWhere(bot, b => {
+            if (b.name !== 'oak_leaves' && b.name !== 'dark_oak_leaves') return false;
+            const key = `${b.position.x},${b.position.y},${b.position.z}`;
+            return !brokenLeaves.has(key);
+        }, 32, 20);
+
+        if (!oakLeaves || oakLeaves.length === 0) {
+            log(bot, `Searching further for oak trees with leaves...`);
+            const nextAnchor = bot.entity.position.offset(
+                Math.cos(angle) * 16,
+                0,
+                Math.sin(angle) * 16
+            );
+            try { await goToPosition(bot, nextAnchor.x, nextAnchor.y, nextAnchor.z, 3); } catch {}
+            continue;
+        }
+
+        for (let i = 0; i < oakLeaves.length && !bot.interrupt_code; i++) {
+            // Partition leaves across the 4 gatherers
+            if ((i % 4) !== (botIndex % 4)) continue;
+
+            const leaf = oakLeaves[i];
+            const key = `${leaf.position.x},${leaf.position.y},${leaf.position.z}`;
+            brokenLeaves.add(key);
+
+            try {
+                if (bot.entity.position.distanceTo(leaf.position) > 4) {
+                    await goToPosition(bot, leaf.position.x, leaf.position.y, leaf.position.z, 2.5);
+                }
+                await bot.dig(leaf, true);
+            } catch {}
+
+            // Sweep for apple drops after breaking leaves
+            if (i % 3 === 0) {
+                await pickupNearbyItems(bot, 24, 'apple');
+                currentApples = getAppleCount();
+                if (currentApples >= initialApples + targetNum) break;
+            }
+        }
+    }
+
+    await pickupNearbyItems(bot, 32, 'apple');
+    currentApples = getAppleCount();
+    log(bot, `Squad apple collection finished. Total apples: ${currentApples} (${Math.round(currentApples / 64)} stacks).`);
+    return currentApples > initialApples;
+}
+
+export async function squadGatherMaterial(bot, materialName, targetNum = 64) {
+    /**
+     * Universal squad gathering/mining:
+     * - Supports stone, dirt, ores (iron, coal, copper, gold, diamond, redstone, lapis, emerald, quartz, debris),
+     *   sand, andesite, gravel, diorite, granite, tuff, obsidian, clay, apples, logs, and any mining block.
+     * - Coordinated teamwork:
+     *   - Bot 5 (Sentinel Guard): Keeps watch and attacks any hostiles that threaten miners.
+     *   - Bot 4 (Logistics & Torcher): Auto-lights dark caves/quarries with torches, vacuums dropped items.
+     *   - Bots 1-3 (Miners): Mine distinct blocks partitioned by coordinate hash modulo.
+     * - Safe pathfinding with zero fall damage, auto-tool selection, auto-eat, and auto-pickup of drops!
+     */
+    if (!bot?.entity?.position) return false;
+
+    const lowerMat = String(materialName || '').toLowerCase().trim();
+
+    // Check if apple collection
+    if (lowerMat === 'apple' || lowerMat === 'apples' || lowerMat === 'red_apple') {
+        return await squadCollectApples(bot, targetNum);
+    }
+
+    // Check if log/timber collection
+    if (lowerMat === 'wood' || lowerMat === 'log' || lowerMat === 'logs' || lowerMat === 'tree' || lowerMat === 'trees') {
+        return await squadMineLogs(bot, targetNum);
+    }
+
+    // Resolve material definition (blocks, tool type)
+    const matDef = resolveMaterialBlock(lowerMat);
+    const targetBlocks = matDef.blocks;
+
+    const nameMatch = bot.username.match(/\d+$/);
+    const botIndex = nameMatch ? (parseInt(nameMatch[0], 10) - 1) : 0;
+
+    log(bot, `[SquadGather] ${bot.username} starting coordinated gathering for ${targetBlocks[0]} (Goal: ${targetNum} blocks / ${Math.round(targetNum / 64)} stacks, Role: ${botIndex === 4 ? 'Sentinel Guard' : (botIndex === 3 ? 'Logistics & Torcher' : 'Vein Miner')})...`);
+
+    await autoEquipBest(bot);
+    await equipBestToolFor(bot, targetBlocks[0]);
+
+    // Sentinel Guard Role (Bot 5): Actively patrols perimeter and defends miners
+    if (botIndex === 4) {
+        log(bot, `[SquadTeamwork] ${bot.username} active as Combat Sentinel: protecting squad miners from hostiles.`);
+        let guardCycles = 0;
+        while (guardCycles < 40 && !bot.interrupt_code) {
+            const threat = world.getNearestEntityWhere(bot, e => mc.isHostile(e) && !isAlly(bot, e), 22);
+            if (threat) {
+                await squadMutualProtection(bot, threat, 24);
+            }
+            await new Promise(r => setTimeout(r, 1000));
+            guardCycles++;
+        }
+        return true;
+    }
+
+    // Disperse miners radially so they don't dig in the exact same spot
+    const angle = (botIndex * 2 * Math.PI) / 4;
+    const dispersionDist = 8 + (botIndex * 4);
+    const startPos = bot.entity.position.clone();
+    const sectorAnchor = startPos.offset(
+        Math.cos(angle) * dispersionDist,
+        0,
+        Math.sin(angle) * dispersionDist
+    );
+    try {
+        await goToPosition(bot, sectorAnchor.x, sectorAnchor.y, sectorAnchor.z, 3);
+    } catch {}
+
+    const minedPositions = new Set();
+    let mined = 0;
+    let searchRadius = 32;
+    let attempts = 0;
+
+    while (mined < targetNum && attempts < 30 && !bot.interrupt_code) {
+        attempts++;
+
+        // Survival check: Eat if hungry
+        if (bot.food !== undefined && bot.food < 16 && bot.autoEat && typeof bot.autoEat.eat === 'function') {
+            try { await bot.autoEat.eat(true); } catch {}
+        }
+
+        // Mutual defense: defend if hostile mob approaches
+        const hostile = world.getNearestEntityWhere(bot, e => mc.isHostile(e) && !isAlly(bot, e), 14);
+        if (hostile) {
+            log(bot, `Pausing mining to defend against ${hostile.name}.`);
+            await squadMutualProtection(bot, hostile, 18);
+            await autoEquipBest(bot);
+            await equipBestToolFor(bot, targetBlocks[0]);
+        }
+
+        // Find matching blocks in the world
+        let blocks = world.getNearestBlocksWhere(bot, b => {
+            if (!targetBlocks.includes(b.name)) return false;
+            const key = `${b.position.x},${b.position.y},${b.position.z}`;
+            if (minedPositions.has(key)) return false;
+
+            // Safe mining check: don't dig block directly beneath bot's feet if dangerous
+            if (b.position.x === Math.floor(bot.entity.position.x) &&
+                b.position.z === Math.floor(bot.entity.position.z) &&
+                b.position.y <= Math.floor(bot.entity.position.y)) {
+                return false;
+            }
+            return true;
+        }, searchRadius, 30);
+
+        if (!blocks || blocks.length === 0) {
+            // Search further out in assigned sector
+            const nextAnchor = bot.entity.position.offset(
+                Math.cos(angle) * 16,
+                0,
+                Math.sin(angle) * 16
+            );
+            try { await goToPosition(bot, nextAnchor.x, nextAnchor.y, nextAnchor.z, 3); } catch {}
+            searchRadius = Math.min(searchRadius + 16, 64);
+            continue;
+        }
+
+        for (let i = 0; i < blocks.length && mined < targetNum && !bot.interrupt_code; i++) {
+            const block = blocks[i];
+            const posKey = `${block.position.x},${block.position.y},${block.position.z}`;
+            if (minedPositions.has(posKey)) continue;
+
+            // Partition blocks across miners using 3D coordinate hash
+            const coordHash = Math.abs(block.position.x ^ block.position.z ^ block.position.y);
+            if ((coordHash % 3) !== (botIndex % 3)) continue;
+
+            minedPositions.add(posKey);
+
+            try {
+                // Navigate safely to within mining reach (2.5 blocks)
+                const dist = bot.entity.position.distanceTo(block.position);
+                if (dist > 3.8) {
+                    await goToPosition(bot, block.position.x, block.position.y, block.position.z, 2.5);
+                }
+
+                await equipBestToolFor(bot, block.name);
+                await bot.dig(block, true);
+                mined++;
+
+                // Logistics / Torching
+                if (botIndex === 3 && mined % 6 === 0) {
+                    await autoLight(bot);
+                }
+
+                // Vacuum drops every 4 blocks
+                if (mined % 4 === 0) {
+                    await pickupNearbyItems(bot, 24);
+                }
+            } catch (digErr) {
+                if (digErr?.message?.includes('Digging aborted')) break;
+            }
+        }
+
+        await pickupNearbyItems(bot, 24);
+    }
+
+    await pickupNearbyItems(bot, 28);
+    log(bot, `[SquadGather] Gathered ${mined} ${targetBlocks[0]} (${Math.round(mined / 64)} stacks).`);
     return mined > 0;
 }
 

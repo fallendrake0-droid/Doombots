@@ -427,9 +427,14 @@ export class Agent {
         const lower = trimmed.toLowerCase();
         const goalKeywords = [
             { regex: /\b(?:(?:get|mine|chop|gather|harvest)\s+)?(?:logs?|wood|trees?)\b/i, task: 'mine logs 384' },
-            { regex: /\b(?:(?:get|gather|hunt|farm)\s+)?(?:food|bread|meat|apples?|crops?)\b/i, task: 'farm crops' },
+            { regex: /\b(?:(?:get|gather|collect)\s+)?apples?\b/i, task: 'collect apples' },
+            { regex: /\b(?:(?:get|gather|hunt|farm)\s+)?(?:food|bread|meat|crops?)\b/i, task: 'farm crops' },
             { regex: /\b(?:(?:mine|gather)\s+)?(?:stone|cobblestone|rocks?)\b/i, task: 'mine cobblestone 64' },
-            { regex: /\b(?:(?:mine|gather)\s+)?(?:iron|coal|diamonds?)\b/i, task: 'mine iron' },
+            { regex: /\b(?:(?:mine|gather)\s+)?(?:dirt|soil|earth)\b/i, task: 'mine dirt 64' },
+            { regex: /\b(?:(?:mine|gather)\s+)?sand\b/i, task: 'mine sand 64' },
+            { regex: /\b(?:(?:mine|gather)\s+)?gravel\b/i, task: 'mine gravel 64' },
+            { regex: /\b(?:(?:mine|gather)\s+)?andesite\b/i, task: 'mine andesite 64' },
+            { regex: /\b(?:(?:mine|gather)\s+)?(?:iron|coal|diamonds?|copper|gold)\b/i, task: 'mine iron' },
             { regex: /\b(?:defend|guard|protect)(?:\s+(?:us|the\s+area|perimeter))?\b/i, task: 'defend the area' },
             { regex: /\b(?:follow|escort|protect)\s+orbryx\b/i, task: 'defend orbryx' },
             { regex: /\b(?:build|construct)(?:\s+a)?\s+(?:shelter|house|base|wall)\b/i, task: 'build a dirt shelter' }
@@ -491,6 +496,108 @@ export class Agent {
         return false;
     }
 
+    parseGatheringIntent(raw) {
+        if (!raw || typeof raw !== 'string') return null;
+        const lower = raw.toLowerCase().trim();
+
+        // Check direct pattern: "[material] X stacks" e.g. "stone 3 stacks", "dirt 2 stacks"
+        const directStacks = lower.match(/^([a-zA-Z0-9_\s]+?)\s+(\d+)\s+stacks?$/i);
+        if (directStacks && !/^(stay|follow|defend|guard|bridge)/i.test(directStacks[1])) {
+            const stacks = parseInt(directStacks[2], 10);
+            return { rawMat: directStacks[1].trim(), count: stacks * 64, stacks };
+        }
+
+        // Check if message has a gather/mine action verb
+        const gatherAction = /^(?:mine|get|gather|collect|dig|harvest|chop)\b/i.test(lower);
+        if (!gatherAction) return null;
+
+        // Check for stacks: "mine 3 stacks of stone", "get 2 stacks sand", "collect 1 stack of apples"
+        const stacksMatch = lower.match(/(\d+)\s+stacks?(?:\s+of)?\s+([a-zA-Z0-9_\s]+)/i);
+        // Check for count: "mine 128 stone", "get 50 dirt", "mine 20 iron"
+        const countMatch = lower.match(/^(?:mine|get|gather|collect|dig|harvest|chop)\s+(\d+)\s+([a-zA-Z0-9_\s]+)/i);
+        // General: "mine stone", "collect apples", "mine andesite", "gather sand"
+        const generalMatch = lower.match(/^(?:mine|get|gather|collect|dig|harvest|chop)\s+([a-zA-Z0-9_\s]+)/i);
+
+        let count = 64; // default 1 stack
+        let rawMat = '';
+
+        if (stacksMatch) {
+            const stacks = parseInt(stacksMatch[1], 10);
+            count = stacks * 64;
+            rawMat = stacksMatch[2].trim();
+        } else if (countMatch) {
+            count = parseInt(countMatch[1], 10);
+            rawMat = countMatch[2].trim();
+        } else if (generalMatch) {
+            rawMat = generalMatch[1].trim();
+            const endStacks = rawMat.match(/^([a-zA-Z0-9_\s]+?)\s+(\d+)\s+stacks?$/i);
+            if (endStacks) {
+                rawMat = endStacks[1].trim();
+                count = parseInt(endStacks[2], 10) * 64;
+            }
+        } else {
+            return null;
+        }
+
+        // Clean material name
+        rawMat = rawMat.replace(/^of\s+/i, '').replace(/\s+(?:please|pls)$/i, '').trim();
+
+        // If rawMat is empty or a non-material verb, skip
+        if (!rawMat || /^(?:me|orbryx|here|area|perimeter|shelter|house)$/i.test(rawMat)) return null;
+
+        return { rawMat, count, stacks: Math.max(1, Math.round(count / 64)) };
+    }
+
+    resolveMaterialIntent(rawMat) {
+        const m = String(rawMat || '').toLowerCase().replace(/[\s\-]+/g, '_').replace(/^raw_/, '').trim();
+        if (m === 'apple' || m === 'apples' || m === 'red_apple' || m === 'red_apples') {
+            return { category: 'apple', target: 'apple' };
+        }
+        if (m === 'wood' || m === 'log' || m === 'logs' || m === 'tree' || m === 'trees' || m.endsWith('_log') || m.endsWith('_wood')) {
+            return { category: 'logs', target: 'oak_log' };
+        }
+        if (m === 'stone' || m === 'cobblestone' || m === 'cobble' || m === 'rocks') {
+            return { category: 'material', target: 'cobblestone' };
+        }
+        if (m === 'dirt' || m === 'grass' || m === 'soil' || m === 'earth') {
+            return { category: 'material', target: 'dirt' };
+        }
+        if (m === 'sand' || m === 'red_sand') {
+            return { category: 'material', target: 'sand' };
+        }
+        if (m === 'gravel' || m === 'flint') {
+            return { category: 'material', target: 'gravel' };
+        }
+        if (m === 'andesite') return { category: 'material', target: 'andesite' };
+        if (m === 'diorite') return { category: 'material', target: 'diorite' };
+        if (m === 'granite') return { category: 'material', target: 'granite' };
+        if (m === 'tuff') return { category: 'material', target: 'tuff' };
+        if (m === 'calcite') return { category: 'material', target: 'calcite' };
+        if (m === 'dripstone') return { category: 'material', target: 'dripstone_block' };
+        if (m === 'deepslate' || m === 'cobbled_deepslate') return { category: 'material', target: 'deepslate' };
+        if (m === 'basalt' || m === 'blackstone') return { category: 'material', target: 'basalt' };
+        if (m === 'obsidian') return { category: 'material', target: 'obsidian' };
+        if (m === 'clay') return { category: 'material', target: 'clay' };
+        if (m === 'sandstone') return { category: 'material', target: 'sandstone' };
+        if (m === 'netherrack') return { category: 'material', target: 'netherrack' };
+        if (m === 'end_stone' || m === 'endstone') return { category: 'material', target: 'end_stone' };
+
+        // Ores
+        if (m === 'iron' || m === 'iron_ore') return { category: 'material', target: 'iron_ore' };
+        if (m === 'coal' || m === 'coal_ore') return { category: 'material', target: 'coal_ore' };
+        if (m === 'copper' || m === 'copper_ore') return { category: 'material', target: 'copper_ore' };
+        if (m === 'gold' || m === 'gold_ore') return { category: 'material', target: 'gold_ore' };
+        if (m === 'diamond' || m === 'diamonds' || m === 'diamond_ore') return { category: 'material', target: 'diamond_ore' };
+        if (m === 'redstone' || m === 'redstone_ore') return { category: 'material', target: 'redstone_ore' };
+        if (m === 'lapis' || m === 'lapis_lazuli' || m === 'lapis_ore') return { category: 'material', target: 'lapis_ore' };
+        if (m === 'emerald' || m === 'emeralds' || m === 'emerald_ore') return { category: 'material', target: 'emerald_ore' };
+        if (m === 'quartz' || m === 'nether_quartz') return { category: 'material', target: 'nether_quartz_ore' };
+        if (m === 'ancient_debris' || m === 'debris' || m === 'netherite') return { category: 'material', target: 'ancient_debris' };
+        if (m === 'ores' || m === 'ore') return { category: 'material', target: 'iron_ore' };
+
+        return { category: 'material', target: m };
+    }
+
     async handleFastShortcut(source, raw) {
         if (!raw || typeof raw !== 'string') return false;
         const lower = raw.toLowerCase().trim();
@@ -523,20 +630,33 @@ export class Agent {
             this.routeResponse(source, `Holding squad escort formation around ${target}.`);
             return true;
         }
-        if (/^(mine|chop|gather)\s+(logs?|wood|trees?)/i.test(lower)) {
-            const stacksMatch = lower.match(/(\d+)\s+stacks?/i);
-            const numMatch = lower.match(/(?:mine|chop|gather)\s+(?:logs?|wood|trees?)\s+(\d+)/i);
-            let count = 384; // 6 stacks by default (6 * 64 = 384 logs)
-            if (stacksMatch) {
-                count = parseInt(stacksMatch[1], 10) * 64;
-            } else if (numMatch) {
-                count = parseInt(numMatch[1], 10);
+
+        // Universal Squad Gathering Intent (Apples, Logs, Stone, Dirt, Ores, Sand, Andesite, Gravel, etc.)
+        const gatheringIntent = this.parseGatheringIntent(raw);
+        if (gatheringIntent) {
+            const { rawMat, count, stacks } = gatheringIntent;
+            const resolved = this.resolveMaterialIntent(rawMat);
+
+            if (resolved.category === 'apple') {
+                console.log(`[FastCommand] ${this.name} executing squadCollectApples(${count})`);
+                await executeCommand(this, `!squadCollectApples(${count})`);
+                this.routeResponse(source, `Collecting apples in squad formation (${count} apples / ${stacks} stacks).`);
+                return true;
             }
-            console.log(`[FastCommand] ${this.name} executing squadMineLogs(${count})`);
-            await executeCommand(this, `!squadMineLogs(${count})`);
-            this.routeResponse(source, `Splitting up in squad teamwork to mine logs (${count} logs / ${Math.round(count / 64)} stacks).`);
+
+            if (resolved.category === 'logs') {
+                console.log(`[FastCommand] ${this.name} executing squadMineLogs(${count})`);
+                await executeCommand(this, `!squadMineLogs(${count})`);
+                this.routeResponse(source, `Splitting up in squad teamwork to mine logs (${count} logs / ${stacks} stacks).`);
+                return true;
+            }
+
+            console.log(`[FastCommand] ${this.name} executing squadGather("${resolved.target}", ${count})`);
+            await executeCommand(this, `!squadGather("${resolved.target}", ${count})`);
+            this.routeResponse(source, `Executing squad teamwork mining for ${resolved.target} (${count} blocks / ${stacks} stacks).`);
             return true;
         }
+
         if (/^(boat\s+to|sail\s+to)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/i.test(lower)) {
             const m = lower.match(/(?:boat|sail)\s+to\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/i);
             if (m) {
@@ -549,21 +669,6 @@ export class Agent {
         if (/^(auto\s*equip|equip\s+best|wear\s+armor|best\s+gear)/i.test(lower)) {
             await executeCommand(this, '!autoEquip');
             this.routeResponse(source, 'Equipped best armor, shield, and weapons.');
-            return true;
-        }
-        if (/^mine\s+(stone|cobblestone|rocks?)/i.test(lower)) {
-            await executeCommand(this, '!squadMineStone(64)');
-            this.routeResponse(source, 'Executing squad teamwork quarrying for stone.');
-            return true;
-        }
-        if (/^mine\s+(coal)/i.test(lower)) {
-            await executeCommand(this, '!squadMineOres("coal_ore", 20)');
-            this.routeResponse(source, 'Mining coal in squad formation.');
-            return true;
-        }
-        if (/^mine\s+(iron)/i.test(lower)) {
-            await executeCommand(this, '!squadMineOres("iron_ore", 20)');
-            this.routeResponse(source, 'Mining iron ore in squad formation.');
             return true;
         }
         if (/^defend\s+orbryx/i.test(lower)) {
@@ -596,7 +701,9 @@ export class Agent {
             const targetPlayer = 'orbryx';
             const botInv = this.bot.inventory.items();
             let foundItem = null;
-            if (itemCategory.includes('food') || itemCategory.includes('bread') || itemCategory.includes('apple') || itemCategory.includes('meat')) {
+            if (itemCategory.includes('apple')) {
+                foundItem = botInv.find(i => i.name === 'apple');
+            } else if (itemCategory.includes('food') || itemCategory.includes('bread') || itemCategory.includes('meat')) {
                 const foods = ['bread', 'cooked_beef', 'cooked_porkchop', 'cooked_mutton', 'cooked_chicken', 'apple', 'baked_potato', 'carrot'];
                 foundItem = botInv.find(i => foods.includes(i.name)) || botInv.find(i => i.name.includes('cooked') || i.name.includes('bread') || i.name.includes('apple'));
             } else if (itemCategory.includes('armor') || itemCategory.includes('gear')) {
