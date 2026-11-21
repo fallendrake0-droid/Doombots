@@ -125,7 +125,7 @@ export async function autoEquipBest(bot) {
     const shield = items.find(i => i.name === 'shield');
     if (totem && (!offHandCurrent || offHandCurrent.name !== 'totem_of_undying')) {
         try { await bot.equip(totem, 'off-hand'); } catch {}
-    } else if (shield && !offHandCurrent) {
+    } else if (shield && (!offHandCurrent || (offHandCurrent.name !== 'totem_of_undying' && offHandCurrent.name !== 'shield'))) {
         try { await bot.equip(shield, 'off-hand'); } catch {}
     }
 

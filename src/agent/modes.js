@@ -43,8 +43,18 @@ const modes_list = [
                 bot.setControlState('jump', true);
             }
 
-            // Anti-starvation: Automatically eat when hunger drops below 16
-            if (bot.food !== undefined && bot.food <= 15) {
+            // Anti-starvation: Automatically eat when hunger drops below 18 to maintain regeneration
+            if (bot.food !== undefined && bot.food <= 18) {
+                if (bot.autoEat && !bot.autoEat.isEating && typeof bot.autoEat.eat === 'function') {
+                    try { bot.autoEat.eat(true).catch(() => {}); } catch {}
+                }
+            }
+
+            // Low-health defense: Raise off-hand shield & auto-eat immediately when taking damage
+            if (bot.health !== undefined && bot.health < 12) {
+                if (bot.inventory?.slots?.[45]?.name === 'shield') {
+                    try { bot.activateItem(true); } catch {}
+                }
                 if (bot.autoEat && !bot.autoEat.isEating && typeof bot.autoEat.eat === 'function') {
                     try { bot.autoEat.eat(true).catch(() => {}); } catch {}
                 }

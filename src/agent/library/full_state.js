@@ -60,10 +60,11 @@ export function getFullState(agent) {
         }
     }
 
-    const helmet = bot.inventory.slots[5];
-    const chestplate = bot.inventory.slots[6];
-    const leggings = bot.inventory.slots[7];
-    const boots = bot.inventory.slots[8];
+    const helmet = bot.inventory?.slots?.[5];
+    const chestplate = bot.inventory?.slots?.[6];
+    const leggings = bot.inventory?.slots?.[7];
+    const boots = bot.inventory?.slots?.[8];
+    const offHand = bot.inventory?.slots?.[45];
 
     // Richer activity than a bare "Idle": a bot counts as idle (no action executing) even while
     // chatting, deciding its next move, or stopped. Surface those so the dashboard is meaningful.
@@ -110,7 +111,7 @@ export function getFullState(agent) {
         inventory: {
             counts: getInventoryCounts(bot),
             stacksUsed: bot.inventory?.items ? bot.inventory.items().length : 0,
-            totalSlots: bot.inventory?.slots ? bot.inventory.slots.length : 36,
+            totalSlots: 36,
             items: bot.inventory?.items ? bot.inventory.items().map(it => ({
                 name: it.name,
                 count: it.count,
@@ -122,7 +123,8 @@ export function getFullState(agent) {
                 chestplate: chestplate ? chestplate.name : null,
                 leggings: leggings ? leggings.name : null,
                 boots: boots ? boots.name : null,
-                mainHand: bot.heldItem ? bot.heldItem.name : null
+                mainHand: bot.heldItem ? bot.heldItem.name : null,
+                offHand: offHand ? offHand.name : null
             }
         },
         nearby: {

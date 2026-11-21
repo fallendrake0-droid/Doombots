@@ -23,6 +23,7 @@
 - **2D Mario Side-View Live Stream**: Integrated side-scrolling camera on port 3000 (`http://localhost:3000`) smoothly tracking bots with minimal GPU/CPU overhead.
 - **Smart Death Item Retrieval via `/back`**: Automatically executes `/back` on respawn to instantly teleport to death coordinates and vacuum dropped gear on mob or hazard deaths. Intelligently detects item-destroying deaths (lava, fire, void, cactus) and PVP player deaths to strictly skip item recovery, eliminating hazardous death loops and player feeding.
 - **Manual `/tpa` Teleport Execution (No AI)**: `/tpa orbryx` and player teleport requests are strictly manual and direct, completely bypassing AI LLM inference for zero token cost, instant execution, and eliminating unintended automated teleport triggers.
+- **Zero-API Offline Command Suite**: Complete offline squad control without requiring any API keys or when LLM quotas are exhausted. Directly execute `inv`, `status`, `mine`, `farm`, `defend`, `follow me`, `craft`, `smelt`, `build shelter`, `eat`, `pickup`, `drop all`, and `help` instantly with zero token consumption.
 - **Ultra-Low Memory & Hardware Optimization**: Fully tuned for 4GB RAM systems, weak multi-core CPUs, and integrated GPUs with 512MB heap ceilings, V8 GC sweeps, and chunk memory limits.
 - **Server Auto-Resolution**: Connects directly to LAN, VPS, or remote hosts like Aternos with automatic DNS SRV record resolution.
 - **Sub-Second Cloud Speed**: Built-in support for **GroqCloud** (~0.3s responses) and **Cerebras** (1000+ tok/s).

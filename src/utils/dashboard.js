@@ -101,6 +101,7 @@ ${padRow(`${bold}${cyan}${viewerTitle}${reset} ${cyan}${viewerDisplay}${reset}`)
 ${padRow(`${bold}${yellow}⚡ ENGINE MODE    :${reset} ${green}Fast Response${reset} ${dim}| 4GB RAM, Low-CPU & GPU Optimized${reset}`)}
 ${padRow(`${bold}${magenta}🛡️ COMBAT & LOOT  :${reset} ${green}Smart /back Recovery${reset} ${dim}(Auto /back on mob/env, skipped in PVP/lava)${reset}`)}
 ${padRow(`${bold}${blue}📍 TELEPORT /TPA  :${reset} ${green}Manual Execution Only${reset} ${dim}(AI bypassed, zero token cost)${reset}`)}
+${padRow(`${bold}${yellow}⚡ OFFLINE CMDS   :${reset} ${green}Full Suite Active${reset} ${dim}(Zero API keys or tokens required)${reset}`)}
   ${cyan}└${'─'.repeat(BOX_WIDTH + 4)}┘${reset}
   ${bold}${green}✔ Control Center:${reset} ${bold}${cyan}http://localhost:${mindPort}${reset} ${dim}(controlcenter:localhost)${reset}
   ${bold}${cyan}${viewerCheckLabel}${reset}  ${bold}${cyan}http://localhost:3000${reset} ${dim}${viewerCheckDesc}${reset}

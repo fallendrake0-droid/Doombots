@@ -270,16 +270,30 @@ export class Agent {
 
 		this.respondFunc = respondFunc;
 
-        this.bot.on('whisper', respondFunc);
-        
-        this.bot.on('chat', (username, message) => {
+        const handleInboundChat = (username, message) => {
+            if (!username || !message) return;
             // Never respond to messages originating from other bots to avoid infinite chat loops
             if (convoManager.isOtherAgent(username) || username === this.name) return;
 
             // Filter out automated server plugins and system announcements (SimpleTpa, Server, Console, etc.) to prevent LLM rate limits
             const uLower = String(username || '').toLowerCase();
-            const automatedSenders = ['simpletpa', 'server', 'console', 'announcer', 'broadcast', 'automessage', 'system'];
-            if (automatedSenders.includes(uLower)) {
+            const automatedSenders = [
+                'simpletpa', 'server', 'console', 'announcer', 'broadcast', 'automessage', 'system',
+                'essentials', 'cmi', 'rcon', 'admin', 'notice', 'authme', 'chat', 'discord'
+            ];
+            if (automatedSenders.some(s => uLower.includes(s))) {
+                return;
+            }
+
+            // Also check message content for plugin notifications or server error broadcasts
+            const mLower = String(message || '').toLowerCase();
+            if (
+                mLower.includes('the player is not online') ||
+                mLower.includes('has requested to teleport') ||
+                mLower.includes('teleport request') ||
+                mLower.includes('you have no pending') ||
+                mLower.includes('teleporting in')
+            ) {
                 return;
             }
 
@@ -304,12 +318,15 @@ export class Agent {
             cleanMsg = cleanMsg.replace(/^(all|bots|squad)[:,-]?\s*/i, '');
 
             respondFunc(username, cleanMsg);
-        });
+        };
 
-        // Set up auto-eat
+        this.bot.on('whisper', handleInboundChat);
+        this.bot.on('chat', handleInboundChat);
+
+        // Set up auto-eat (eats earlier at 18 to maintain continuous health regeneration)
         this.bot.autoEat.options = {
             priority: 'foodPoints',
-            startAt: 16, // Start eating earlier so bot never starves or loses sprinting ability
+            startAt: 18, // Maintain >= 18 hunger so natural health regeneration is always active!
             bannedFood: ["rotten_flesh", "spider_eye", "poisonous_potato", "pufferfish"],
             useOffhand: true,
             checkOnItemPickup: true
@@ -636,7 +653,7 @@ export class Agent {
             return true;
         }
 
-        // Quick natural language intent shortcuts to avoid slow CPU LLM inference timeouts
+        // Quick natural language intent shortcuts to avoid slow CPU LLM inference timeouts or rate limits
         if (/^(stop|halt|freeze|cancel)$/i.test(lower)) {
             await executeCommand(this, '!stop');
             this.routeResponse(source, 'Stopped all actions.');
@@ -652,6 +669,183 @@ export class Agent {
             const target = (targetMatch && targetMatch[1] !== 'me') ? targetMatch[1] : (source === 'ADMIN' ? 'orbryx' : source);
             await executeCommand(this, `!squadFollow("${target}")`);
             this.routeResponse(source, `Holding squad escort formation around ${target}.`);
+            return true;
+        }
+
+        // Direct Offline Inventory Inspection (Zero AI)
+        if (/^(?:inv|inventory|items|what\s+do\s+you\s+have|check\s+inventory|show\s+inventory|my\s+items)$/i.test(lower)) {
+            const { getInventoryCounts } = await import('./library/world.js');
+            const counts = getInventoryCounts(this.bot);
+            const countEntries = Object.entries(counts);
+            const totalStacks = this.bot.inventory?.items ? this.bot.inventory.items().length : 0;
+            const helmet = this.bot.inventory?.slots?.[5]?.name || 'none';
+            const chest = this.bot.inventory?.slots?.[6]?.name || 'none';
+            const legs = this.bot.inventory?.slots?.[7]?.name || 'none';
+            const boots = this.bot.inventory?.slots?.[8]?.name || 'none';
+            const mainHand = this.bot.heldItem?.name || 'empty';
+            const offHand = this.bot.inventory?.slots?.[45]?.name || 'empty';
+
+            if (countEntries.length === 0) {
+                this.routeResponse(source, `[${this.name} Inv] Empty (0/36 slots). Hand: ${mainHand}, Off-hand: ${offHand}.`);
+            } else {
+                const itemList = countEntries.slice(0, 10).map(([k, v]) => `${v} ${k}`).join(', ');
+                const extra = countEntries.length > 10 ? ` (+${countEntries.length - 10} more)` : '';
+                this.routeResponse(source, `[${this.name} Inv] (${totalStacks}/36 slots): ${itemList}${extra}. Armor: ${helmet}, ${chest}, ${legs}, ${boots}. Hand: ${mainHand}, Off-hand: ${offHand}.`);
+            }
+            return true;
+        }
+
+        // Direct Offline Vitals & Status (Zero AI)
+        if (/^(?:status|health|hp|vitals|stats|info)$/i.test(lower)) {
+            const hp = Math.round(this.bot.health || 20);
+            const food = Math.round(this.bot.food || 20);
+            const armor = Math.round(this.bot.armor || 0);
+            const pos = this.bot.entity?.position;
+            const posStr = pos ? `${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}` : 'unknown';
+            const act = this.actions.currentActionLabel || 'Idle';
+            this.routeResponse(source, `[${this.name} Status] HP: ${hp}/20, Hunger: ${food}/20, Armor: ${armor}/20. Pos: (${posStr}). State: ${act}.`);
+            return true;
+        }
+
+        // Offline Commands Cheatsheet (Zero AI)
+        if (/^(?:help|commands|cmd|cmds|offline\s+help)$/i.test(lower)) {
+            this.routeResponse(source, `[Offline Commands] inv, status, mine [count] [ore/wood/stone], farm, defend, follow me, stay, come here, build shelter, craft [item], smelt [item], eat, pickup, /tpa orbryx, /back, !stop`);
+            return true;
+        }
+
+        // Direct Offline Eat / Heal (Zero AI)
+        if (/^(?:eat|feed|eat\s+food|heal)$/i.test(lower)) {
+            if (this.bot.autoEat && typeof this.bot.autoEat.eat === 'function') {
+                try {
+                    await this.bot.autoEat.eat(true);
+                    this.routeResponse(source, 'Ate food to restore hunger and health.');
+                } catch {
+                    this.routeResponse(source, 'No suitable food found in inventory.');
+                }
+            }
+            return true;
+        }
+
+        // Direct Offline Crafting (Zero AI)
+        const craftMatch = lower.match(/^craft\s+(?:(\d+)\s+)?([a-zA-Z0-9_]+)$/i);
+        if (craftMatch) {
+            const count = craftMatch[1] ? parseInt(craftMatch[1], 10) : 1;
+            let item = craftMatch[2].toLowerCase().trim();
+            if (item === 'table' || item === 'workbench') item = 'crafting_table';
+            if (item === 'plank' || item === 'wood') item = 'oak_planks';
+            if (item === 'stick') item = 'stick';
+            console.log(`[FastCommand] ${this.name} crafting ${count} ${item} (offline)`);
+            try {
+                const { craftRecipe } = await import('./library/skills.js');
+                const ok = await craftRecipe(this.bot, item, count);
+                this.routeResponse(source, ok ? `Crafted ${count} ${item}.` : `Could not craft ${item} (missing materials or crafting table).`);
+            } catch (err) {
+                this.routeResponse(source, `Crafting error: ${err?.message || err}`);
+            }
+            return true;
+        }
+
+        // Direct Offline Smelting (Zero AI)
+        const smeltMatch = lower.match(/^(?:smelt|cook)\s+(?:(\d+)\s+)?([a-zA-Z0-9_]+)$/i);
+        if (smeltMatch) {
+            const count = smeltMatch[1] ? parseInt(smeltMatch[1], 10) : 8;
+            let item = smeltMatch[2].toLowerCase().trim();
+            if (item === 'iron') item = 'raw_iron';
+            if (item === 'copper') item = 'raw_copper';
+            if (item === 'gold') item = 'raw_gold';
+            if (item === 'food' || item === 'beef') item = 'beef';
+            if (item === 'pork' || item === 'porkchop') item = 'porkchop';
+            if (item === 'mutton') item = 'mutton';
+            if (item === 'chicken') item = 'chicken';
+            if (item === 'stone') item = 'cobblestone';
+            console.log(`[FastCommand] ${this.name} smelting ${count} ${item} (offline)`);
+            try {
+                const { smeltItem } = await import('./library/skills.js');
+                const ok = await smeltItem(this.bot, item, count);
+                this.routeResponse(source, ok ? `Smelted ${count} ${item}.` : `Could not smelt ${item} (requires furnace and fuel).`);
+            } catch (err) {
+                this.routeResponse(source, `Smelting error: ${err?.message || err}`);
+            }
+            return true;
+        }
+
+        // Direct Offline Shelter Construction (Zero AI)
+        if (/^(?:build\s+(?:a\s+)?(?:dirt\s+)?shelter|build\s+house|build\s+bunker|build\s+base)$/i.test(lower)) {
+            console.log(`[FastCommand] ${this.name} constructing survival shelter (offline)`);
+            this.routeResponse(source, 'Constructing survival shelter with perimeter defense.');
+            await executeCommand(this, '!buildProcedural("shelter_survival_bunker_oak_timber_tier1")');
+            return true;
+        }
+
+        // Direct Offline Mob Attack (Zero AI)
+        const attackMatch = lower.match(/^(?:attack|kill|fight|destroy)\s+([a-zA-Z0-9_]+)$/i);
+        if (attackMatch && !/^(?:area|us|me|orbryx|shelter|house)$/i.test(attackMatch[1])) {
+            const targetType = attackMatch[1].toLowerCase().trim();
+            const { getNearestEntityWhere } = await import('./library/world.js');
+            const entity = getNearestEntityWhere(this.bot, e => {
+                const n = (e.name || '').toLowerCase();
+                return n === targetType || n.includes(targetType);
+            }, 24);
+            if (entity) {
+                this.routeResponse(source, `Engaging ${entity.name}!`);
+                const { attackEntity } = await import('./library/skills.js');
+                await attackEntity(this.bot, entity, true);
+            } else {
+                this.routeResponse(source, `No nearby ${targetType} found within 24 blocks.`);
+            }
+            return true;
+        }
+
+        // Direct Movement & Interactions (Zero AI)
+        if (/^(?:come\s+here|come\s+to\s+me|come)$/i.test(lower)) {
+            const playerObj = this.bot.players[source] || this.bot.players['orbryx'];
+            if (playerObj?.entity?.position) {
+                const p = playerObj.entity.position;
+                this.routeResponse(source, `Coming to ${source}!`);
+                const { goToPosition } = await import('./library/skills.js');
+                await goToPosition(this.bot, p.x, p.y, p.z, 2);
+            } else {
+                this.routeResponse(source, `Cannot see you (${source}). Stand in visual range.`);
+            }
+            return true;
+        }
+        if (/^(?:look\s+at\s+me|look)$/i.test(lower)) {
+            const playerObj = this.bot.players[source] || this.bot.players['orbryx'];
+            if (playerObj?.entity?.position) {
+                await this.bot.lookAt(playerObj.entity.position.offset(0, 1.6, 0), true);
+                this.routeResponse(source, `Looking at ${source}.`);
+            }
+            return true;
+        }
+        if (/^jump$/i.test(lower)) {
+            this.bot.setControlState('jump', true);
+            setTimeout(() => this.bot.setControlState('jump', false), 250);
+            return true;
+        }
+        if (/^(?:crouch|sneak)$/i.test(lower)) {
+            this.bot.setControlState('sneak', true);
+            setTimeout(() => this.bot.setControlState('sneak', false), 2000);
+            return true;
+        }
+        if (/^(?:pickup|pickup\s+items?|collect\s+items?|clean\s+up|vacuum)$/i.test(lower)) {
+            this.routeResponse(source, 'Vacuuming nearby dropped items.');
+            const { pickupNearbyItems, autoEquipBest } = await import('./library/skills.js');
+            await pickupNearbyItems(this.bot, 24);
+            await autoEquipBest(this.bot);
+            return true;
+        }
+        if (/^(?:drop\s+all|drop\s+everything|give\s+all)$/i.test(lower)) {
+            this.routeResponse(source, 'Dropping inventory items.');
+            const inv = this.bot.inventory?.items ? this.bot.inventory.items() : [];
+            for (const item of inv) {
+                try { await this.bot.tossStack(item); } catch {}
+            }
+            return true;
+        }
+        if (/^(?:place\s+torch|light\s+up|torches)$/i.test(lower)) {
+            this.routeResponse(source, 'Placing torches to secure area.');
+            const { autoLight } = await import('./library/skills.js');
+            await autoLight(this.bot);
             return true;
         }
 
@@ -1228,6 +1422,18 @@ export class Agent {
                                 await pickupNearbyItems(this.bot, 24);
                                 await autoEquipBest(this.bot);
                                 console.log(`[DeathRecovery] ${this.name} successfully recovered dropped items via /back!`);
+
+                                // Combat safety sweep: eliminate any hostile mob camping death coordinates so bot does not die again
+                                const { defendSelf } = await import('./library/skills.js');
+                                const campMob = this.bot.entity?.position ? this.bot.nearestEntity(e => (e.type === 'mob' || e.type === 'hostile') && e.position.distanceTo(this.bot.entity.position) < 12) : null;
+                                if (campMob) {
+                                    console.log(`[DeathRecovery] Defending against camping ${campMob.name} at death location...`);
+                                    try {
+                                        await defendSelf(this.bot, 14);
+                                        await pickupNearbyItems(this.bot, 24);
+                                        await autoEquipBest(this.bot);
+                                    } catch {}
+                                }
                             }
                         }
                     } catch (recErr) {
