@@ -31,17 +31,26 @@ const modes_list = [
         fall_blocks: ['sand', 'gravel', 'concrete_powder'], // includes matching substrings like 'sandstone' and 'red_sand'
         update: async function (agent) {
             const bot = agent.bot;
+            if (!bot?.entity?.position) return;
             let block = bot.blockAt(bot.entity.position);
             let blockAbove = bot.blockAt(bot.entity.position.offset(0, 1, 0));
             if (!block) block = {name: 'air'}; // hacky fix when blocks are not loaded
             if (!blockAbove) blockAbove = {name: 'air'};
-            if (blockAbove.name === 'water') {
-                // does not call execute so does not interrupt other actions
-                if (!bot.pathfinder.goal) {
-                    bot.setControlState('jump', true);
+
+            // Anti-drowning: If head is submerged in water or oxygen is depleting, always swim up to surface!
+            const oxygen = bot.oxygenLevel !== undefined ? bot.oxygenLevel : 20;
+            if (blockAbove.name === 'water' || oxygen < 15) {
+                bot.setControlState('jump', true);
+            }
+
+            // Anti-starvation: Automatically eat when hunger drops below 16
+            if (bot.food !== undefined && bot.food <= 15) {
+                if (bot.autoEat && !bot.autoEat.isEating && typeof bot.autoEat.eat === 'function') {
+                    try { bot.autoEat.eat(true).catch(() => {}); } catch {}
                 }
             }
-            else if (this.fall_blocks.some(name => blockAbove.name.includes(name))) {
+
+            if (this.fall_blocks.some(name => blockAbove.name.includes(name))) {
                 execute(this, agent, async () => {
                     await skills.moveAway(bot, 2);
                 });

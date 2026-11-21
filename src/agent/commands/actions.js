@@ -283,6 +283,37 @@ export const actionsList = [
         }, false, 10) // 10 minute timeout
     },
     {
+        name: '!squadMineLogs',
+        description: 'Coordinate with squadmates to split up across radial sectors and mine trees until gathering 6 stacks (384 logs).',
+        params: {
+            'targetNum': { type: 'int', description: 'Number of logs to mine (default: 384 for 6 stacks).', domain: [1, Number.MAX_SAFE_INTEGER] }
+        },
+        perform: runAsAction(async (agent, targetNum = 384) => {
+            await skills.squadMineLogs(agent.bot, targetNum || 384);
+        }, false, 30)
+    },
+    {
+        name: '!boatTo',
+        description: 'Navigate across water using a boat to reach target coordinates.',
+        params: {
+            'x': { type: 'float', description: 'Target x coordinate.' },
+            'y': { type: 'float', description: 'Target y coordinate.' },
+            'z': { type: 'float', description: 'Target z coordinate.' }
+        },
+        perform: runAsAction(async (agent, x, y, z) => {
+            await skills.boatTo(agent.bot, x, y, z);
+        }, false, 15)
+    },
+    {
+        name: '!autoEquip',
+        description: 'Automatically equip the best armor, off-hand shield/totem, and weapons from inventory.',
+        params: {},
+        perform: runAsAction(async (agent) => {
+            await skills.autoEquipBest(agent.bot);
+            await skills.equipHighestAttack(agent.bot);
+        })
+    },
+    {
         name: '!craftRecipe',
         description: 'Craft the given recipe a given number of times.',
         params: {

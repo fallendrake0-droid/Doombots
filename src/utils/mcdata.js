@@ -8,6 +8,7 @@ import { pathfinder } from 'mineflayer-pathfinder';
 import { plugin as pvp } from 'mineflayer-pvp';
 import { plugin as collectblock } from 'mineflayer-collectblock';
 import { plugin as autoEat } from 'mineflayer-auto-eat';
+import { plugin as toolPlugin } from 'mineflayer-tool';
 import plugin from 'mineflayer-armor-manager';
 const armorManager = plugin;
 let mc_version = resolveJavaVersion(settings.minecraft_version || '1.21.4');
@@ -212,6 +213,7 @@ export function initBot(username) {
     bot.loadPlugin(collectblock);
     bot.loadPlugin(autoEat);
     bot.loadPlugin(armorManager); // auto equip armor
+    try { bot.loadPlugin(toolPlugin); } catch {} // auto best tool selection
 
     try {
         bot.setMaxListeners(100);

@@ -28,6 +28,131 @@ const WEAPON_DAMAGE = {
     'netherite_shovel': 6.5, 'diamond_shovel': 5.5, 'iron_shovel': 4.5, 'stone_shovel': 3.5, 'golden_shovel': 2.5, 'wooden_shovel': 2.5
 };
 
+const ARMOR_TIERS = {
+    netherite: 6,
+    diamond: 5,
+    iron: 4,
+    chainmail: 3,
+    golden: 2,
+    leather: 1
+};
+
+export async function autoEquipBest(bot) {
+    if (!bot?.inventory) return;
+    try {
+        if (bot.armorManager && typeof bot.armorManager.equipAll === 'function') {
+            await bot.armorManager.equipAll();
+        }
+    } catch {}
+
+    const items = bot.inventory.items();
+    const getArmorTier = (name) => {
+        for (const [mat, tier] of Object.entries(ARMOR_TIERS)) {
+            if (name.startsWith(mat)) return tier;
+        }
+        return 0;
+    };
+
+    // Auto-equip off-hand: Totem of Undying > Shield
+    const offHandCurrent = bot.inventory.slots[45];
+    const totem = items.find(i => i.name === 'totem_of_undying');
+    const shield = items.find(i => i.name === 'shield');
+    if (totem && (!offHandCurrent || offHandCurrent.name !== 'totem_of_undying')) {
+        try { await bot.equip(totem, 'off-hand'); } catch {}
+    } else if (shield && !offHandCurrent) {
+        try { await bot.equip(shield, 'off-hand'); } catch {}
+    }
+
+    // Auto-equip armor pieces by slot if better tier exists
+    const armorSlots = [
+        { type: 'helmet', dest: 'head', slotId: 5 },
+        { type: 'chestplate', dest: 'torso', slotId: 6 },
+        { type: 'leggings', dest: 'legs', slotId: 7 },
+        { type: 'boots', dest: 'feet', slotId: 8 }
+    ];
+
+    for (const slot of armorSlots) {
+        const curItem = bot.inventory.slots[slot.slotId];
+        const curTier = curItem ? getArmorTier(curItem.name) : 0;
+        let bestItem = null;
+        let bestTier = curTier;
+
+        for (const item of items) {
+            if (item.name.endsWith('_' + slot.type)) {
+                const tier = getArmorTier(item.name);
+                if (tier > bestTier) {
+                    bestTier = tier;
+                    bestItem = item;
+                }
+            }
+        }
+
+        if (bestItem) {
+            try { await bot.equip(bestItem, slot.dest); } catch {}
+        }
+    }
+}
+
+export async function equipBestToolFor(bot, blockName) {
+    if (!bot?.inventory || !blockName) return;
+    try {
+        if (bot.tool && typeof bot.tool.equipForBlock === 'function') {
+            const fakeBlock = { name: blockName, canHarvest: () => true };
+            await bot.tool.equipForBlock(fakeBlock);
+            return;
+        }
+    } catch {}
+
+    const items = bot.inventory.items();
+    let bestTool = null;
+    let maxTier = 0;
+    const isWood = blockName.includes('log') || blockName.includes('wood') || blockName.includes('plank');
+    const isStone = blockName.includes('stone') || blockName.includes('ore') || blockName.includes('deepslate') || blockName.includes('cobblestone');
+    const isDirt = blockName.includes('dirt') || blockName.includes('grass') || blockName.includes('sand') || blockName.includes('gravel');
+
+    const targetSuffix = isWood ? '_axe' : (isStone ? '_pickaxe' : (isDirt ? '_shovel' : ''));
+    if (!targetSuffix) return;
+
+    for (const item of items) {
+        if (item.name.endsWith(targetSuffix)) {
+            for (const [mat, tier] of Object.entries(ARMOR_TIERS)) {
+                if (item.name.startsWith(mat) && tier > maxTier) {
+                    maxTier = tier;
+                    bestTool = item;
+                }
+            }
+        }
+    }
+    if (bestTool) {
+        try { await bot.equip(bestTool, 'hand'); } catch {}
+    }
+}
+
+export function configureMovements(bot, movements, destructive = false) {
+    movements.canDig = destructive;
+    movements.dontMineUnderFallingBlock = true;
+    movements.dontCreateFlow = true;
+    movements.maxDropDown = 3; // ZERO fall damage (3 blocks or less)
+    movements.allowParkour = false; // No risky parkour jumps over chasms/cliffs
+    movements.allow1by1towers = destructive;
+    movements.allowSprinting = true;
+    movements.liquidCost = 1;
+
+    // Hazard blocks to strictly avoid
+    const blocks = bot.registry?.blocksByName || {};
+    const avoid = movements.blocksToAvoid;
+    if (blocks.lava) avoid.add(blocks.lava.id);
+    if (blocks.fire) avoid.add(blocks.fire.id);
+    if (blocks.magma_block) avoid.add(blocks.magma_block.id);
+    if (blocks.cactus) avoid.add(blocks.cactus.id);
+    if (blocks.sweet_berry_bush) avoid.add(blocks.sweet_berry_bush.id);
+    if (blocks.wither_rose) avoid.add(blocks.wither_rose.id);
+    if (blocks.campfire) avoid.add(blocks.campfire.id);
+    if (blocks.soul_campfire) avoid.add(blocks.soul_campfire.id);
+
+    return movements;
+}
+
 export async function equipHighestAttack(bot) {
     if (!bot?.inventory) return;
     const items = bot.inventory.items();
@@ -395,6 +520,10 @@ export async function defendSelf(bot, range=12) {
     bot.modes.pause('self_preservation');
     let attacked = false;
 
+    // Equip best armor, off-hand shield, and top weapon
+    await autoEquipBest(bot);
+    await equipHighestAttack(bot);
+
     const isAlive = (e) => e && e.isValid && (e.health === undefined || e.health > 0);
     let enemy = world.getNearestEntityWhere(bot, entity => mc.isHostile(entity) && isAlive(entity), range);
 
@@ -404,12 +533,39 @@ export async function defendSelf(bot, range=12) {
 
         const dist = bot.entity.position.distanceTo(enemy.position);
 
-        // Close-range melee attack: aim directly and swing weapon immediately
-        if (dist <= 3.8) {
-            try {
-                await bot.lookAt(enemy.position.offset(0, (enemy.height || 1.8) * 0.75, 0), true);
-                bot.attack(enemy);
-            } catch {}
+        // Creeper survival tactic: Hit then back up immediately to prevent detonation
+        if (enemy.name === 'creeper') {
+            if (dist <= 3.8) {
+                try {
+                    await bot.lookAt(enemy.position.offset(0, (enemy.height || 1.8) * 0.75, 0), true);
+                    bot.attack(enemy);
+                } catch {}
+                // Sprint backward 4 blocks to reset creeper fuse
+                try {
+                    bot.setControlState('back', true);
+                    bot.setControlState('sprint', true);
+                    setTimeout(() => bot.clearControlStates(), 450);
+                } catch {}
+            } else if (dist <= 5.5) {
+                // Raise shield if in off-hand
+                try { bot.activateItem(true); } catch {}
+            }
+        } else {
+            // Close-range melee attack for other hostiles (zombies, skeletons, spiders)
+            if (dist <= 3.8) {
+                try {
+                    await bot.lookAt(enemy.position.offset(0, (enemy.height || 1.8) * 0.75, 0), true);
+                    bot.attack(enemy);
+                } catch {}
+            }
+        }
+
+        // Low health survival safeguard: block with shield & eat
+        if (bot.health < 6) {
+            try { bot.activateItem(true); } catch {}
+            if (bot.autoEat && typeof bot.autoEat.eat === 'function') {
+                try { await bot.autoEat.eat(true); } catch {}
+            }
         }
 
         // Engage PVP pathfinding towards enemy
@@ -459,6 +615,14 @@ export async function collectBlock(bot, blockType, num=1, exclude=null) {
     bot.modes?.pause('unstuck');
     try {
         let blocktypes = [blockType];
+        if (blockType.includes('log') || blockType === 'wood' || blockType === 'trees') {
+            blocktypes = [
+                'oak_log', 'birch_log', 'spruce_log', 'jungle_log', 'acacia_log',
+                'dark_oak_log', 'mangrove_log', 'cherry_log', 'pale_oak_log',
+                'stripped_oak_log', 'stripped_birch_log', 'stripped_spruce_log',
+                'oak_wood', 'birch_wood', 'spruce_wood', 'jungle_wood'
+            ];
+        }
         if (blockType === 'coal' || blockType === 'diamond' || blockType === 'emerald' || blockType === 'iron' || blockType === 'gold' || blockType === 'lapis_lazuli' || blockType === 'redstone')
             blocktypes.push(blockType+'_ore');
         if (blockType.endsWith('ore'))
@@ -471,9 +635,7 @@ export async function collectBlock(bot, blockType, num=1, exclude=null) {
 
         let collected = 0;
 
-        const movements = new pf.Movements(bot);
-        movements.dontMineUnderFallingBlock = false;
-        movements.dontCreateFlow = true;
+        const movements = configureMovements(bot, new pf.Movements(bot), true);
 
         // Blocks to ignore safety for, usually next to lava/water
         const unsafeBlocks = ['obsidian'];
@@ -506,7 +668,8 @@ export async function collectBlock(bot, blockType, num=1, exclude=null) {
                 break;
             }
             const block = blocks[0];
-            await bot.tool.equipForBlock(block);
+            try { await bot.tool?.equipForBlock?.(block); } catch {}
+            await equipBestToolFor(bot, block.name);
             if (isLiquid) {
                 const bucket = bot.inventory.findInventoryItem('bucket');
                 if (!bucket) {
@@ -1163,7 +1326,7 @@ export async function goToGoal(bot, goal) {
      * @param {pf.goals.Goal} goal, the goal to navigate to.
      **/
 
-    const nonDestructiveMovements = new pf.Movements(bot);
+    const nonDestructiveMovements = configureMovements(bot, new pf.Movements(bot), false);
     const dontBreakBlocks = ['glass', 'glass_pane'];
     for (let block of dontBreakBlocks) {
         nonDestructiveMovements.blocksCantBreak.add(mc.getBlockId(block));
@@ -1171,7 +1334,7 @@ export async function goToGoal(bot, goal) {
     nonDestructiveMovements.placeCost = 2;
     nonDestructiveMovements.digCost = 10;
 
-    const destructiveMovements = new pf.Movements(bot);
+    const destructiveMovements = configureMovements(bot, new pf.Movements(bot), true);
 
     let final_movements = destructiveMovements;
 
@@ -2201,3 +2364,248 @@ export async function useToolOn(bot, toolName, targetName) {
     log(bot, `Used ${toolName} on ${block.name}.`);
     return true;
  }
+
+export async function squadMineLogs(bot, targetNum = 384) {
+    /**
+     * Coordinate with squadmates to split up across radial sectors and mine trees until gathering targetNum logs (default 384 = 6 stacks).
+     * @param {MinecraftBot} bot - Reference to the bot.
+     * @param {number} targetNum - Number of logs to mine (default: 384).
+     * @returns {Promise<boolean>} True if logs were mined, false otherwise.
+     */
+    if (!bot?.entity?.position) {
+        log(bot, 'Bot is not fully spawned yet.');
+        return false;
+    }
+
+    log(bot, `Starting squad tree mining mission (Goal: ${targetNum} logs / ${Math.round(targetNum / 64)} stacks)...`);
+
+    // 1. Auto equip best armor & axe
+    await autoEquipBest(bot);
+    await equipBestToolFor(bot, 'oak_log');
+
+    // 2. Determine squad index to split up geographically (Doombot=0, Doombot2=1, Doombot3=2, Doombot4=3, Doombot5=4)
+    const nameMatch = bot.username.match(/\d+$/);
+    const botIndex = nameMatch ? (parseInt(nameMatch[0], 10) - 1) : 0;
+    const totalSectors = 5;
+
+    // Disperse squad radially (each bot heads in a unique 72-degree direction)
+    const angle = (botIndex * 2 * Math.PI) / totalSectors;
+    const dispersionDist = 28 + (botIndex * 8);
+    const startPos = bot.entity.position.clone();
+    const sectorAnchor = startPos.offset(
+        Math.cos(angle) * dispersionDist,
+        0,
+        Math.sin(angle) * dispersionDist
+    );
+
+    log(bot, `Splitting up! Heading to designated forest sector ${botIndex + 1}/${totalSectors} (angle: ${Math.round(angle * 180 / Math.PI)}°)...`);
+    try {
+        await goToPosition(bot, sectorAnchor.x, sectorAnchor.y, sectorAnchor.z, 4);
+    } catch {}
+
+    const ALL_LOG_TYPES = [
+        'oak_log', 'birch_log', 'spruce_log', 'jungle_log', 'acacia_log',
+        'dark_oak_log', 'mangrove_log', 'cherry_log', 'pale_oak_log',
+        'stripped_oak_log', 'stripped_birch_log', 'stripped_spruce_log',
+        'oak_wood', 'birch_wood', 'spruce_wood', 'jungle_wood'
+    ];
+
+    const getLogCount = () => {
+        return bot.inventory.items()
+            .filter(i => i.name.endsWith('_log') || i.name.endsWith('_wood'))
+            .reduce((sum, i) => sum + i.count, 0);
+    };
+
+    const initialLogs = getLogCount();
+    let currentLogs = initialLogs;
+    let treesFelled = 0;
+    const minedPositions = new Set();
+
+    while (currentLogs < (initialLogs + targetNum) && !bot.interrupt_code) {
+        // Survival check: Eat if hungry
+        if (bot.food !== undefined && bot.food < 16 && bot.autoEat && typeof bot.autoEat.eat === 'function') {
+            try { await bot.autoEat.eat(true); } catch {}
+        }
+
+        // Survival check: Defend if hostiles nearby
+        const hostile = world.getNearestEntityWhere(bot, e => mc.isHostile(e), 10);
+        if (hostile) {
+            log(bot, `Defending against ${hostile.name} while logging.`);
+            await defendSelf(bot, 10);
+            await autoEquipBest(bot);
+            await equipBestToolFor(bot, 'oak_log');
+        }
+
+        // Find nearest tree log that hasn't been mined yet
+        let logs = world.getNearestBlocksWhere(bot, block => {
+            if (!ALL_LOG_TYPES.includes(block.name)) return false;
+            const key = `${block.position.x},${block.position.y},${block.position.z}`;
+            return !minedPositions.has(key);
+        }, 48, 10);
+
+        if (!logs || logs.length === 0) {
+            // Step further outward into assigned sector to find fresh trees
+            const nextAnchor = bot.entity.position.offset(
+                Math.cos(angle) * 20,
+                0,
+                Math.sin(angle) * 20
+            );
+            log(bot, `Searching further in sector for more trees...`);
+            try {
+                await goToPosition(bot, nextAnchor.x, nextAnchor.y, nextAnchor.z, 3);
+            } catch {}
+            // Second attempt
+            logs = world.getNearestBlocksWhere(bot, block => {
+                if (!ALL_LOG_TYPES.includes(block.name)) return false;
+                const key = `${block.position.x},${block.position.y},${block.position.z}`;
+                return !minedPositions.has(key);
+            }, 64, 10);
+        }
+
+        if (!logs || logs.length === 0) {
+            log(bot, `No more reachable trees found in sector.`);
+            break;
+        }
+
+        // Target tree base
+        const treeLog = logs[0];
+        try {
+            await goToPosition(bot, treeLog.position.x, treeLog.position.y, treeLog.position.z, 2);
+        } catch {}
+
+        // Mine all connected trunk logs from bottom to top
+        let trunkY = treeLog.position.y;
+        while (trunkY <= treeLog.position.y + 7 && !bot.interrupt_code) {
+            const blockAtTrunk = bot.blockAt(new Vec3(treeLog.position.x, trunkY, treeLog.position.z));
+            if (!blockAtTrunk || !ALL_LOG_TYPES.includes(blockAtTrunk.name)) break;
+
+            const posKey = `${blockAtTrunk.position.x},${blockAtTrunk.position.y},${blockAtTrunk.position.z}`;
+            minedPositions.add(posKey);
+
+            await equipBestToolFor(bot, blockAtTrunk.name);
+            try {
+                await bot.dig(blockAtTrunk, true);
+            } catch (digErr) {
+                if (digErr?.message?.includes('Digging aborted')) break;
+            }
+            trunkY++;
+        }
+
+        // Also check directly adjacent logs (for thick / branching trees)
+        const nearbyBranches = world.getNearestBlocksWhere(bot, b => {
+            if (!ALL_LOG_TYPES.includes(b.name)) return false;
+            return bot.entity.position.distanceTo(b.position) <= 4.2;
+        }, 5, 6);
+
+        for (const branch of nearbyBranches) {
+            if (bot.interrupt_code) break;
+            const branchKey = `${branch.position.x},${branch.position.y},${branch.position.z}`;
+            if (minedPositions.has(branchKey)) continue;
+            minedPositions.add(branchKey);
+            await equipBestToolFor(bot, branch.name);
+            try { await bot.dig(branch, true); } catch {}
+        }
+
+        treesFelled++;
+        // Collect all dropped logs and saplings
+        try { await pickupNearbyItems(bot); } catch {}
+
+        currentLogs = getLogCount();
+        if (treesFelled % 2 === 0) {
+            log(bot, `Progress: ${currentLogs} logs gathered (${Math.round(currentLogs / 64)} stacks).`);
+        }
+
+        // Check if inventory has free space
+        if (bot.inventory.emptySlotCount() <= 0) {
+            log(bot, `Inventory is full! Gathered ${currentLogs} logs.`);
+            break;
+        }
+    }
+
+    log(bot, `Mission complete! Gathered ${currentLogs - initialLogs} new logs (Total: ${currentLogs} logs / ${Math.round(currentLogs / 64)} stacks, ${treesFelled} trees felled).`);
+    return currentLogs > initialLogs;
+}
+
+export async function boatTo(bot, x, y, z) {
+    /**
+     * Navigate across water using a boat to target coordinates.
+     * @param {MinecraftBot} bot - Reference to the bot.
+     * @param {number} x - Target x coordinate.
+     * @param {number} y - Target y coordinate.
+     * @param {number} z - Target z coordinate.
+     * @returns {Promise<boolean>} True if destination was reached.
+     */
+    if (!bot?.entity?.position) return false;
+    const dest = new Vec3(x, y, z);
+    log(bot, `Navigating via boat to (${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)})...`);
+
+    // Check if already in a boat
+    if (bot.vehicle && bot.vehicle.name?.includes('boat')) {
+        log(bot, `Already mounted in boat, steering toward destination...`);
+    } else {
+        // Check for nearby empty boat entity
+        const nearbyBoat = bot.nearestEntity(e => e && e.name?.includes('boat') && bot.entity.position.distanceTo(e.position) <= 8);
+        if (nearbyBoat) {
+            try {
+                await goToPosition(bot, nearbyBoat.position.x, nearbyBoat.position.y, nearbyBoat.position.z, 2);
+                await bot.mount(nearbyBoat);
+            } catch (err) {
+                log(bot, `Could not mount nearby boat: ${err.message || err}`);
+            }
+        } else {
+            // Check if bot has a boat in inventory
+            const boatItem = bot.inventory.items().find(i => i.name.endsWith('_boat'));
+            if (boatItem) {
+                // Find adjacent water block
+                const waterBlock = world.getNearestBlock(bot, 'water', 4);
+                if (waterBlock) {
+                    try {
+                        await bot.equip(boatItem, 'hand');
+                        await bot.placeEntity(waterBlock, new Vec3(0, 1, 0));
+                        await new Promise(r => setTimeout(r, 600));
+                        const placedBoat = bot.nearestEntity(e => e && e.name?.includes('boat') && bot.entity.position.distanceTo(e.position) <= 5);
+                        if (placedBoat) {
+                            await bot.mount(placedBoat);
+                        }
+                    } catch {}
+                }
+            }
+        }
+    }
+
+    // If mounted, row forward towards destination
+    if (bot.vehicle && bot.vehicle.name?.includes('boat')) {
+        const startTime = Date.now();
+        const maxRowTime = 45000; // 45 seconds max
+        while (Date.now() - startTime < maxRowTime && !bot.interrupt_code) {
+            const currentDist = bot.entity.position.distanceTo(dest);
+            if (currentDist <= 4) break;
+
+            // Check if stuck against land
+            const blockInFront = bot.blockAt(bot.entity.position.offset(
+                -Math.sin(bot.entity.yaw) * 2,
+                0,
+                Math.cos(bot.entity.yaw) * 2
+            ));
+            if (blockInFront && blockInFront.name !== 'water' && blockInFront.name !== 'air') {
+                break;
+            }
+
+            try {
+                await bot.lookAt(new Vec3(dest.x, bot.entity.position.y, dest.z), true);
+                bot.setControlState('forward', true);
+                bot.setControlState('sprint', true);
+            } catch {}
+
+            await new Promise(r => setTimeout(r, 400));
+        }
+
+        try {
+            bot.clearControlStates();
+            await bot.dismount();
+        } catch {}
+    }
+
+    // Final leg: walk right up to destination coordinates safely
+    return await goToPosition(bot, x, y, z, 2);
+}

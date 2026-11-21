@@ -290,9 +290,30 @@ export class Agent {
         // Set up auto-eat
         this.bot.autoEat.options = {
             priority: 'foodPoints',
-            startAt: 14,
-            bannedFood: ["rotten_flesh", "spider_eye", "poisonous_potato", "pufferfish", "chicken"]
+            startAt: 16, // Start eating earlier so bot never starves or loses sprinting ability
+            bannedFood: ["rotten_flesh", "spider_eye", "poisonous_potato", "pufferfish"],
+            useOffhand: true,
+            checkOnItemPickup: true
         };
+        try { this.bot.autoEat.enable(); } catch {}
+
+        // Auto equip best armor & shield immediately on spawn
+        setTimeout(async () => {
+            try { await skills.autoEquipBest(this.bot); } catch {}
+        }, 1200);
+
+        // Auto equip best armor whenever inventory slots update
+        let equipTimeout = null;
+        this.bot.inventory?.on('updateSlot', () => {
+            if (equipTimeout) clearTimeout(equipTimeout);
+            equipTimeout = setTimeout(async () => {
+                try {
+                    if (this.bot?.entity?.position && !this.actions.executing) {
+                        await skills.autoEquipBest(this.bot);
+                    }
+                } catch {}
+            }, 1000);
+        });
 
         if (save_data?.self_prompt) {
             if (init_message) {
@@ -402,9 +423,32 @@ export class Agent {
                 this.routeResponse(source, `Following ${target}.`);
                 return true;
             }
-            if (/^mine\s+(logs?|wood|trees?)/i.test(lower)) {
-                await executeCommand(this, '!collectBlocks("oak_log", 10)');
-                this.routeResponse(source, 'Mining logs.');
+            if (/^(mine|chop|gather)\s+(logs?|wood|trees?)/i.test(lower)) {
+                const stacksMatch = lower.match(/(\d+)\s+stacks?/i);
+                const numMatch = lower.match(/(?:mine|chop|gather)\s+(?:logs?|wood|trees?)\s+(\d+)/i);
+                let count = 384; // 6 stacks by default (6 * 64 = 384 logs)
+                if (stacksMatch) {
+                    count = parseInt(stacksMatch[1], 10) * 64;
+                } else if (numMatch) {
+                    count = parseInt(numMatch[1], 10);
+                }
+                console.log(`[FastCommand] ${this.name} executing squadMineLogs(${count})`);
+                await executeCommand(this, `!squadMineLogs(${count})`);
+                this.routeResponse(source, `Splitting up to mine logs (${count} logs / ${Math.round(count / 64)} stacks).`);
+                return true;
+            }
+            if (/^(boat\s+to|sail\s+to)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/i.test(lower)) {
+                const m = lower.match(/(?:boat|sail)\s+to\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/i);
+                if (m) {
+                    const x = parseFloat(m[1]), y = parseFloat(m[2]), z = parseFloat(m[3]);
+                    await executeCommand(this, `!boatTo(${x}, ${y}, ${z})`);
+                    this.routeResponse(source, `Boating to (${x}, ${y}, ${z}).`);
+                    return true;
+                }
+            }
+            if (/^(auto\s*equip|equip\s+best|wear\s+armor|best\s+gear)/i.test(lower)) {
+                await executeCommand(this, '!autoEquip');
+                this.routeResponse(source, 'Equipped best armor, shield, and weapons.');
                 return true;
             }
             if (/^mine\s+(stone|cobblestone|rocks?)/i.test(lower)) {

@@ -205,24 +205,8 @@ export const essentialCommandsList = [
         name: '!equipBestArmor',
         description: 'Scans inventory and equips best diamond/iron/netherite armor to all slots.',
         perform: async function(agent) {
-            const bot = agent.bot;
-            const items = bot.inventory.items();
-            const slots = ['helmet', 'chestplate', 'leggings', 'boots'];
-            let equippedCount = 0;
-            for (const slotName of slots) {
-                const candidates = items.filter(i => i.name.includes(slotName));
-                if (candidates.length > 0) {
-                    candidates.sort((a, b) => {
-                        const score = n => n.includes('netherite') ? 4 : n.includes('diamond') ? 3 : n.includes('iron') ? 2 : 1;
-                        return score(b.name) - score(a.name);
-                    });
-                    try {
-                        await bot.equip(candidates[0], slotName === 'helmet' ? 'head' : slotName === 'chestplate' ? 'torso' : slotName === 'leggings' ? 'legs' : 'feet');
-                        equippedCount++;
-                    } catch {}
-                }
-            }
-            return `Equipped ${equippedCount} best armor pieces.`;
+            await skills.autoEquipBest(agent.bot);
+            return 'Equipped best available armor, off-hand shield, and gear.';
         }
     },
     {
