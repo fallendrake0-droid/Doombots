@@ -293,7 +293,12 @@ export class Agent {
                 mLower.includes('has requested to teleport') ||
                 mLower.includes('teleport request') ||
                 mLower.includes('you have no pending') ||
-                mLower.includes('teleporting in')
+                mLower.includes('teleporting in') ||
+                mLower.includes('teleported!') ||
+                mLower.includes('simpletpa') ||
+                mLower.includes('/tpcancel') ||
+                mLower.includes('teleportation request') ||
+                mLower.includes('sending a teleport request')
             ) {
                 return;
             }
@@ -314,9 +319,25 @@ export class Agent {
             // Strip own bot name prefix if present (e.g. "Doombot: mine logs" -> "mine logs")
             let cleanMsg = message.trim();
             const ownPrefixRegex = new RegExp(`^${this.name}[:,-]?\\s*`, 'i');
+            const wasTargetedToMe = ownPrefixRegex.test(cleanMsg);
             cleanMsg = cleanMsg.replace(ownPrefixRegex, '');
             // Strip squad prefixes ("all:", "bots:", "squad:") so one chat commands all bots
-            cleanMsg = cleanMsg.replace(/^(all|bots|squad)[:,-]?\s*/i, '');
+            const isSquadBroadcast = /^(?:all|bots|squad)[:,-]?\s*/i.test(cleanMsg);
+            cleanMsg = cleanMsg.replace(/^(?:all|bots|squad)[:,-]?\s*/i, '');
+
+            // Determine if message is an action/command vs casual conversational chit-chat
+            const isCommandOrAction = (
+                cleanMsg.startsWith('!') ||
+                cleanMsg.startsWith('/') ||
+                /^(?:mine|farm|defend|hunt|follow|stay|come|come here|stop|eat|sleep|craft|smelt|build|inv|status|help|tpa|do \/tpa|back|quarry|fish|look|jump|strip mine|staircase)\b/i.test(cleanMsg)
+            );
+
+            // In a multi-bot squad, general conversational greetings (e.g. "hello", "hi", "caio", "ciao")
+            // should only be answered by the squad leader (Doombot) to prevent 5x redundant API requests and token exhaustion!
+            const isSquadLeader = this.name === 'Doombot' || !otherBotNames.some(b => b.toLowerCase() === 'doombot');
+            if (!wasTargetedToMe && !isSquadBroadcast && !isCommandOrAction && !isSquadLeader) {
+                return;
+            }
 
             respondFunc(username, cleanMsg);
         };
@@ -1106,6 +1127,10 @@ export class Agent {
             if (!res || typeof res !== 'string' || res.trim().length === 0) {
                 console.warn(`[Bot: ${this.name}] Empty AI response, ending response loop.`);
                 break; // empty response ends loop
+            }
+
+            if (res.includes('My brain disconnected') || res.includes('rate_limit_exceeded')) {
+                res = "Groq daily token limit reached. Offline Engine Active! Use: mine, farm, defend, follow me, status, or type 'help'.";
             }
 
             console.log(`${this.name} full response to ${source}: ""${res}""`);

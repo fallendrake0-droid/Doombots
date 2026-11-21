@@ -116,6 +116,11 @@ export class GroqCloudAPI {
                 if (err.message && err.message.includes('content must be a string')) {
                     return 'Vision is only supported by certain models.';
                 }
+                const errMsg = String(err?.message || err);
+                if (errMsg.includes('429') || errMsg.includes('Rate limit') || errMsg.includes('rate_limit_exceeded')) {
+                    console.error('[Groq] Rate limit reached:', errMsg);
+                    return "Groq daily token limit reached. Offline Command Engine Active! Type 'help' or command me directly: mine, farm, defend, follow me, status, /back.";
+                }
                 console.error('[Groq] Error:', err?.message || err);
                 return 'My brain disconnected, try again.';
             }
