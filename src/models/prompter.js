@@ -19,17 +19,24 @@ export class Prompter {
         this.profile = profile;
         const defaults_dir = path.join(__dirname, '../../profiles/defaults');
         let default_profile = JSON.parse(readFileSync(path.join(defaults_dir, '_default.json'), 'utf8'));
-        let base_fp = '';
-        if (settings.base_profile.includes('survival')) {
-            base_fp = path.join(defaults_dir, 'survival.json');
-        } else if (settings.base_profile.includes('assistant')) {
-            base_fp = path.join(defaults_dir, 'assistant.json');
-        } else if (settings.base_profile.includes('creative')) {
-            base_fp = path.join(defaults_dir, 'creative.json');
-        } else if (settings.base_profile.includes('god_mode')) {
-            base_fp = path.join(defaults_dir, 'god_mode.json');
+        let base_fp = path.join(defaults_dir, 'survival.json');
+        if (settings.base_profile && typeof settings.base_profile === 'string') {
+            if (settings.base_profile.includes('survival')) {
+                base_fp = path.join(defaults_dir, 'survival.json');
+            } else if (settings.base_profile.includes('assistant')) {
+                base_fp = path.join(defaults_dir, 'assistant.json');
+            } else if (settings.base_profile.includes('creative')) {
+                base_fp = path.join(defaults_dir, 'creative.json');
+            } else if (settings.base_profile.includes('god_mode')) {
+                base_fp = path.join(defaults_dir, 'god_mode.json');
+            }
         }
-        let base_profile = JSON.parse(readFileSync(base_fp, 'utf8'));
+        let base_profile = {};
+        try {
+            base_profile = JSON.parse(readFileSync(base_fp, 'utf8'));
+        } catch {
+            base_profile = default_profile;
+        }
 
         // first use defaults to fill in missing values in the base profile
         for (let key in default_profile) {
@@ -175,9 +182,9 @@ export class Prompter {
             prompt = prompt.replaceAll('$COMMAND_DOCS', getCommandDocs(this.agent, isCompact));
         }
         if (prompt.includes('$CODE_DOCS')) {
-            const code_task_content = messages.slice().reverse().find(msg =>
-                msg.role !== 'system' && msg.content.includes('!newAction(')
-            )?.content?.match(/!newAction\((.*?)\)/)?.[1] || '';
+            const code_task_content = Array.isArray(messages) ? (messages.slice().reverse().find(msg =>
+                msg && msg.role !== 'system' && msg.content && msg.content.includes('!newAction(')
+            )?.content?.match(/!newAction\((.*?)\)/)?.[1] || '') : '';
 
             prompt = prompt.replaceAll(
                 '$CODE_DOCS',
@@ -294,14 +301,17 @@ export class Prompter {
             return '```//no response```';
         }
         this.awaiting_coding = true;
-        await this.checkCooldown();
-        let prompt = this.profile.coding;
-        prompt = await this.replaceStrings(prompt, messages, this.coding_examples);
+        try {
+            await this.checkCooldown();
+            let prompt = this.profile.coding;
+            prompt = await this.replaceStrings(prompt, messages, this.coding_examples);
 
-        let resp = await this.code_model.sendRequest(messages, prompt);
-        this.awaiting_coding = false;
-        await this._saveLog(prompt, messages, resp, 'coding');
-        return resp;
+            let resp = await this.code_model.sendRequest(messages, prompt);
+            await this._saveLog(prompt, messages, resp, 'coding');
+            return resp;
+        } finally {
+            this.awaiting_coding = false;
+        }
     }
 
     async promptMemSaving(to_summarize) {

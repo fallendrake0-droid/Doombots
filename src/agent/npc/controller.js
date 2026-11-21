@@ -62,12 +62,17 @@ export class NPCContoller {
 
     getBuiltPositions() {
         let positions = [];
+        if (!this.data?.built) return positions;
         for (let name in this.data.built) {
-            let position = this.data.built[name].position;
-            let offset = this.constructions[name].offset;
-            let sizex = this.constructions[name].blocks[0][0].length;
-            let sizez = this.constructions[name].blocks[0].length;
-            let sizey = this.constructions[name].blocks.length;
+            let entry = this.data.built[name];
+            if (!entry?.position) continue;
+            let constr = this.constructions[name];
+            if (!constr || !constr.blocks || !constr.blocks[0] || !constr.blocks[0][0]) continue;
+            let position = entry.position;
+            let offset = constr.offset || 0;
+            let sizex = constr.blocks[0][0].length;
+            let sizez = constr.blocks[0].length;
+            let sizey = constr.blocks.length;
             for (let y = offset; y < sizey+offset; y++) {
                 for (let z = 0; z < sizez; z++) {
                     for (let x = 0; x < sizex; x++) {

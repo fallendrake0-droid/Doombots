@@ -1,6 +1,8 @@
 export function stringifyTurns(turns) {
     let res = '';
+    if (!turns || !Array.isArray(turns)) return res;
     for (let turn of turns) {
+        if (!turn) continue;
         if (turn.role === 'assistant') {
             res += `\nYour output:\n${turn.content}`;
         } else if (turn.role === 'system') {
@@ -16,7 +18,9 @@ export function stringifyTurns(turns) {
 export function toSinglePrompt(turns, system=null, stop_seq='***', model_nickname='assistant') {
     let prompt = system ? `${system}${stop_seq}` : '';
     let role = '';
+    if (!turns || !Array.isArray(turns)) return prompt;
     turns.forEach((message) => {
+        if (!message) return;
         role = message.role;
         if (role === 'assistant') role = model_nickname;
         prompt += `${role}: ${message.content}${stop_seq}`;

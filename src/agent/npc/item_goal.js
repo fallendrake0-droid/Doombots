@@ -346,9 +346,9 @@ export class ItemGoal {
 
         // Log the result of the goal attempt
         if (final_quantity > init_quantity) {
-            console.log(`Successfully obtained ${next.name} for goal ${this.goal.name}`);
+            console.log(`Successfully obtained ${next.name} for goal ${this.goal?.name || 'unknown'}`);
         } else {
-            console.log(`Failed to obtain ${next.name} for goal ${this.goal.name}`);
+            console.log(`Failed to obtain ${next.name} for goal ${this.goal?.name || 'unknown'}`);
         }
         return final_quantity > init_quantity;
     }

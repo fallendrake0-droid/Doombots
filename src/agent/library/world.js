@@ -1,4 +1,5 @@
 import pf from 'mineflayer-pathfinder';
+import Vec3 from 'vec3';
 import * as mc from '../../utils/mcdata.js';
 
 
@@ -58,9 +59,13 @@ export function getBlockAtPosition(bot, x=0, y=0, z=0) {
      * let blockBelow = world.getBlockAtPosition(bot, 0, -1, 0);
      * let blockAbove = world.getBlockAtPosition(bot, 0, 2, 0); since minecraft position is at the feet
      **/
-    if (!bot?.entity?.position) return { name: 'air' };
-    let block = bot.blockAt(bot.entity.position.offset(x, y, z));
-    if (!block) block = {name: 'air'};
+    if (!bot?.entity?.position || typeof bot.blockAt !== 'function') return { name: 'air' };
+    const pos = bot.entity.position;
+    const targetPos = typeof pos.offset === 'function' 
+        ? pos.offset(x, y, z) 
+        : new Vec3((pos.x || 0) + x, (pos.y || 0) + y, (pos.z || 0) + z);
+    let block = bot.blockAt(targetPos);
+    if (!block) block = { name: 'air' };
        
     return block;
 }
@@ -93,7 +98,7 @@ export function getFirstBlockAboveHead(bot, ignore_types=null, distance=32) {
      * @example
      * let firstBlockAboveHead = world.getFirstBlockAboveHead(bot, null, 32);
      **/
-    if (!bot?.entity?.position) return 'none';
+    if (!bot?.entity?.position || typeof bot.blockAt !== 'function') return 'none';
     // if ignore_types is not a list, make it a list.
     let ignore_blocks = []; 
     if (ignore_types === null) ignore_blocks = ['air', 'cave_air'];
@@ -106,9 +111,13 @@ export function getFirstBlockAboveHead(bot, ignore_types=null, distance=32) {
     }
     // The block above, stops when it finds a solid block .
     let block_above = {name: 'air'};
-    let height = 0
+    let height = 0;
+    const pos = bot.entity.position;
     for (let i = 0; i < distance; i++) {
-        let block = bot.blockAt(bot.entity.position.offset(0, i+2, 0));
+        const targetPos = typeof pos.offset === 'function'
+            ? pos.offset(0, i + 2, 0)
+            : new Vec3(pos.x || 0, (pos.y || 0) + i + 2, pos.z || 0);
+        let block = bot.blockAt(targetPos);
         if (!block) block = {name: 'air'};
         // Ignore and continue
         if (ignore_blocks.includes(block.name)) continue;
@@ -289,6 +298,9 @@ export function getInventoryCounts(bot) {
      * let hasWoodenPickaxe = inventory['wooden_pickaxe'] > 0;
      **/
     let inventory = {};
+    if (!bot?.inventory?.slots || !Array.isArray(bot.inventory.slots)) {
+        return inventory;
+    }
     for (const slot of bot.inventory.slots) {
         if (slot != null && slot.name) {
             if (inventory[slot.name] == null) {

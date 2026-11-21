@@ -75,10 +75,10 @@ class ConversationManager {
             last_time = Date.now();
             let convo_partner = this.activeConversation.name;
 
-            if (this.awaiting_response && agent.isIdle()) {
+            if (this.awaiting_response && agent?.isIdle()) {
                 wait_time += delta;
                 if (wait_time > this.wait_time_limit) {
-                    agent.handleMessage('system', `${convo_partner} hasn't responded in ${this.wait_time_limit/1000} seconds, respond with a message to them or your own action.`);
+                    agent?.handleMessage('system', `${convo_partner} hasn't responded in ${this.wait_time_limit/1000} seconds, respond with a message to them or your own action.`);
                     wait_time = 0;
                     this.wait_time_limit*=2;
                 }
@@ -94,9 +94,9 @@ class ConversationManager {
                         this._clearMonitorTimeouts();
                         return;
                     }
-                    if (!agent.self_prompter.isPaused()) {
+                    if (agent?.self_prompter && !agent.self_prompter.isPaused()) {
                         this.endConversation(convo_partner);
-                        agent.handleMessage('system', `${convo_partner} disconnected, conversation has ended.`);
+                        agent?.handleMessage('system', `${convo_partner} disconnected, conversation has ended.`);
                     }
                     else {
                         this.endConversation(convo_partner);

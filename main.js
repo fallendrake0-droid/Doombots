@@ -101,7 +101,7 @@ if (args['3d'] !== undefined) {
     settings.viewer_first_person = Boolean(args['3d']);
 }
 if (args['2d'] !== undefined) {
-    settings.viewer_first_person = !Boolean(args['2d']);
+    settings.viewer_first_person = !args['2d'];
 }
 if (args.host) {
     let rawHost = String(args.host).trim();

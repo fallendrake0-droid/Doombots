@@ -8,28 +8,32 @@ import {
     getFirstBlockAboveHead
 } from "./world.js";
 import convoManager from '../conversation.js';
+import settings from '../settings.js';
 
 export function getFullState(agent) {
     const bot = agent.bot;
 
-    const pos = getPosition(bot);
+    const pos = getPosition(bot) || { x: 0, y: 0, z: 0 };
     const position = {
-        x: Number(pos.x.toFixed(2)),
-        y: Number(pos.y.toFixed(2)),
-        z: Number(pos.z.toFixed(2))
+        x: Number((pos.x || 0).toFixed(2)),
+        y: Number((pos.y || 0).toFixed(2)),
+        z: Number((pos.z || 0).toFixed(2))
     };
 
     let weather = 'Clear';
-    if (bot.thunderState > 0) weather = 'Thunderstorm';
-    else if (bot.rainState > 0) weather = 'Rain';
+    if (bot.thunderState && bot.thunderState > 0) weather = 'Thunderstorm';
+    else if (bot.rainState && bot.rainState > 0) weather = 'Rain';
 
-    let timeLabel = 'Night';
-    if (bot.time.timeOfDay < 6000) timeLabel = 'Morning';
-    else if (bot.time.timeOfDay < 12000) timeLabel = 'Afternoon';
+    let timeLabel = 'Day';
+    if (bot.time?.timeOfDay !== undefined) {
+        if (bot.time.timeOfDay < 6000) timeLabel = 'Morning';
+        else if (bot.time.timeOfDay < 12000) timeLabel = 'Afternoon';
+        else timeLabel = 'Night';
+    }
 
-    const below = getBlockAtPosition(bot, 0, -1, 0).name;
-    const legs = getBlockAtPosition(bot, 0, 0, 0).name;
-    const head = getBlockAtPosition(bot, 0, 1, 0).name;
+    const below = getBlockAtPosition(bot, 0, -1, 0)?.name || 'air';
+    const legs = getBlockAtPosition(bot, 0, 0, 0)?.name || 'air';
+    const head = getBlockAtPosition(bot, 0, 1, 0)?.name || 'air';
 
     let players = getNearbyPlayerNames(bot);
     let bots = convoManager.getInGameAgents().filter(b => b !== agent.name);
@@ -83,13 +87,13 @@ export function getFullState(agent) {
         name: agent.name,
         gameplay: {
             position,
-            dimension: bot.game.dimension,
-            gamemode: bot.game.gameMode,
-            health: Math.round(bot.health),
-            hunger: Math.round(bot.food),
+            dimension: bot.game?.dimension || 'overworld',
+            gamemode: bot.game?.gameMode || 'survival',
+            health: Math.round(bot.health || 20),
+            hunger: Math.round(bot.food || 20),
             biome: getBiomeName(bot),
             weather,
-            timeOfDay: bot.time.timeOfDay,
+            timeOfDay: bot.time?.timeOfDay || 0,
             timeLabel
         },
         action: {
@@ -105,14 +109,14 @@ export function getFullState(agent) {
         },
         inventory: {
             counts: getInventoryCounts(bot),
-            stacksUsed: bot.inventory.items().length,
-            totalSlots: bot.inventory.slots.length,
-            items: bot.inventory.items().map(it => ({
+            stacksUsed: bot.inventory?.items ? bot.inventory.items().length : 0,
+            totalSlots: bot.inventory?.slots ? bot.inventory.slots.length : 36,
+            items: bot.inventory?.items ? bot.inventory.items().map(it => ({
                 name: it.name,
                 count: it.count,
                 slot: it.slot,
                 displayName: it.displayName || it.name.replace(/_/g, ' ')
-            })),
+            })) : [],
             equipment: {
                 helmet: helmet ? helmet.name : null,
                 chestplate: chestplate ? chestplate.name : null,
@@ -128,7 +132,7 @@ export function getFullState(agent) {
             entityTypes: getNearbyEntityTypes(bot).filter(t => t !== 'player' && t !== 'item'),
         },
         modes: {
-            summary: bot.modes.getMiniDocs()
+            summary: bot.modes?.getMiniDocs ? bot.modes.getMiniDocs() : ''
         }
     };
 

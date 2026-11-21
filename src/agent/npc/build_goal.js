@@ -18,6 +18,8 @@ export class BuildGoal {
     }
 
     async executeNext(goal, position=null, orientation=null) {
+        let missing = {};
+        let acted = false;
         let sizex = goal.blocks[0][0].length;
         let sizez = goal.blocks[0].length;
         let sizey = goal.blocks.length;
@@ -26,14 +28,15 @@ export class BuildGoal {
                 position = world.getNearestFreeSpace(this.agent.bot, sizex - x, 16);
                 if (position) break;
             }
+            if (!position) {
+                return { missing: missing, acted: false, position: null, orientation: orientation };
+            }
         }
         if (orientation === null) {
             orientation = Math.floor(Math.random() * 4);
         }
 
         let inventory = world.getInventoryCounts(this.agent.bot);
-        let missing = {};
-        let acted = false;
         for (let y = goal.offset; y < sizey+goal.offset; y++) {
             for (let z = 0; z < sizez; z++) {
                 for (let x = 0; x < sizex; x++) {

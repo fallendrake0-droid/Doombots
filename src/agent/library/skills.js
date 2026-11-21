@@ -1015,7 +1015,15 @@ export async function breakBlockAt(bot, x, y, z) {
             await goToGoal(bot, new pf.goals.GoalNear(pos.x, pos.y, pos.z, 4));
         }
         if (bot.game.gameMode !== 'creative') {
-            await bot.tool.equipForBlock(block);
+            try {
+                if (bot.tool && typeof bot.tool.equipForBlock === 'function') {
+                    await bot.tool.equipForBlock(block);
+                } else {
+                    await equipBestToolFor(bot, block.name);
+                }
+            } catch {
+                await equipBestToolFor(bot, block.name);
+            }
             const itemId = bot.heldItem ? bot.heldItem.type : null
             if (!block.canHarvest(itemId)) {
                 log(bot, `Don't have right tools to break ${block.name}.`);
@@ -1102,12 +1110,14 @@ export async function placeBlock(bot, blockType, x, y, z, placeOn='bottom', dont
         if (useDelay) { await new Promise(resolve => setTimeout(resolve, blockPlaceDelay)); }
         let msg = '/setblock ' + Math.floor(x) + ' ' + Math.floor(y) + ' ' + Math.floor(z) + ' ' + blockType;
         bot.chat(msg);
-        if (blockType.includes('door'))
+        if (blockType.includes('door')) {
             if (useDelay) { await new Promise(resolve => setTimeout(resolve, blockPlaceDelay)); }
             bot.chat('/setblock ' + Math.floor(x) + ' ' + Math.floor(y+1) + ' ' + Math.floor(z) + ' ' + blockType + '[half=upper]');
-        if (blockType.includes('bed'))
+        }
+        if (blockType.includes('bed')) {
             if (useDelay) { await new Promise(resolve => setTimeout(resolve, blockPlaceDelay)); }
             bot.chat('/setblock ' + Math.floor(x) + ' ' + Math.floor(y) + ' ' + Math.floor(z-1) + ' ' + blockType + '[part=head]');
+        }
         log(bot, `Used /setblock to place ${blockType} at ${target_dest}.`);
         return true;
     }
@@ -2857,7 +2867,7 @@ export async function squadMineOres(bot, oreType = 'iron_ore', targetNum = 16) {
 }
 
 export function resolveMaterialBlock(raw) {
-    const m = String(raw || '').toLowerCase().replace(/[\s\-]+/g, '_').replace(/^raw_/, '').trim();
+    const m = String(raw || '').toLowerCase().replace(/[\s-]+/g, '_').replace(/^raw_/, '').trim();
 
     // Earth & soils
     if (m === 'dirt' || m === 'grass' || m === 'grass_block' || m === 'soil' || m === 'earth') {

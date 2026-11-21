@@ -248,7 +248,7 @@ export class Agent {
         const respondFunc = async (username, message) => {
             if (message === "") return;
             if (username === this.name) return;
-            if (settings.only_chat_with.length > 0 && !settings.only_chat_with.includes(username)) return;
+            if (settings.only_chat_with && settings.only_chat_with.length > 0 && !settings.only_chat_with.includes(username)) return;
             try {
                 if (ignore_messages.some((m) => message.startsWith(m))) return;
 
@@ -549,7 +549,7 @@ export class Agent {
     }
 
     resolveMaterialIntent(rawMat) {
-        const m = String(rawMat || '').toLowerCase().replace(/[\s\-]+/g, '_').replace(/^raw_/, '').trim();
+        const m = String(rawMat || '').toLowerCase().replace(/[\s-]+/g, '_').replace(/^raw_/, '').trim();
         if (m === 'apple' || m === 'apples' || m === 'red_apple' || m === 'red_apples') {
             return { category: 'apple', target: 'apple' };
         }
@@ -603,7 +603,7 @@ export class Agent {
         const lower = raw.toLowerCase().trim();
 
         // Direct Minecraft slash commands (e.g. "/tpa orbryx", "do /tpa orbryx", "/home", "/spawn", "/gamemode")
-        const slashMatch = raw.match(/^(?:do\s+)?(\/[a-zA-Z0-9_\-]+(?:\s+.*)?)$/i);
+        const slashMatch = raw.match(/^(?:do\s+)?(\/[a-zA-Z0-9_-]+(?:\s+.*)?)$/i);
         if (slashMatch) {
             const slashCmd = slashMatch[1].trim();
             console.log(`[FastCommand] ${this.name} executing direct slash command: ${slashCmd}`);
@@ -1034,7 +1034,7 @@ export class Agent {
         });
         this.bot.on('death', () => {
             this.actions.cancelResume();
-            this.actions.stop();
+            this.actions.stop().catch(() => {});
             try { this.bot.clearControlStates(); } catch {}
             try { this.bot.pathfinder?.stop(); } catch {}
         });
@@ -1054,7 +1054,7 @@ export class Agent {
                         this.memory_bank.rememberPlace('last_death_position', death_pos.x, death_pos.y, death_pos.z);
                     }
                 } catch {}
-                this.actions.stop();
+                this.actions.stop().catch(() => {});
                 try { this.bot.clearControlStates(); } catch {}
                 try { this.bot.pathfinder?.stop(); } catch {}
                 // Auto equip best available gear upon respawn without burning LLM rate limits
@@ -1068,18 +1068,18 @@ export class Agent {
             }
         });
         this.bot.on('idle', () => {
-            this.bot.clearControlStates();
-            this.bot.pathfinder.stop(); // clear any lingering pathfinder
-            this.bot.modes.unPauseAll();
+            try { this.bot.clearControlStates(); } catch {}
+            try { this.bot.pathfinder?.stop(); } catch {}
+            try { this.bot.modes?.unPauseAll(); } catch {}
             setTimeout(() => {
                 if (this.isIdle()) {
-                    this.actions.resumeAction();
+                    this.actions.resumeAction().catch(() => {});
                 }
             }, 1000);
         });
 
         // Init NPC controller
-        this.npc.init();
+        try { this.npc.init(); } catch {}
 
         // This update loop ensures that each update() is called one at a time, even if it takes longer than the interval
         const INTERVAL = 300;
@@ -1087,7 +1087,11 @@ export class Agent {
         setTimeout(async () => {
             while (true) {
                 let start = Date.now();
-                await this.update(start - last);
+                try {
+                    await this.update(start - last);
+                } catch (err) {
+                    console.error('[AgentUpdateLoop] Error in update:', err);
+                }
                 let remaining = INTERVAL - (Date.now() - start);
                 if (remaining > 0) {
                     await new Promise((resolve) => setTimeout(resolve, remaining));

@@ -183,8 +183,9 @@ export class ActionManager {
 
     getBotOutputSummary() {
         const { bot } = this.agent;
+        if (!bot) return '';
         if (bot.interrupt_code && !this.timedout) return '';
-        let output = bot.output;
+        let output = bot.output || '';
         const MAX_OUT = 500;
         if (output.length > MAX_OUT) {
             output = `Action output is very long (${output.length} chars) and has been shortened.\n
