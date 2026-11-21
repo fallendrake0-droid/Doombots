@@ -310,11 +310,11 @@ export class Agent {
                 convoManager.receiveFromBot(this.last_sender, msg_package);
             }
         }
-        else if (init_message) {
+        else if (init_message && !settings.minimize_tokens && !settings.fast_mode) {
             await this.handleMessage('system', init_message, 2);
         }
         else {
-            this.openChat("Hello world! I am "+this.name);
+            this.openChat("Hello world! I am " + this.name);
         }
     }
 
@@ -475,7 +475,8 @@ export class Agent {
 
         // Now translate the message
         message = await handleEnglishTranslation(message);
-        console.log('received message from', source, ':', message);
+        const timeStr = new Date().toISOString().replace('T', ' ').substring(11, 19);
+        console.log(`\x1b[36m[${timeStr}] [${this.name}]\x1b[0m 📨 Message from \x1b[33m${source}\x1b[0m: "${message}"`);
 
         const checkInterrupt = () => this.self_prompter.shouldInterrupt(self_prompt) || this.shut_up || convoManager.responseScheduledFor(source);
         
@@ -549,7 +550,7 @@ export class Agent {
 
                 let execute_res = await executeCommand(this, res);
 
-                console.log('Agent executed:', command_name, 'and got:', execute_res);
+                console.log(`\x1b[36m[${new Date().toISOString().substring(11, 19)}] [${this.name}]\x1b[0m ⚡ Executed: \x1b[32m${command_name}\x1b[0m ➔ ${execute_res || 'Done'}`);
                 used_command = true;
 
                 if (execute_res)

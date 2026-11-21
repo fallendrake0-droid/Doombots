@@ -1200,17 +1200,17 @@
 
     <!-- TAB 5: 3D WORLD VIEW -->
     <main id="tab-viewer3d" class="tab-content" style="display:none;">
-        <div class="info-card" style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+        <div class="info-card" style="margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
             <div>
-                <h3 style="margin:0;"><span>🌐</span> 3D Interactive World View (Three.js Web Stream)</h3>
-                <small style="color:var(--text-muted);">Interactive camera stream centered on Doombot. Drag to orbit, scroll to zoom.</small>
+                <h3 style="margin:0;"><span>🌐</span> 3D Minecraft Perspective View (High-FPS Three.js Stream)</h3>
+                <small style="color:var(--text-muted);">Real 3D perspective stream centered on Doombot. Click inside to look around with mouse, use W/A/S/D to move camera.</small>
             </div>
             <div style="display:flex; gap:8px;">
-                <a href="http://localhost:3000" target="_blank" class="btn btn-primary btn-sm">Open in Dedicated Tab ↗</a>
-                <button class="btn btn-neutral btn-sm" onclick="reload3DViewer()">🔄 Reload Stream</button>
+                <a href="http://localhost:3000" target="_blank" class="btn btn-primary btn-sm">Full Screen Tab ↗</a>
+                <button class="btn btn-neutral btn-sm" onclick="reload3DViewer()">🔄 Reload 3D Stream</button>
             </div>
         </div>
-        <div class="full-viewer-container">
+        <div class="full-viewer-container" style="height:650px;">
             <iframe id="mainViewerFrame" src="http://localhost:3000" class="viewer-frame"></iframe>
         </div>
     </main>

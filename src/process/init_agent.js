@@ -39,6 +39,20 @@ const argv = yargs(args)
     .argv;
 
 // Guard against unhandled socket write EPIPE or ECONNRESET when Minecraft server closes connection
+function formatDiagnostic(err, type = 'Exception') {
+    const time = new Date().toISOString().replace('T', ' ').substring(11, 19);
+    const mem = Math.round(process.memoryUsage().rss / 1024 / 1024);
+    const code = err?.code || 'N/A';
+    const msg = err?.message || String(err);
+    console.error(`\n\x1b[41m\x1b[37m [DIAGNOSTIC ERROR] \x1b[0m \x1b[33m[${time}]\x1b[0m \x1b[36m[${argv.name || 'Agent'}]\x1b[0m Type: \x1b[1m${type}\x1b[0m`);
+    console.error(`  \x1b[31m✖ Message:\x1b[0m ${msg}`);
+    console.error(`  \x1b[34mℹ Code:\x1b[0m    ${code}  |  \x1b[34mRAM Usage:\x1b[0m ${mem}MB`);
+    if (err?.stack) {
+        console.error(`  \x1b[35m📍 Stack:\x1b[0m\n${err.stack.split('\n').slice(0, 5).map(l => '    ' + l).join('\n')}`);
+    }
+    console.error(``);
+}
+
 process.on('uncaughtException', (err) => {
     const code = err?.code || '';
     const msg = String(err?.message || err);
@@ -46,7 +60,7 @@ process.on('uncaughtException', (err) => {
         // Socket closed by remote Minecraft server; exit cleanly so supervisor can restart on backoff
         process.exit(1);
     }
-    console.error('Unhandled agent exception:', err);
+    formatDiagnostic(err, 'Uncaught Exception');
     process.exit(1);
 });
 
@@ -55,21 +69,19 @@ process.on('unhandledRejection', (reason) => {
     if (msg.includes('EPIPE') || msg.includes('ECONNRESET')) {
         process.exit(1);
     }
-    console.error('Unhandled rejection:', reason);
+    formatDiagnostic(reason, 'Unhandled Rejection');
 });
 
 (async () => {
     try {
-        console.log('Connecting to MindServer');
+        console.log(`\x1b[34m[${argv.name}]\x1b[0m Connecting to MindServer...`);
         await serverProxy.connect(argv.name, argv.port);
-        console.log('Starting agent');
+        console.log(`\x1b[32m[${argv.name}]\x1b[0m MindServer connected. Starting agent runtime...`);
         const agent = new Agent();
         serverProxy.setAgent(agent);
         await agent.start(argv.load_memory, argv.init_message, argv.count_id);
     } catch (error) {
-        console.error('Failed to start agent process:');
-        console.error(error.message);
-        console.error(error.stack);
+        formatDiagnostic(error, 'Startup Failure');
         process.exit(1);
     }
 })();
