@@ -671,6 +671,18 @@ export class Agent {
             this.routeResponse(source, 'Equipped best armor, shield, and weapons.');
             return true;
         }
+        if (/^(do\s+)?\/back|^go\s+back|^teleport\s+back|^get\s+your\s+stuff/i.test(lower)) {
+            this.bot.chat('/back');
+            this.routeResponse(source, 'Executing /back to return to previous location and recover drops.');
+            setTimeout(async () => {
+                try {
+                    const { pickupNearbyItems, autoEquipBest } = await import('./library/skills.js');
+                    await pickupNearbyItems(this.bot, 24);
+                    await autoEquipBest(this.bot);
+                } catch {}
+            }, 2000);
+            return true;
+        }
         if (/^defend\s+orbryx/i.test(lower)) {
             await executeCommand(this, '!squadFollow("orbryx")');
             await executeCommand(this, '!squadDefend(24)');
@@ -1091,32 +1103,105 @@ export class Agent {
                     }
                 }
 
-                if (killedByPlayer) {
-                    console.log(`[DeathRecovery] ${this.name} died in PVP to a player (${message}). Per instructions, NOT returning to loot drop.`);
-                } else {
-                    console.log(`[DeathRecovery] ${this.name} died to mob/environment (${message}). Scheduled automatic item retrieval on respawn.`);
+                // Determine if items were burned or destroyed (lava, fire, void, cactus, etc.)
+                const translateKey = String(jsonMsg?.translate || '').toLowerCase();
+                let itemsDestroyed = false;
+                let destructionCause = '';
+
+                if (translateKey.includes('lava') || msgLower.includes('lava') || msgLower.includes('swim in lava') || msgLower.includes('melted')) {
+                    itemsDestroyed = true;
+                    destructionCause = 'lava (items burned)';
+                } else if (translateKey.includes('fire') || translateKey.includes('onfire') || translateKey.includes('infire') ||
+                           msgLower.includes('burned to death') || msgLower.includes('went up in flames') || msgLower.includes('burned to ashes') ||
+                           msgLower.includes('walked into fire')) {
+                    itemsDestroyed = true;
+                    destructionCause = 'fire (items burned)';
+                } else if (translateKey.includes('outofworld') || translateKey.includes('void') || msgLower.includes('out of the world') || msgLower.includes('void') || (death_pos && death_pos.y < -60)) {
+                    itemsDestroyed = true;
+                    destructionCause = 'void (items lost in void)';
+                } else if (translateKey.includes('cactus') || msgLower.includes('cactus') || msgLower.includes('pricked to death')) {
+                    itemsDestroyed = true;
+                    destructionCause = 'cactus (items destroyed by cactus)';
                 }
 
-                // On respawn: equip best available starter gear and retrieve dropped items if non-PVP
+                // Check death position blocks for lava / fire / cactus
+                if (!itemsDestroyed && death_pos && this.bot.blockAt) {
+                    try {
+                        const blockAtPos = this.bot.blockAt(death_pos);
+                        const blockBelow = this.bot.blockAt(death_pos.offset(0, -1, 0));
+                        const bName = (blockAtPos?.name || '').toLowerCase();
+                        const bBelowName = (blockBelow?.name || '').toLowerCase();
+                        if (bName.includes('lava') || bBelowName.includes('lava')) {
+                            itemsDestroyed = true;
+                            destructionCause = 'lava block (items burned)';
+                        } else if (bName.includes('fire') || bBelowName.includes('fire') || bName.includes('campfire')) {
+                            itemsDestroyed = true;
+                            destructionCause = 'fire block (items burned)';
+                        } else if (bName.includes('cactus') || bBelowName.includes('cactus')) {
+                            itemsDestroyed = true;
+                            destructionCause = 'cactus block (items destroyed)';
+                        }
+                    } catch {}
+                }
+
+                if (killedByPlayer) {
+                    console.log(`[DeathRecovery] ${this.name} died in PVP to a player (${message}). Per instructions, NOT returning to loot drop.`);
+                } else if (itemsDestroyed) {
+                    console.log(`[DeathRecovery] ${this.name} died in ${destructionCause} (${message}). Items burned or destroyed; skipping recovery and /back to prevent hazardous loop.`);
+                } else {
+                    console.log(`[DeathRecovery] ${this.name} died to mob/environment (${message}). Scheduled automatic item retrieval on respawn via /back.`);
+                }
+
+                // On respawn: equip starter gear, and if non-PVP & items not destroyed, execute /back to recover loot
                 this.bot.once('spawn', async () => {
                     await new Promise(r => setTimeout(r, 1500));
                     try {
                         const { autoEquipBest, goToPosition, pickupNearbyItems } = await import('./library/skills.js');
                         await autoEquipBest(this.bot);
 
-                        // If not killed by a player and death coords exist, retrieve dropped stuff!
-                        if (!killedByPlayer && death_pos) {
-                            console.log(`[DeathRecovery] ${this.name} navigating to death coords (${death_pos.x.toFixed(1)}, ${death_pos.y.toFixed(1)}, ${death_pos.z.toFixed(1)}) to recover items...`);
-                            try {
-                                await goToPosition(this.bot, death_pos.x, death_pos.y, death_pos.z, 2);
+                        // If not killed by a player and items were NOT destroyed, return via /back!
+                        if (!killedByPlayer && !itemsDestroyed) {
+                            console.log(`[DeathRecovery] ${this.name} executing /back to return to death location...`);
+                            
+                            const posBefore = this.bot.entity?.position ? this.bot.entity.position.clone() : null;
+                            this.bot.chat('/back');
+
+                            // Allow time for /back teleportation
+                            await new Promise(r => setTimeout(r, 2200));
+
+                            const posAfter = this.bot.entity?.position;
+                            let reached = false;
+
+                            if (death_pos && posAfter) {
+                                const dist = posAfter.distanceTo(death_pos);
+                                if (dist <= 20) {
+                                    reached = true;
+                                    console.log(`[DeathRecovery] ${this.name} /back teleport succeeded! (Distance to death point: ${dist.toFixed(1)} blocks)`);
+                                } else if (posBefore && posAfter.distanceTo(posBefore) > 10) {
+                                    reached = true;
+                                    console.log(`[DeathRecovery] ${this.name} teleported via /back.`);
+                                } else {
+                                    console.log(`[DeathRecovery] /back did not teleport (server may lack /back plugin). Falling back to pathfinding (distance: ${dist.toFixed(1)} blocks)...`);
+                                    try {
+                                        await goToPosition(this.bot, death_pos.x, death_pos.y, death_pos.z, 2);
+                                        reached = true;
+                                    } catch (navErr) {
+                                        console.warn(`[DeathRecovery] Could not reach death coordinates:`, navErr?.message || navErr);
+                                    }
+                                }
+                            } else {
+                                reached = true;
+                            }
+
+                            if (reached) {
                                 await pickupNearbyItems(this.bot, 24);
                                 await autoEquipBest(this.bot);
-                                console.log(`[DeathRecovery] ${this.name} successfully recovered dropped items!`);
-                            } catch (navErr) {
-                                console.warn(`[DeathRecovery] Could not reach death coordinates:`, navErr?.message || navErr);
+                                console.log(`[DeathRecovery] ${this.name} successfully recovered dropped items via /back!`);
                             }
                         }
-                    } catch {}
+                    } catch (recErr) {
+                        console.warn(`[DeathRecovery] Error during respawn recovery:`, recErr?.message || recErr);
+                    }
                 });
             }
         });

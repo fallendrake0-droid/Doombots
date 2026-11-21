@@ -1207,5 +1207,17 @@ export const essentialCommandsList = [
             if (!block) return 'No block targeted in crosshairs.';
             return `Target Block: ${block.name} at [${block.position.x}, ${block.position.y}, ${block.position.z}], Hardness: ${block.hardness}.`;
         }
+    },
+    {
+        name: '!teleportBack',
+        description: 'Execute /back command to return to last death location or previous waypoint and pick up drops.',
+        perform: async function(agent) {
+            const bot = agent.bot;
+            bot.chat('/back');
+            await new Promise(r => setTimeout(r, 2000));
+            await skills.pickupNearbyItems(bot, 24);
+            await skills.autoEquipBest(bot);
+            return 'Executed /back and collected nearby items.';
+        }
     }
 ];

@@ -21,7 +21,7 @@
 - **Interactive Startup Control**: When launched, prompts `Press 'e' for setup or press [Enter] to run (auto-run in 5s)...` with instant Cyberpunk terminal dashboard.
 - **Universal Multi-Version Cross-Play**: Bridges Minecraft versions from 1.18 through 1.21.11, 1.26.3, and 26.3 (Spigot, Paper, Geyser, ViaVersion, and ViaBackwards). Includes LoginGuard protections against invalid movement kicks.
 - **2D Mario Side-View Live Stream**: Integrated side-scrolling camera on port 3000 (`http://localhost:3000`) smoothly tracking bots with minimal GPU/CPU overhead.
-- **Smart Death Item Retrieval**: Automatically returns to death coordinates and collects dropped gear on mob/environmental hazard deaths; strictly prevents item retrieval after PVP player deaths to eliminate death loops and feeding.
+- **Smart Death Item Retrieval via `/back`**: Automatically executes `/back` on respawn to instantly teleport to death coordinates and vacuum dropped gear on mob or hazard deaths. Intelligently detects item-destroying deaths (lava, fire, void, cactus) and PVP player deaths to strictly skip item recovery, eliminating hazardous death loops and player feeding.
 - **Ultra-Low Memory & Hardware Optimization**: Fully tuned for 4GB RAM systems, weak multi-core CPUs, and integrated GPUs with 512MB heap ceilings, V8 GC sweeps, and chunk memory limits.
 - **Server Auto-Resolution**: Connects directly to LAN, VPS, or remote hosts like Aternos with automatic DNS SRV record resolution.
 - **Sub-Second Cloud Speed**: Built-in support for **GroqCloud** (~0.3s responses) and **Cerebras** (1000+ tok/s).

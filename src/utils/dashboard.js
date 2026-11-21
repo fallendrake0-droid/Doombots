@@ -99,7 +99,7 @@ ${padRow(`${bold}${magenta}🧠 AI MODEL       :${reset} ${magenta}${modelTarget
 ${padRow(`${bold}${blue}🛡️ LOGIN GUARD    :${reset} ${green}Active${reset} ${dim}(Minecraft 1.21.11 & Geyser / Aternos Bridged)${reset}`)}
 ${padRow(`${bold}${cyan}${viewerTitle}${reset} ${cyan}${viewerDisplay}${reset}`)}
 ${padRow(`${bold}${yellow}⚡ ENGINE MODE    :${reset} ${green}Fast Response${reset} ${dim}| 4GB RAM, Low-CPU & GPU Optimized${reset}`)}
-${padRow(`${bold}${magenta}🛡️ COMBAT & LOOT  :${reset} ${green}Smart Death Recovery${reset} ${dim}(Loot pickup on mob/env, skipped in PVP)${reset}`)}
+${padRow(`${bold}${magenta}🛡️ COMBAT & LOOT  :${reset} ${green}Smart /back Recovery${reset} ${dim}(Auto /back on mob/env, skipped in PVP/lava)${reset}`)}
   ${cyan}└${'─'.repeat(BOX_WIDTH + 4)}┘${reset}
   ${bold}${green}✔ Control Center:${reset} ${bold}${cyan}http://localhost:${mindPort}${reset} ${dim}(controlcenter:localhost)${reset}
   ${bold}${cyan}${viewerCheckLabel}${reset}  ${bold}${cyan}http://localhost:3000${reset} ${dim}${viewerCheckDesc}${reset}
