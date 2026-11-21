@@ -210,6 +210,107 @@ Doombots features an interactive **Three.js 3D World View** powered by Prismarin
 
 ---
 
+## 🎮 Zero-API & No-Ollama Offline Command Suite
+
+Doombots features a **massive built-in offline command engine** that functions **100% without an AI API key and without running Ollama**. You can speak to any bot in plain English in Minecraft chat, whisper, or broadcast to the squad from the Control Center dashboard (`http://localhost:8080`).
+
+Every offline command runs with **0ms latency, zero tokens, and zero AI overhead**:
+
+### 🛡️ Survival & Vitals
+| Plain English Command | Fast Action |
+| :--- | :--- |
+| `eat` / `eat food` / `feed yourself` | Equips and consumes highest saturation food from inventory |
+| `sleep` / `go to sleep` / `bedtime` | Locates nearest safe bed, navigates, and sleeps through night |
+| `wake up` / `get out of bed` | Immediately awakens and leaves bed |
+| `cure poison` / `drink milk` | Drinks milk bucket to remove negative status effects |
+| `extinguish` / `put out fire` | Douses burning player or bot with water bucket |
+| `swim up` / `surface water` | Swims vertically upward to reach surface air |
+| `climb ladder` / `go up ladder` | Climbs nearest ladder or vine to top landing |
+
+### 🌾 Farming & Livestock
+| Plain English Command | Fast Action |
+| :--- | :--- |
+| `farm` / `harvest crops` | Harvests ripe crops within 16 blocks and replants seeds |
+| `till soil` / `make farmland` | Uses hoe to till dirt/grass blocks near water |
+| `plant seeds` / `plant crops` | Sows wheat, carrots, or potatoes onto farmland |
+| `bonemeal crop` / `fertilize` | Applies bone meal to accelerate crop growth |
+| `fish` / `go fishing` | Equips fishing rod, casts into water, and reels in catch |
+| `shear sheep` | Shears nearby adult sheep for wool |
+| `milk cow` | Uses empty bucket on nearby cow to gather milk |
+| `feed animals` / `breed animals` | Feeds wheat or carrots to nearby farm animals |
+| `lead animal` | Holds feed to lure animals into pens or enclosures |
+| `harvest honey` | Safely harvests honey bottle or comb from beehive |
+
+### ⛏️ Mining & Excavation
+| Plain English Command | Fast Action |
+| :--- | :--- |
+| `mine [count] [block]` | Mines specified count or stacks of any block (e.g. `mine 3 stacks of iron ore`, `mine stone`, `mine andesite`) |
+| `collect apples` | Gathers dropped apples and shears leaves |
+| `chop tree` / `mine tree` | Cuts down entire tree from base to top canopy (never replants saplings) |
+| `strip mine` / `tunnel forward` | Excavates efficient 1x2 tunnel forward with torch illumination |
+| `quarry` / `dig quarry` | Excavates clean 3x3 quarry pit downward |
+| `staircase down` | Carves safe walkable 3-step descending staircase |
+| `find ores` / `locate ores` | Scans surroundings for diamonds, iron, gold, and redstone |
+| `mine vein` | Extracts entire connected ore cluster |
+| `mine obsidian` | Mines obsidian blocks with diamond pickaxe |
+| `spelunking` / `explore cave` | Safely navigates cave system placing illumination torches |
+
+### 🏰 Building & World Manipulation
+| Plain English Command | Fast Action |
+| :--- | :--- |
+| `build wall` | Constructs 5-block long defensive stone/dirt wall |
+| `build floor` | Lays smooth floor in 3x3 radius |
+| `build box` / `build shelter` | Builds 3x3 protective shelter with door opening |
+| `place door` | Installs wooden or iron door at nearest opening |
+| `build lookout` / `pillar up` | Constructs vertical observation pillar with safety ledge |
+| `fill holes` | Repairs and levels blast craters and dangerous pitfalls |
+| `bridge chasm` / `bridge gap` | Bridges across ravines and hazardous gaps safely |
+| `seal lava` | Encased or caps dangerous surface lava pools with cobblestone |
+| `clear water` / `sponge water` | Absorbs or blocks nuisance water flows |
+| `clear foliage` | Clears tall grass, ferns, vines, and shrubs |
+
+### ⚔️ Combat & Squad Defense
+| Plain English Command | Fast Action |
+| :--- | :--- |
+| `defend` / `hunt hostiles` | Hunts and eliminates all hostile monsters within 24 blocks |
+| `shoot target` / `snipe mob` | Equips bow/crossbow and snipes distant creepers and skeletons |
+| `shield bash` | Blocks with off-hand shield and strikes with weapon |
+| `strike and retreat` | Executes hit-and-run tactics to avoid melee damage |
+| `critical attack` | Jump-attacks on descent for critical hit damage |
+| `flee` / `retreat` | Sprints 25 blocks away from overwhelming hostiles |
+| `guard location` | Anchors to current coordinates and protects radius from intruders |
+| `toggle pvp` | Toggles player-versus-player engagement mode |
+
+### 🎒 Storage, Logistics & Chests
+| Plain English Command | Fast Action |
+| :--- | :--- |
+| `inv` / `inventory` | Displays full itemized inventory count and hotbar |
+| `status` | Reports health, hunger, armor rating, active mode, and coordinates |
+| `deposit all` / `store items` | Transfers all gathered ores and blocks into nearest chest |
+| `dump trash` | Discards junk items (poisonous potatoes, rotten flesh, seeds) |
+| `take food from chest` | Withdraws food rations from nearest storage chest |
+| `take ores from chest` | Withdraws raw iron, gold, or diamonds from chest |
+| `fuel furnace` | Loads coal, charcoal, or wood into nearest furnace |
+| `collect drops` / `vacuum loot` | Gathers all loose dropped items on the ground within 16 blocks |
+| `repair item` | Combines damaged items or uses anvil for repair |
+
+### 🤝 Squad Coordination & Roles
+| Plain English Command | Fast Action |
+| :--- | :--- |
+| `regroup` / `squad assemble` | Orders all squad members to converge on caller's position |
+| `squad formation [wedge/box/line]` | Sets tactical positioning around team lead |
+| `assign miner` | Designates bot to focus on ore extraction and quarrying |
+| `assign builder` | Designates bot to structure placement and masonry |
+| `assign guard` | Designates bot to sentry duty and monster defense |
+| `assign farmer` | Designates bot to agriculture and animal husbandry |
+| `share food` | Passes excess bread, steak, or apples to low-hunger teammates |
+| `distribute supplies` | Evens out pickaxes, torches, and weapons across squad |
+| `assist teammate` | Rushes to nearest ally in combat or needing help |
+| `set home` / `go home` | Saves base coordinates and returns home on command |
+| `tpa orbryx` | Sends direct, manual teleport request to permanent ally orbryx |
+
+---
+
 ## 🎮 In-Game Commands
 
 Once `Doombot` joins your world, speak to the bot directly in Minecraft chat:

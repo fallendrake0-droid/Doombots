@@ -21,6 +21,7 @@ import { log, validateNameFormat, handleDisconnection } from './connection_handl
 import * as world from './library/world.js';
 import * as mc from '../utils/mcdata.js';
 import * as skills from './library/skills.js';
+import { handleOfflineCommand } from './offline_commands.js';
 
 export class Agent {
     async start(load_mem=false, init_message=null, count_id=0) {
@@ -999,6 +1000,12 @@ export class Agent {
             return true;
         }
 
+        // Comprehensive Offline Command Suite (Zero API / Ollama required)
+        const offlineHandled = await handleOfflineCommand(this, source, raw);
+        if (offlineHandled) {
+            return true;
+        }
+
         return false;
     }
 
@@ -1086,8 +1093,13 @@ export class Agent {
             try {
                 res = await this.prompter.promptConvo(history);
             } catch (err) {
-                console.error(`[AI: ${this.name}] Prompt error:`, err?.message || err);
-                this.routeResponse(source, "I encountered an error connecting to my AI model. Please try again.");
+                const errMsg = String(err?.message || err);
+                console.error(`[AI: ${this.name}] Prompt error:`, errMsg);
+                if (errMsg.includes('429') || errMsg.includes('Rate limit') || errMsg.includes('ECONNREFUSED') || errMsg.includes('API Key is missing')) {
+                    this.routeResponse(source, "AI is offline or rate-limited. Offline Engine Active! Use commands like: mine, farm, defend, follow me, craft, smelt, build, inv, status, or type 'help'.");
+                } else {
+                    this.routeResponse(source, "I encountered an error connecting to my AI model. Type 'help' for offline commands.");
+                }
                 break;
             }
 

@@ -105,7 +105,7 @@ ${padRow(`${bold}${yellow}⚡ OFFLINE CMDS   :${reset} ${green}Full Suite Active
   ${cyan}└${'─'.repeat(BOX_WIDTH + 4)}┘${reset}
   ${bold}${green}✔ Control Center:${reset} ${bold}${cyan}http://localhost:${mindPort}${reset} ${dim}(controlcenter:localhost)${reset}
   ${bold}${cyan}${viewerCheckLabel}${reset}  ${bold}${cyan}http://localhost:3000${reset} ${dim}${viewerCheckDesc}${reset}
-  ${dim}💡 Type commands directly in Minecraft chat or control the agents from the web dashboard.${reset}
+  ${dim}💡 Type commands directly in Minecraft chat or Control Center (e.g. 'mine 3 stacks of iron ore', 'farm', 'defend', 'help').${reset}
 `);
 }
 
